@@ -1,0 +1,469 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.common.map_utils &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.common.map_utils</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.common.map_utils</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Common map data model functions and classes.&quot;&quot;&quot;</span>
+
+<span class="c1"># Third party modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">conint</span><span class="p">,</span>
+    <span class="n">conlist</span><span class="p">,</span>
+    <span class="n">Field</span><span class="p">,</span>
+    <span class="n">FilePath</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Detector</span><span class="p">,</span>
+    <span class="n">MapConfig</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">Processor</span>
+
+<div class="viewcode-block" id="get_axes">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.map_utils.get_axes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_axes</span><span class="p">(</span><span class="n">nxdata</span><span class="p">,</span> <span class="n">skip_axes</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the axes of a NeXus style</span>
+<span class="sd">    `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__</span>
+<span class="sd">    object.</span>
+
+<span class="sd">    :param nxdata: Input data.</span>
+<span class="sd">    :type nxdata: nexusformat.nexus.NXdata</span>
+<span class="sd">    :param skip_axes: Axes to skip.</span>
+<span class="sd">    :type skip_axes: list[str], optional</span>
+<span class="sd">    :return: The axes of the NXdata object excluding those in the</span>
+<span class="sd">        optional `skip_axes` parameter.</span>
+<span class="sd">    :rtype: list[str]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">skip_axes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">skip_axes</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="s1">&#39;unstructured_axes&#39;</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+        <span class="n">axes</span> <span class="o">=</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;unstructured_axes&#39;</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="s1">&#39;axes&#39;</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+        <span class="n">axes</span> <span class="o">=</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">axes</span> <span class="o">=</span> <span class="p">[</span><span class="n">axes</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">axes</span> <span class="k">if</span> <span class="n">a</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">skip_axes</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="MapSliceProcessor">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.map_utils.MapSliceProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MapSliceProcessor</span><span class="p">(</span><span class="n">Processor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Proccessor for getting partial map data for filling in a NeXus</span>
+<span class="sd">    structure created by :class:`~CHAP.common.processor.MapProcessor`</span>
+<span class="sd">    with `fill_data=False`. Good for parallelizing workflows across</span>
+<span class="sd">    multiple pipelines or processing data live when a scan is still</span>
+<span class="sd">    incomplete. Returned data is suitable for writing to an existing</span>
+<span class="sd">    map structure with :class:`~CHAP.common.writer.NexusValuesWriter`</span>
+<span class="sd">    or :class:`~CHAP.common.writer.ZarrValuesWriter`.</span>
+
+<span class="sd">    :ivar map_config: Map configuration.</span>
+<span class="sd">    :vartype map_config: MapConfig</span>
+<span class="sd">    :ivar detectors: Detector configurations.</span>
+<span class="sd">    :vartype detectors:</span>
+<span class="sd">        list[:class:`~CHAP.common.models.map.Detector`]</span>
+<span class="sd">    :ivar spec_file: SPEC file containing scan from which to read a</span>
+<span class="sd">        slice of raw data.</span>
+<span class="sd">    :vartype spec_file: str</span>
+<span class="sd">    :ivar scan_number: Number of scan from which to read a slice of</span>
+<span class="sd">        raw data.</span>
+<span class="sd">    :vartype scan_number: int</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pipeline_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">default</span><span class="o">=</span><span class="p">{</span>
+            <span class="s1">&#39;map_config&#39;</span><span class="p">:</span> <span class="s1">&#39;common.models.map.MapConfig&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">map_config</span><span class="p">:</span> <span class="n">MapConfig</span>
+    <span class="n">detectors</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">Detector</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">spec_file</span><span class="p">:</span> <span class="n">FilePath</span>
+    <span class="n">scan_number</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MapSliceProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.map_utils.MapSliceProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="c1">#spec_file, scan_number,</span>
+                <span class="n">idx_slice</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;start&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;step&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Aggregate partial spec and detector data from one scan in a</span>
+<span class="sd">        map, returning results in a format suitable for writing to the</span>
+<span class="sd">        full map container with</span>
+<span class="sd">        :class:`~CHAP.common.writer.NexusValuesWriter` or</span>
+<span class="sd">        :class:`~CHAP.common.writer.ZarrValuesWriter`.</span>
+
+<span class="sd">        :param data: Result of `Reader.read` where at least one item</span>
+<span class="sd">            has the value `&#39;common.models.map.MapConfig&#39;` for the</span>
+<span class="sd">            `&#39;schema&#39;` key.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :type idx_slice: Parameters for the slice of the scan to</span>
+<span class="sd">            process (slice parameters are the usual for the python</span>
+<span class="sd">            `slice` object: `&#39;start&#39;`, `&#39;stop&#39;`, and</span>
+<span class="sd">            `&#39;step&#39;`). Defaults to `{&#39;start&#39;: 0, &#39;step&#39;: &#39;1&#39;}`.</span>
+<span class="sd">        :type idx_slice: dict[str, int], optional</span>
+<span class="sd">        :return: Slice of map data, ready to be written to a map</span>
+<span class="sd">             container.</span>
+<span class="sd">        :rtype: list[dict[str, Any]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+        <span class="c1"># Third party modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">chess_scanparsers</span><span class="w"> </span><span class="kn">import</span> <span class="n">choose_scanparser</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpecScans</span>
+
+        <span class="n">ScanParser</span> <span class="o">=</span> <span class="n">choose_scanparser</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">map_config</span><span class="o">.</span><span class="n">station</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_config</span><span class="o">.</span><span class="n">experiment_type</span><span class="p">)</span>
+        <span class="n">scans</span> <span class="o">=</span> <span class="n">SpecScans</span><span class="p">(</span>
+            <span class="n">spec_file</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span> <span class="n">scan_numbers</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">])</span>
+        <span class="n">scan</span> <span class="o">=</span> <span class="n">scans</span><span class="o">.</span><span class="n">get_scanparser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">)</span>
+
+        <span class="c1"># Get index offset for this data slice within the map</span>
+        <span class="n">npts_scan</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">scan</span><span class="o">.</span><span class="n">spec_scan_npts</span><span class="p">)</span>
+        <span class="n">nscans_prev</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">scans</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_config</span><span class="o">.</span><span class="n">spec_scans</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">scan_n</span> <span class="ow">in</span> <span class="n">scans</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">:</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spec_file</span><span class="p">)</span> <span class="o">==</span> \
+                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spec_file</span><span class="p">)</span>
+                    <span class="ow">and</span> <span class="n">scan_n</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">):</span>
+                    <span class="k">break</span>
+                <span class="n">nscans_prev</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">index_offset</span> <span class="o">=</span> <span class="n">nscans_prev</span> <span class="o">*</span> <span class="n">npts_scan</span>
+
+        <span class="c1"># Get spec scan indices to process</span>
+        <span class="n">scan_indices</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="n">npts_scan</span><span class="p">)[</span><span class="nb">slice</span><span class="p">(</span>
+            <span class="n">idx_slice</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="n">idx_slice</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;stop&#39;</span><span class="p">,</span> <span class="n">npts_scan</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
+            <span class="n">idx_slice</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;step&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="p">)]</span>
+        <span class="c1"># Get map indices to write to</span>
+        <span class="n">map_indices</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span>
+            <span class="n">idx_slice</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">index_offset</span><span class="p">,</span>
+            <span class="n">idx_slice</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;stop&#39;</span><span class="p">,</span> <span class="n">npts_scan</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">index_offset</span><span class="p">,</span>
+            <span class="n">idx_slice</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;step&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">data_points</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">map_config</span><span class="o">.</span><span class="n">title</span><span class="si">}</span><span class="s1">/scalar_data/</span><span class="si">{</span><span class="n">s_d</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span>
+                    <span class="n">s_d</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span>
+                        <span class="n">scans</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span>
+                        <span class="n">scalar_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">map_config</span><span class="o">.</span><span class="n">scalar_data</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">scan_indices</span>
+                <span class="p">]),</span>
+                <span class="s1">&#39;idx&#39;</span><span class="p">:</span> <span class="n">map_indices</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">s_d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_config</span><span class="o">.</span><span class="n">all_scalar_data</span>
+        <span class="p">]</span>
+        <span class="n">data_points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="p">{</span>
+                    <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">map_config</span><span class="o">.</span><span class="n">title</span><span class="si">}</span><span class="s1">/data/</span><span class="si">{</span><span class="n">det</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;data&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span>
+                        <span class="n">scan</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span><span class="n">det</span><span class="o">.</span><span class="n">get_id</span><span class="p">(),</span> <span class="n">i</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">scan_indices</span>
+                    <span class="p">]),</span>
+                    <span class="s1">&#39;idx&#39;</span><span class="p">:</span> <span class="n">map_indices</span>
+                <span class="p">}</span>
+                <span class="k">for</span> <span class="n">det</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">detectors</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">data_points</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SpecScanToMapConfigProcessor">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.map_utils.SpecScanToMapConfigProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SpecScanToMapConfigProcessor</span><span class="p">(</span><span class="n">Processor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Processor to get the</span>
+<span class="sd">    :class:`~CHAP.common.models.map.MapConfig` dictionary</span>
+<span class="sd">    configuration representation of a single CHESS SPEC scan.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SpecScanToMapConfigProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.map_utils.SpecScanToMapConfigProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span>
+                <span class="n">spec_file</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">,</span> <span class="n">station</span><span class="p">,</span> <span class="n">experiment</span><span class="p">,</span>
+                <span class="n">dwell_time_actual_counter_name</span><span class="p">,</span>
+                <span class="n">presample_intensity_counter_name</span><span class="p">,</span>
+                <span class="n">postsample_intensity_counter_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">validate_data_present</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a dictionary representing a valid</span>
+<span class="sd">        :class:`~CHAP.common.models.map.MapConfig` object that</span>
+<span class="sd">        contains only the single given scan.</span>
+
+<span class="sd">        :param spec_file: Spec file name</span>
+<span class="sd">        :type spec_file: str</span>
+<span class="sd">        :param scan_number: Scan number</span>
+<span class="sd">        :type scan_number: int</span>
+<span class="sd">        :param station: Name of the station at which the data was</span>
+<span class="sd">            collected.</span>
+<span class="sd">        :type station: Literal[&quot;id1a3&quot;, &quot;id3a&quot;, &quot;id3b&quot;, &quot;id4b&quot;]</span>
+<span class="sd">        :param experiment: Experiment type</span>
+<span class="sd">        :type experiment_type: Literal[</span>
+<span class="sd">            &#39;EDD&#39;, &#39;GIWAXS&#39;, &#39;HDRM&#39;, &#39;SAXSWAXS&#39;, &#39;TOMO&#39;, &#39;XRF&#39;]</span>
+<span class="sd">        :param dwell_time_actual_counter_name: Name of the counter used</span>
+<span class="sd">            to record the actual dwell time at time of data collection.</span>
+<span class="sd">        :type dwell_time_actual_counter_name: str</span>
+<span class="sd">        :param presample_intensity_counter_name: Name of the counter</span>
+<span class="sd">            used to record the incident beam intensity at time of data</span>
+<span class="sd">            collection.</span>
+<span class="sd">        :type presample_intensity_counter_name: str</span>
+<span class="sd">        :param postsample_intensity_counter_name: Name of the counter</span>
+<span class="sd">            used to record the post sample beam intensity at time of</span>
+<span class="sd">            data collection.</span>
+<span class="sd">        :type postsample_intensity_counter_name: str, optional</span>
+<span class="sd">        :param validate_data_present: Optional `validate_data_present`</span>
+<span class="sd">            key-value pair to the output map configuration, defaults</span>
+<span class="sd">            to `True`.</span>
+<span class="sd">        :type validate_data_present:</span>
+<span class="sd">        :returns: Single-scan map configuration</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">chess_scanparsers</span><span class="w"> </span><span class="kn">import</span> <span class="n">choose_scanparser</span>
+
+        <span class="n">SP</span> <span class="o">=</span> <span class="n">choose_scanparser</span><span class="p">(</span><span class="n">station</span><span class="p">,</span> <span class="n">experiment</span><span class="p">)</span>
+        <span class="n">sp</span> <span class="o">=</span> <span class="n">SP</span><span class="p">(</span><span class="n">spec_file</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_independent_dimensions</span><span class="p">(</span><span class="n">_scanparser</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Return a value for the `independent_dimensions` field of</span>
+<span class="sd">            a :class:`~CHAP.common.models.map.MapConfig` object</span>
+<span class="sd">            containing just one SPEC scan -- the one represented by the</span>
+<span class="sd">            given `_scanparser`.</span>
+
+<span class="sd">            :param _scanparser: The instance of</span>
+<span class="sd">                `ScanParser &lt;https://github.com/CHESSComputing/chess-scanparsers?tab=readme-ov-file&gt;`__</span>
+<span class="sd">                to get `independent_dimensions` for.</span>
+<span class="sd">            :type _scanparser: chess_scanparsers.ScanParser</span>
+<span class="sd">            :returns: Value to use for the `independent_dimensions`</span>
+<span class="sd">                field in the</span>
+<span class="sd">                :class:`~CHAP.common.models.map.MapConfig` object</span>
+<span class="sd">                associated with this scan.</span>
+<span class="sd">            :rtype: list[dict[str, str]]</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="c1"># System modules</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+
+            <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;a(\d+)scan&#39;</span><span class="p">,</span> <span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_macro</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                <span class="c1"># Use only the first motor as the independent dim. All</span>
+                <span class="c1"># others, even though they are also scanned, are scalar</span>
+                <span class="c1"># data</span>
+                <span class="k">return</span> <span class="p">(</span>
+                    <span class="p">[{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_scan_motor_mnes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                      <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;unknown&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;spec_motor&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_scan_motor_mnes</span><span class="p">[</span><span class="mi">0</span><span class="p">]}],</span>
+                    <span class="p">[{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">mne</span><span class="p">,</span>
+                      <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;unknown units&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;spec_motor&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">mne</span><span class="p">}</span>
+                     <span class="k">for</span> <span class="n">mne</span> <span class="ow">in</span> <span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_scan_motor_mnes</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_macro</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;tseries&#39;</span><span class="p">,</span> <span class="s1">&#39;loopscan&#39;</span><span class="p">):</span>
+                <span class="n">scan_firstline</span> <span class="o">=</span> <span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_scan</span><span class="o">.</span><span class="n">firstline</span>
+                <span class="n">headers</span> <span class="o">=</span> <span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_file</span><span class="o">.</span><span class="n">_headers</span>
+                <span class="n">useheader_i</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+                <span class="k">while</span> <span class="n">useheader_i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">headers</span><span class="p">[</span><span class="n">useheader_i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">firstline</span> <span class="o">&lt;</span> <span class="n">scan_firstline</span><span class="p">:</span>
+                        <span class="n">useheader_i</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">break</span>
+                    <span class="n">t0</span> <span class="o">=</span> <span class="n">headers</span><span class="p">[</span><span class="n">useheader_i</span><span class="p">]</span><span class="o">.</span><span class="n">_epoch</span>
+                <span class="k">return</span> <span class="p">(</span>
+                    <span class="p">[{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;Epoch&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;seconds&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;expression&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;Epoch_offset + </span><span class="si">{</span><span class="n">t0</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">}],</span>
+                    <span class="p">[{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;Epoch_offset&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;seconds&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;Epoch&#39;</span><span class="p">}])</span>
+            <span class="k">if</span> <span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_macro</span> <span class="o">==</span> <span class="s1">&#39;flyscan&#39;</span> <span class="ow">and</span> \
+                 <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span>
+                    <span class="p">[{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;Time&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;seconds&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;Time&#39;</span><span class="p">}],</span>
+                    <span class="p">[])</span>
+            <span class="k">if</span> <span class="n">_scanparser</span><span class="o">.</span><span class="n">is_snake</span><span class="p">():</span>
+                <span class="k">return</span> <span class="p">(</span>
+                    <span class="p">[{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">mne</span><span class="p">,</span>
+                      <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;unknown units&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_scan_data</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="n">i</span><span class="p">]}</span>
+                     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">mne</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+                             <span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_scan_motor_mnes</span><span class="p">)],</span>
+                    <span class="p">[]</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="p">[{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">mne</span><span class="p">,</span>
+                  <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;unknown units&#39;</span><span class="p">,</span>
+                  <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;spec_motor&#39;</span><span class="p">,</span>
+                  <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">mne</span><span class="p">}</span>
+                 <span class="k">for</span> <span class="n">mne</span> <span class="ow">in</span> <span class="n">_scanparser</span><span class="o">.</span><span class="n">spec_scan_motor_mnes</span><span class="p">],</span>
+                <span class="p">[])</span>
+
+        <span class="n">normalized_spec_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">spec_file</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+            <span class="s1">&#39;/daq/&#39;</span><span class="p">,</span> <span class="s1">&#39;/raw/&#39;</span><span class="p">)</span>
+        <span class="n">independent_dimensions</span><span class="p">,</span> <span class="n">scalar_data</span> <span class="o">=</span> <span class="n">get_independent_dimensions</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+        <span class="n">mapconfig_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;validate_data_present&#39;</span><span class="p">:</span> <span class="n">validate_data_present</span><span class="p">,</span>
+            <span class="s1">&#39;title&#39;</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">scan_title</span><span class="p">,</span>
+            <span class="s1">&#39;station&#39;</span><span class="p">:</span> <span class="n">station</span><span class="p">,</span>
+            <span class="s1">&#39;experiment_type&#39;</span><span class="p">:</span> <span class="n">experiment</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span>
+            <span class="s1">&#39;sample&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">scan_name</span>
+            <span class="p">},</span>
+            <span class="s1">&#39;spec_scans&#39;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span>
+                    <span class="s1">&#39;spec_file&#39;</span><span class="p">:</span> <span class="n">normalized_spec_file</span><span class="p">,</span>
+                    <span class="s1">&#39;scan_numbers&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">scan_number</span><span class="p">]</span>
+                <span class="p">}</span>
+            <span class="p">],</span>
+            <span class="s1">&#39;independent_dimensions&#39;</span><span class="p">:</span> <span class="n">independent_dimensions</span><span class="p">,</span>
+            <span class="s1">&#39;dwell_time_actual&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">dwell_time_actual_counter_name</span><span class="p">},</span>
+            <span class="s1">&#39;presample_intensity&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">presample_intensity_counter_name</span><span class="p">},</span>
+            <span class="s1">&#39;scalar_data&#39;</span><span class="p">:</span> <span class="n">scalar_data</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">postsample_intensity_counter_name</span><span class="p">:</span>
+            <span class="n">mapconfig_dict</span><span class="p">[</span><span class="s1">&#39;postsample_intensity&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">postsample_intensity_counter_name</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="n">mapconfig_dict</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

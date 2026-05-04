@@ -1,0 +1,512 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.edd.select_material_params_gui &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.edd.select_material_params_gui</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.edd.select_material_params_gui</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Model class and functions to create a GUI to interactively update</span>
+<span class="sd">the material properties for an EDD workflow.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># Third party modules</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tkinter</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tk</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tkinter</span><span class="w"> </span><span class="kn">import</span> <span class="n">messagebox</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.backends.backend_tkagg</span><span class="w"> </span><span class="kn">import</span> <span class="n">FigureCanvasTkAgg</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<div class="viewcode-block" id="MaterialParamSelector">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MaterialParamSelector</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A processor that creates and opens a GUI to interactively</span>
+<span class="sd">    check and if needed update the material properties for an EDD</span>
+<span class="sd">    workflow.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">tth</span><span class="p">,</span> <span class="n">preselected_materials</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">on_complete</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">root</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Material Parameter Selection&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">on_complete</span> <span class="o">=</span> <span class="n">on_complete</span>  <span class="c1"># Completion callback</span>
+
+        <span class="c1"># Reference data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ref_data_x</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ref_data_y</span> <span class="o">=</span> <span class="n">y</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ref_data_label</span> <span class="o">=</span> <span class="n">label</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tth</span> <span class="o">=</span> <span class="n">tth</span>
+
+        <span class="c1"># Materials</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">materials</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Create plot</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">figure</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">legend_handles</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canvas</span> <span class="o">=</span> <span class="n">FigureCanvasTkAgg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">figure</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">get_tk_widget</span><span class="p">()</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rowspan</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+
+        <span class="c1"># Widgets for material list and parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">material_listbox</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Listbox</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">material_listbox</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">rowspan</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">material_listbox</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span>
+            <span class="s1">&#39;&lt;&lt;ListboxSelect&gt;&gt;&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_material_select</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_material_button</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span>
+            <span class="n">root</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s1">&#39;Add Material&#39;</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">add_material</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_material_button</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">remove_material_button</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span>
+            <span class="n">root</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s1">&#39;Remove Material&#39;</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">remove_material</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remove_material_button</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># Parameter fields</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fields</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">field</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+                <span class="p">[</span><span class="s1">&#39;Material Name&#39;</span><span class="p">,</span> <span class="s1">&#39;Space Group&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="s1">&#39;gamma&#39;</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">units</span> <span class="o">=</span> <span class="s1">&#39;Angstroms&#39;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">5</span> <span class="k">else</span> <span class="s1">&#39;degrees&#39;</span>
+                <span class="n">text</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="n">units</span><span class="si">}</span><span class="s1">)&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">text</span> <span class="o">=</span> <span class="n">field</span>
+            <span class="n">tk</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="n">text</span><span class="p">)</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Entry</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="n">field</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_button</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span>
+            <span class="n">root</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s1">&#39;Update Material Properties&#39;</span><span class="p">,</span>
+            <span class="n">command</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">update_material</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_button</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">11</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">columnspan</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">confirm_button</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span>
+            <span class="n">root</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s1">&#39;Confirm</span><span class="se">\n</span><span class="s1">All</span><span class="se">\n</span><span class="s1">Selected</span><span class="se">\n</span><span class="s1">Material</span><span class="se">\n</span><span class="s1">Properties&#39;</span><span class="p">,</span>
+            <span class="n">command</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">on_close</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">confirm_button</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">rowspan</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+
+        <span class="c1"># Initial Material Data</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">preselected_materials</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">materials</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_material</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">material</span> <span class="ow">in</span> <span class="n">preselected_materials</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">add_material</span><span class="p">(</span><span class="n">material</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Overwrite the root window&#39;s close action to call `self.on_close`</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">protocol</span><span class="p">(</span><span class="s1">&#39;WM_DELETE_WINDOW&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_close</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_clear_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clear the fields.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">tk</span><span class="o">.</span><span class="n">END</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_plot_reference_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Plot the reference data.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ref_data_y</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">handle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ref_data_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ref_data_y</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ref_data_label</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">legend_handles</span> <span class="o">=</span> <span class="n">handle</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">handles</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">legend_handles</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Energy (keV)&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Intensity (a.u)&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_update_plot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the reference data plot.&quot;&quot;&quot;</span>
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.edd.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">get_unique_hkls_ds</span><span class="p">,</span>
+            <span class="n">get_peak_locations</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">cla</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">legend_handles</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plot_reference_data</span><span class="p">()</span>  <span class="c1"># Re-plot reference data</span>
+
+        <span class="c1"># Plot each material&#39;s hkl peak locations</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">material</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">materials</span><span class="p">):</span>
+            <span class="n">hkls</span><span class="p">,</span> <span class="n">ds</span> <span class="o">=</span> <span class="n">get_unique_hkls_ds</span><span class="p">([</span><span class="n">material</span><span class="p">])</span>
+            <span class="n">E0s</span> <span class="o">=</span> <span class="n">get_peak_locations</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">tth</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">hkl</span><span class="p">,</span> <span class="n">E0</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">hkls</span><span class="p">,</span> <span class="n">E0s</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">E0</span> <span class="o">&lt;</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ref_data_x</span><span class="p">)</span> <span class="ow">or</span> <span class="n">E0</span> <span class="o">&gt;</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ref_data_x</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span>
+                    <span class="n">E0</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;C</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                    <span class="n">label</span><span class="o">=</span><span class="n">material</span><span class="o">.</span><span class="n">material_name</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">E0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">hkl</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;C</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+                             <span class="n">ha</span><span class="o">=</span><span class="s1">&#39;right&#39;</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s1">&#39;top&#39;</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">90</span><span class="p">,</span>
+                             <span class="n">transform</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">get_xaxis_transform</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">legend_handles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">handles</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">legend_handles</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+
+<div class="viewcode-block" id="MaterialParamSelector.add_material">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector.add_material">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_material</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_material</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Callback function for the &quot;Add Material&quot; botton.&quot;&quot;&quot;</span>
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.edd.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">MaterialConfig</span>
+
+        <span class="k">if</span> <span class="n">new_material</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">new_material</span> <span class="o">=</span> <span class="n">MaterialConfig</span><span class="p">(</span>
+                <span class="n">material_name</span><span class="o">=</span><span class="s1">&#39;Ti64&#39;</span><span class="p">,</span>
+                <span class="n">sgnum</span><span class="o">=</span><span class="mi">194</span><span class="p">,</span>
+                <span class="n">lattice_parameters</span><span class="o">=</span><span class="p">[</span><span class="mf">2.9217</span><span class="p">,</span> <span class="mf">4.66027</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">materials</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_material</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">material_listbox</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">tk</span><span class="o">.</span><span class="n">END</span><span class="p">,</span> <span class="n">new_material</span><span class="o">.</span><span class="n">material_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">material_listbox</span><span class="o">.</span><span class="n">select_set</span><span class="p">(</span><span class="n">tk</span><span class="o">.</span><span class="n">END</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">on_material_select</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_plot</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MaterialParamSelector.remove_material">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector.remove_material">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_material</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Callback function for the &quot;Remove Material&quot; botton.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">materials</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">material_listbox</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_clear_fields</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_plot</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MaterialParamSelector.update_material">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector.update_material">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_material</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Callback function for the &quot;Update Material Properties&quot;</span>
+<span class="sd">        botton.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Local modules</span>
+<span class="c1">#        from CHAP.edd.utils import make_material</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.material</span><span class="w"> </span><span class="kn">import</span> <span class="n">Material</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">material</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">materials</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span><span class="p">]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Retrieve values from fields</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="s1">&#39;Material Name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+            <span class="n">sgnum</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="s1">&#39;Space Group&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">())</span>
+            <span class="n">lattice_parameters</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="n">param</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">())</span>
+                <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="s1">&#39;gamma&#39;</span><span class="p">)</span>
+            <span class="p">]</span>
+            <span class="c1"># Make a hexrd material from those values so we can</span>
+            <span class="c1"># propagate any other updates required by the material&#39;s</span>
+            <span class="c1"># symmetries</span>
+<span class="c1">#            _material = make_material(name, sgnum, lattice_parameters)</span>
+            <span class="n">_material</span> <span class="o">=</span> <span class="n">Material</span><span class="o">.</span><span class="n">make_material</span><span class="p">(</span>
+                <span class="n">name</span><span class="p">,</span> <span class="n">sgnum</span><span class="o">=</span><span class="n">sgnum</span><span class="p">,</span>
+                <span class="n">lattice_parameters_angstroms</span><span class="o">=</span><span class="n">lattice_parameters</span><span class="p">)</span>
+<span class="c1">#                pos=[&#39;4a&#39;, &#39;8c&#39;])</span>
+<span class="c1">#                #pos=[(0,0,0), (1/4, 1/4, 1/4), (3/4, 3/4, 3/4)])</span>
+            <span class="n">material</span><span class="o">.</span><span class="n">material_name</span> <span class="o">=</span> <span class="n">name</span>
+            <span class="n">material</span><span class="o">.</span><span class="n">sgnum</span> <span class="o">=</span> <span class="n">_material</span><span class="o">.</span><span class="n">sgnum</span>
+            <span class="n">material</span><span class="o">.</span><span class="n">lattice_parameters</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">_material</span><span class="o">.</span><span class="n">latticeParameters</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span>
+            <span class="p">]</span>
+            <span class="n">material</span><span class="o">.</span><span class="n">_material</span> <span class="o">=</span> <span class="n">_material</span>
+            <span class="c1"># If the updated field forces other field(s) to get new</span>
+            <span class="c1"># values (because of space group symmetries), propagate</span>
+            <span class="c1"># those new values to the gui entries too.</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;Material Name&#39;</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">entry</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">tk</span><span class="o">.</span><span class="n">END</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="s1">&#39;Space Group&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">material</span><span class="o">.</span><span class="n">sgnum</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">((</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="s1">&#39;gamma&#39;</span><span class="p">)):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+                    <span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">_material</span><span class="o">.</span><span class="n">latticeParameters</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+
+            <span class="c1"># Update the listbox name display</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">material_listbox</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">material_listbox</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span><span class="p">,</span> <span class="n">material</span><span class="o">.</span><span class="n">material_name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_plot</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">messagebox</span><span class="o">.</span><span class="n">showerror</span><span class="p">(</span>
+                <span class="s1">&#39;Invalid input&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;Please enter valid numbers for lattice parameters.&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MaterialParamSelector.on_material_select">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector.on_material_select">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_material_select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Callback function for the &quot;Select Material&quot; ListBox.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">material_listbox</span><span class="o">.</span><span class="n">curselection</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Listbox item deselection event can be ignored</span>
+            <span class="k">return</span>
+        <span class="c1"># Update the selected material index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">material_listbox</span><span class="o">.</span><span class="n">curselection</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">material</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">materials</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">selected_material</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_clear_fields</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="s1">&#39;Material Name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">material</span><span class="o">.</span><span class="n">material_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="s1">&#39;Space Group&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">material</span><span class="o">.</span><span class="n">sgnum</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">((</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="s1">&#39;gamma&#39;</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+                <span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">material</span><span class="o">.</span><span class="n">_material</span><span class="o">.</span><span class="n">latticeParameters</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="MaterialParamSelector.on_close">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector.on_close">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Callback function for the &quot;Confirm All Selected Material</span>
+<span class="sd">        Properties&quot; button. Closes the GUI and triggers the</span>
+<span class="sd">        on_complete callback function.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_complete</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">on_complete</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">materials</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">figure</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>  <span class="c1"># Close the tkinter root window</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="run_material_selector">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.select_material_params_gui.run_material_selector">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_material_selector</span><span class="p">(</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">tth</span><span class="p">,</span> <span class="n">preselected_materials</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Reference Data&#39;</span><span class="p">,</span>
+        <span class="n">on_complete</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">interactive</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run the</span>
+<span class="sd">    :class:`~CHAP.edd.select_material_params_gui.MaterialParamSelector`</span>
+<span class="sd">    tkinter application.</span>
+
+<span class="sd">    :param x: MCA channel energies.</span>
+<span class="sd">    :type x: numpy.ndarray</span>
+<span class="sd">    :param y: MCA intensities.</span>
+<span class="sd">    :type y: numpy.ndarray</span>
+<span class="sd">    :param tth: (calibrated) 2&amp;theta; angle.</span>
+<span class="sd">    :type tth: float</span>
+<span class="sd">    :param preselected_materials: Materials to get HKLs and lattice</span>
+<span class="sd">        spacings for.</span>
+<span class="sd">    :type preselected_materials: list[MaterialConfig],</span>
+<span class="sd">        optional</span>
+<span class="sd">    :param label: Legend label for the 1D plot of reference MCA data</span>
+<span class="sd">        from the parameters `x`, `y`, defaults to `&quot;Reference Data&quot;`.</span>
+<span class="sd">    :type label: str, optional</span>
+<span class="sd">    :param on_complete: Callback function to handle completion of the</span>
+<span class="sd">        material selection, defaults to `None`.</span>
+<span class="sd">    :type on_complete: Callable, optional</span>
+<span class="sd">    :param interactive: Show the plot and allow user interactions with</span>
+<span class="sd">        the Matplotlib figure, defaults to `False`.</span>
+<span class="sd">    :type interactive: bool, optional</span>
+<span class="sd">    :return: Selected materials for the strain analyses.</span>
+<span class="sd">    :rtype: list[MaterialConfig]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Initialize the main application window</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Tk</span><span class="p">()</span>
+
+    <span class="c1"># Create the material parameter selection GUI within the main</span>
+    <span class="c1"># window</span>
+    <span class="c1"># This GUI allows the user to adjust and visualize lattice</span>
+    <span class="c1"># parameters and space group</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">MaterialParamSelector</span><span class="p">(</span>
+        <span class="n">root</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">tth</span><span class="p">,</span> <span class="n">preselected_materials</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">on_complete</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">interactive</span><span class="p">:</span>
+        <span class="c1"># If interactive mode is enabled, start the GUI event loop to</span>
+        <span class="c1"># allow user interaction</span>
+        <span class="n">root</span><span class="o">.</span><span class="n">mainloop</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># If not in interactive mode, immediately close the</span>
+        <span class="c1"># application</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">on_close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="select_material_params_gui">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.select_material_params_gui.select_material_params_gui">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">select_material_params_gui</span><span class="p">(</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">tth</span><span class="p">,</span> <span class="n">preselected_materials</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Reference Data&#39;</span><span class="p">,</span>
+        <span class="n">interactive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">return_buf</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Interactively adjust the lattice parameters and space group for</span>
+<span class="sd">    a list of materials. It is possible to add / remove materials from</span>
+<span class="sd">    the list.</span>
+
+<span class="sd">    :param x: MCA channel energies.</span>
+<span class="sd">    :type x: numpy.ndarray</span>
+<span class="sd">    :param y: MCA intensities.</span>
+<span class="sd">    :type y: numpy.ndarray</span>
+<span class="sd">    :param tth: (calibrated) 2&amp;theta angle.</span>
+<span class="sd">    :type tth: float</span>
+<span class="sd">    :param preselected_materials: Materials to get HKLs and</span>
+<span class="sd">        lattice spacings for.</span>
+<span class="sd">    :type preselected_materials: list[MaterialConfig],</span>
+<span class="sd">        optional</span>
+<span class="sd">    :param label: Legend label for the 1D plot of reference MCA data</span>
+<span class="sd">        from the parameters `x`, `y`, defaults to `&quot;Reference Data&quot;`.</span>
+<span class="sd">    :type label: str, optional</span>
+<span class="sd">    :param interactive: Show the plot and allow user interactions with</span>
+<span class="sd">        the Matplotlib figure, defaults to `False`.</span>
+<span class="sd">    :type interactive: bool, optional</span>
+<span class="sd">    :param return_buf: Return an in-memory object as a byte stream</span>
+<span class="sd">        represention of the Matplotlib figure, defaults to `False`.</span>
+<span class="sd">    :type return_buf: bool, optional</span>
+<span class="sd">    :return: Selected materials for the strain analyses and a byte</span>
+<span class="sd">        stream represention of the Matplotlib figure if return_buf is</span>
+<span class="sd">        `True` (`None` otherwise).</span>
+<span class="sd">    :rtype: list[MaterialConfig], io.BytesIO or None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Local modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">fig_to_iobuf</span>
+
+    <span class="c1"># Run the MaterialParamSelector with the callback function to</span>
+    <span class="c1"># handle the materials data and, if requested, the output figure</span>
+    <span class="n">materials</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">figure</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_complete</span><span class="p">(</span><span class="n">_materials</span><span class="p">,</span> <span class="n">_figure</span><span class="p">):</span>
+        <span class="k">nonlocal</span> <span class="n">materials</span><span class="p">,</span> <span class="n">figure</span>
+        <span class="n">materials</span> <span class="o">=</span> <span class="n">_materials</span>
+        <span class="n">figure</span> <span class="o">=</span> <span class="n">_figure</span>
+
+    <span class="n">run_material_selector</span><span class="p">(</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">tth</span><span class="p">,</span> <span class="n">preselected_materials</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">on_complete</span><span class="p">,</span> <span class="n">interactive</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">return_buf</span><span class="p">:</span>
+        <span class="n">buf</span> <span class="o">=</span> <span class="n">fig_to_iobuf</span><span class="p">(</span><span class="n">figure</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">buf</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">materials</span><span class="p">,</span> <span class="n">buf</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c1"># Local modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.edd.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">MaterialConfig</span>
+
+    <span class="n">xx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+    <span class="n">yy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">xx</span><span class="p">)</span>
+    <span class="n">ttth</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">ppreselected_materials</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">MaterialConfig</span><span class="p">(</span>
+            <span class="n">material_name</span><span class="o">=</span><span class="s1">&#39;Ti64_orig&#39;</span><span class="p">,</span>
+            <span class="n">sgnum</span><span class="o">=</span><span class="mi">194</span><span class="p">,</span>
+            <span class="n">lattice_parameters</span><span class="o">=</span><span class="p">[</span><span class="mf">2.9217</span><span class="p">,</span> <span class="mf">4.66027</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">mmaterials</span> <span class="o">=</span> <span class="n">select_material_params_gui</span><span class="p">(</span>
+        <span class="n">xx</span><span class="p">,</span> <span class="n">yy</span><span class="p">,</span> <span class="n">ttth</span><span class="p">,</span> <span class="n">preselected_materials</span><span class="o">=</span><span class="n">ppreselected_materials</span><span class="p">,</span>
+        <span class="n">interactive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Returned materials: </span><span class="si">{</span><span class="n">mmaterials</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

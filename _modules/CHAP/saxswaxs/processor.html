@@ -1,0 +1,1505 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.saxswaxs.processor &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.saxswaxs.processor</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.saxswaxs.processor</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Module for Processors unique to the SAXSWAXS workflow.</span>
+
+<span class="sd">Add discription of SAXS/WAXS</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># System modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Literal</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Third party modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">conint</span><span class="p">,</span>
+    <span class="n">conlist</span><span class="p">,</span>
+    <span class="n">Field</span><span class="p">,</span>
+    <span class="n">FilePath</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Detector</span><span class="p">,</span>
+    <span class="n">MapConfig</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.integration</span><span class="w"> </span><span class="kn">import</span> <span class="n">PyfaiIntegrationConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExpressionProcessor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">Processor</span>
+
+
+<div class="viewcode-block" id="CfProcessor">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.CfProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CfProcessor</span><span class="p">(</span><span class="n">Processor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Processor to calculate the correction factor Cf that, when</span>
+<span class="sd">    multiplied by appropriately processed SAXS/WAXS data, converts data</span>
+<span class="sd">    to absolute cross-section / intensity in inverse cm.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="CfProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.CfProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">interactive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">save_figures</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nxpath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">radial_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">scan_step_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1.e-5</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the correction factor Cf and the configuration</span>
+<span class="sd">        parameters.</span>
+
+<span class="sd">        :param data: Input data list containing the reference data</span>
+<span class="sd">            labelled with `&#39;reference_data&#39;` as well as the NeXus</span>
+<span class="sd">            input data with the azimuthally integrated SAXS/WAXS data.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :param interactive: Allows for user interactions,</span>
+<span class="sd">            defaults to `False`.</span>
+<span class="sd">        :type interactive: bool, optional</span>
+<span class="sd">        :param save_figures: Create Matplotlib correction factor</span>
+<span class="sd">            image that can be saved to file downstream in the workflow,</span>
+<span class="sd">            defaults to `True`.</span>
+<span class="sd">        :type save_figures: bool, optional</span>
+<span class="sd">        :param nxpath: Path to a specific NeXus Style</span>
+<span class="sd">            `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__</span>
+<span class="sd">            object in the input NeXus file tree to the measured data</span>
+<span class="sd">            from.</span>
+<span class="sd">        :type nxpath: str, optional</span>
+<span class="sd">        :param radial_range: q-range used to compute Cf.</span>
+<span class="sd">        :type radial_range: list[float, float] or tuple[float, float]),</span>
+<span class="sd">            optional</span>
+<span class="sd">        :param scan_step_indices: Optional scan step indices to use for</span>
+<span class="sd">            the calculation. If not specified, the correction factor</span>
+<span class="sd">            will be computed on the average of all data for the scan.</span>
+<span class="sd">        :type scan_step_indices: int, str, list[int], optional</span>
+<span class="sd">        :param eps: Minimum plotting value of the corrected azimuthally</span>
+<span class="sd">            integrated SAXS/WAXS data, defaults to `1.e-5`.</span>
+<span class="sd">        :type eps: float, optional</span>
+<span class="sd">        :returns: Computed correction factor Cf and the configuration</span>
+<span class="sd">            parameters plus the optional correction factor image as a</span>
+<span class="sd">            :class:`~CHAP.pipeline.PipelineData object`.</span>
+<span class="sd">        :rtype: dict or (dict, PipelineData)]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="c1"># pylint: disable=import-error</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataFrame</span>
+        <span class="c1"># pylint: enable=import-error</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">interp1d</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipelineData</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">round_to_n</span>
+
+        <span class="k">if</span> <span class="n">interactive</span> <span class="ow">or</span> <span class="n">save_figures</span><span class="p">:</span>
+            <span class="c1"># Third party modules</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+            <span class="c1"># Local modules</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">fig_to_iobuf</span>
+
+        <span class="c1"># Validate the input parameters</span>
+        <span class="k">if</span> <span class="n">scan_step_indices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scan_step_indices</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">scan_step_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">scan_step_indices</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scan_step_indices</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="c1"># Local modules</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">string_to_list</span>
+
+                <span class="n">scan_step_indices</span> <span class="o">=</span> <span class="n">string_to_list</span><span class="p">(</span><span class="n">scan_step_indices</span><span class="p">)</span>
+
+        <span class="c1"># Load the measured data</span>
+        <span class="k">if</span> <span class="n">nxpath</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">nxdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_nxdata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s1">&#39;No valid default NXdata object in pipeline data&#39;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Third party modules</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">NXdata</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">nxdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">data</span><span class="p">)[</span><span class="n">nxpath</span><span class="p">]</span>
+                <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxdata</span><span class="p">,</span> <span class="n">NXdata</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;No valid default NXdata object in pipeline &#39;</span>
+                                 <span class="s1">&#39;data&#39;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+        <span class="k">if</span> <span class="n">scan_step_indices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s1">&#39;Input parameters scan_step_indices for map with a number of &#39;</span>
+                <span class="s1">&#39;independent dimensions other than 1&#39;</span><span class="p">)</span>
+            <span class="n">scan_step_indices</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">data_meas</span> <span class="o">=</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">nxdata</span>
+        <span class="k">elif</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">scan_step_indices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data_meas</span> <span class="o">=</span> \
+                <span class="n">nxdata</span><span class="o">.</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">nxdata</span><span class="p">[</span><span class="n">scan_step_indices</span><span class="p">,:]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data_meas</span> <span class="o">=</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">nxdata</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
+                <span class="n">axis</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">nxdata</span><span class="o">.</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">ndim</span><span class="o">-</span><span class="mi">1</span><span class="p">)))</span>
+        <span class="n">q_meas</span> <span class="o">=</span> <span class="n">nxdata</span><span class="p">[</span><span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">nxdata</span>
+
+        <span class="c1"># Load the reference data</span>
+        <span class="n">ddata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;reference_data&#39;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ddata</span><span class="p">,</span> <span class="n">DataFrame</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ddata</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+            <span class="n">q_ref</span> <span class="o">=</span> <span class="n">ddata</span><span class="o">.</span><span class="n">values</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">data_ref</span> <span class="o">=</span> <span class="n">ddata</span><span class="o">.</span><span class="n">values</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s1">&#39;Invalid reference data format {type(ddata)}&#39;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+
+        <span class="c1"># Interpolate measured reference data onto reference q values</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">q_ref</span> <span class="o">&lt;=</span> <span class="n">radial_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q_ref</span> <span class="o">&gt;=</span> <span class="n">radial_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">q_ref</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s1">&#39;No reference values within specified radial range&#39;</span><span class="p">)</span>
+        <span class="n">func</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">q_meas</span><span class="p">,</span> <span class="n">data_meas</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
+        <span class="n">data_meas_intpol</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">q_ref</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">data_meas_intpol</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s1">&#39;No measured values within specified radial range&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Get the correction factor</span>
+        <span class="n">ratio</span> <span class="o">=</span> <span class="n">data_ref</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span><span class="o">/</span><span class="n">data_meas_intpol</span>
+        <span class="n">cf</span> <span class="o">=</span> <span class="n">ratio</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+        <span class="n">cf_stv</span> <span class="o">=</span> <span class="n">ratio</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;correction factor Cf: </span><span class="si">{</span><span class="n">round_to_n</span><span class="p">(</span><span class="n">cf</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1"> </span><span class="se">\u00B1</span><span class="s1"> &#39;</span>
+                         <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">round_to_n</span><span class="p">(</span><span class="mi">100</span><span class="o">*</span><span class="n">cf_stv</span><span class="o">/</span><span class="n">cf</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="s1">%&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Assemble result</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;cf&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">cf</span><span class="p">),</span>
+            <span class="s1">&#39;error&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">cf_stv</span><span class="p">),</span>
+            <span class="s1">&#39;radial_range&#39;</span><span class="p">:</span> <span class="n">radial_range</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Plot the results</span>
+        <span class="n">data_meas</span> <span class="o">*=</span> <span class="n">cf</span>
+        <span class="n">figures</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">interactive</span> <span class="ow">or</span> <span class="n">save_figures</span><span class="p">:</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mf">8.5</span><span class="p">))</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">q_ref</span><span class="p">,</span> <span class="n">data_ref</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;APS Reference Data&#39;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">q_meas</span><span class="p">,</span> <span class="n">data_meas</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;Corrected FMB Data/C$_f$&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">radial_range</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Absolute Intensity Calculation&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;xx-large&#39;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;{q_A^-1}&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;x-large&#39;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Normalized Intensity&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;x-large&#39;</span><span class="p">)</span>
+            <span class="n">min_x</span> <span class="o">=</span> <span class="n">q_meas</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+            <span class="n">max_x</span> <span class="o">=</span> <span class="n">q_meas</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="n">delta_x</span> <span class="o">=</span> <span class="mf">0.1</span><span class="o">*</span><span class="p">(</span><span class="n">q_meas</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">q_meas</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">((</span><span class="n">min_x</span><span class="o">-</span><span class="n">delta_x</span><span class="p">,</span> <span class="n">max_x</span><span class="o">+</span><span class="n">delta_x</span><span class="p">))</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span>
+                <span class="p">(</span><span class="mi">10</span><span class="o">**</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">data_meas</span><span class="p">[</span><span class="n">data_meas</span><span class="o">&gt;</span><span class="n">eps</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">())),</span>
+                 <span class="mi">10</span><span class="o">**</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">data_meas</span><span class="o">.</span><span class="n">max</span><span class="p">()))))</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;x-large&#39;</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s1">&#39;grey&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span>
+                <span class="sa">r</span><span class="s1">&#39;C$_f$ = &#39;</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">round_to_n</span><span class="p">(</span><span class="n">cf</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">&#39;</span><span class="sa">r</span><span class="s1">&#39; $\pm$ &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">round_to_n</span><span class="p">(</span><span class="mi">100</span><span class="o">*</span><span class="n">cf_stv</span><span class="o">/</span><span class="n">cf</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="s1">%</span><span class="se">\n</span><span class="s1">&#39;</span>
+                <span class="sa">r</span><span class="s1">&#39;1/C$_f$ = &#39;</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">round_to_n</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">cf</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="p">)</span><span class="si">:</span><span class="s1">e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="p">(</span><span class="mf">.65</span><span class="p">,</span> <span class="mf">.9</span><span class="p">),</span> <span class="n">xycoords</span> <span class="o">=</span> <span class="s1">&#39;axes fraction&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;x-large&#39;</span><span class="p">,</span>
+                <span class="n">bbox</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;facecolor&#39;</span><span class="p">:</span> <span class="s1">&#39;white&#39;</span><span class="p">,</span> <span class="s1">&#39;edgecolor&#39;</span><span class="p">:</span> <span class="s1">&#39;grey&#39;</span><span class="p">,</span> <span class="s1">&#39;pad&#39;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">})</span>
+            <span class="k">if</span> <span class="n">save_figures</span><span class="p">:</span>
+                <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">(</span><span class="n">rect</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">))</span>
+                <span class="n">figures</span>  <span class="o">=</span> <span class="n">fig_to_iobuf</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">interactive</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">figures</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">result</span><span class="p">,</span>
+                <span class="n">PipelineData</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">figures</span><span class="p">,</span>
+                    <span class="n">schema</span><span class="o">=</span><span class="s1">&#39;common.write.ImageWriter&#39;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FluxCorrectionProcessor">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxCorrectionProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FluxCorrectionProcessor</span><span class="p">(</span><span class="n">ExpressionProcessor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Processor for flux correction.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FluxCorrectionProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxCorrectionProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">presample_intensity_reference_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">nxprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Given input data for `&#39;intensity&#39;`, `&#39;presample_intensity&#39;`,</span>
+<span class="sd">        and `&#39;dwell_time_actual&#39;`, compute the flux corrected intensity</span>
+<span class="sd">        signal.</span>
+
+<span class="sd">        :param data: Input data list containing items with names</span>
+<span class="sd">            `&#39;intensity&#39;`, `&#39;presample_intensity&#39;`, and</span>
+<span class="sd">            `&#39;dwell_time_actual&#39;` (if</span>
+<span class="sd">            `presample_intensity_reference_rate` is not specified).</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :param presample_intensity_reference_rate: Reference counting</span>
+<span class="sd">            rate for the `&#39;presample_intensity&#39;` signal. If not</span>
+<span class="sd">            specified, it will  set to</span>
+<span class="sd">            `&#39;numpy.nanmean(presample_intensity /</span>
+<span class="sd">            dwell_time_actual)&#39;`.</span>
+<span class="sd">        :type presample_intensity_reference_rate: float, optional</span>
+<span class="sd">        :param nxprocess: Flag to indicate the flux corrected data</span>
+<span class="sd">            should be returned as a NeXus style</span>
+<span class="sd">            `NXobject &lt;https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0&gt;`__</span>
+<span class="sd">            object. Defaults to `False`.</span>
+<span class="sd">        :type nxprocess: bool, optional</span>
+<span class="sd">        :returns: Flux corrected version of input `&#39;intensity&#39;` data.</span>
+<span class="sd">        :rtype: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">presample_intensity_reference_rate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">presample_intensity_reference_rate</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">process</span><span class="p">(</span>
+                <span class="n">data</span><span class="p">,</span>
+                <span class="s1">&#39;np.nanmean(presample_intensity / dwell_time_actual)&#39;</span>
+            <span class="p">)</span>
+        <span class="n">presample_intensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;presample_intensity&#39;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">intensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;intensity&#39;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># nxfieldtable = {</span>
+        <span class="c1">#     &#39;intensity&#39;: intensity,</span>
+        <span class="c1">#     &#39;presample_intensity&#39;: presample_intensity,</span>
+        <span class="c1">#     &#39;presample_intensity_reference_rate&#39;: NXfield(</span>
+        <span class="c1">#         name=&#39;presample_intensity_reference_rate&#39;,</span>
+        <span class="c1">#         values=presample_intensity_reference_rate</span>
+        <span class="c1">#     )</span>
+        <span class="c1"># }</span>
+
+        <span class="c1"># Extend presample_intensity along last dim to have same shape</span>
+        <span class="c1"># as intensity</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">intensity</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">presample_intensity</span><span class="o">.</span><span class="n">ndim</span><span class="p">:]:</span>
+            <span class="n">presample_intensity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">presample_intensity</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">dim</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span>
+            <span class="p">)</span>
+        <span class="n">symtable</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;presample_intensity_reference_rate&#39;</span><span class="p">:</span>
+                <span class="n">presample_intensity_reference_rate</span><span class="p">,</span>
+            <span class="s1">&#39;intensity&#39;</span><span class="p">:</span> <span class="n">intensity</span><span class="p">,</span>
+            <span class="s1">&#39;presample_intensity&#39;</span><span class="p">:</span> <span class="n">presample_intensity</span>
+        <span class="p">}</span>
+        <span class="n">expression</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s1">&#39;intensity *&#39;</span>
+            <span class="s1">&#39;(presample_intensity_reference_rate / presample_intensity)&#39;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">process</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">expression</span><span class="p">,</span> <span class="n">symtable</span><span class="o">=</span><span class="n">symtable</span><span class="p">,</span> <span class="n">nxprocess</span><span class="o">=</span><span class="n">nxprocess</span><span class="p">,</span>
+            <span class="n">nxfieldtable</span><span class="o">=</span><span class="p">{}</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FluxAbsorptionCorrectionProcessor">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionCorrectionProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FluxAbsorptionCorrectionProcessor</span><span class="p">(</span><span class="n">ExpressionProcessor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Processor for flux and absorption correction.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FluxAbsorptionCorrectionProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionCorrectionProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">presample_intensity_reference_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">nxprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Given input data for `&#39;intensity&#39;`, `&#39;presample_intensity&#39;`,</span>
+<span class="sd">        `&#39;postsample_intensity&#39;`, `&#39;background_presample_intensity&#39;`,</span>
+<span class="sd">        `&#39;background_postsample_intensity&#39;`, and</span>
+<span class="sd">        `&#39;dwell_time_actual&#39;`, compute the flux and absorption</span>
+<span class="sd">        corrected intensity signal.</span>
+
+<span class="sd">        :param data: Input data list containing all necessary data</span>
+<span class="sd">            labelled with their proper names.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :param presample_intensity_reference_rate: Reference counting</span>
+<span class="sd">            rate for the `&#39;presample_intensity&#39;` signal. If not</span>
+<span class="sd">            specified, it will be calculated with</span>
+<span class="sd">            `&#39;numpy.nanmean(presample_intensity /</span>
+<span class="sd">            dwell_time_actual)&#39;`.</span>
+<span class="sd">        :type presample_intensity_reference_rate: float, optional</span>
+<span class="sd">        :param nxprocess: Flag to indicate the flux and absorption</span>
+<span class="sd">            corrected data should be returned as a NeXus style</span>
+<span class="sd">            `NXobject &lt;https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0&gt;`__</span>
+<span class="sd">            object. Defaults to `False`.</span>
+<span class="sd">        :type nxprocess: bool, optional</span>
+<span class="sd">        :returns: Flux and absorption corrected version of input</span>
+<span class="sd">            `&#39;intensity&#39;` data.</span>
+<span class="sd">        :rtype: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">intensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;intensity&#39;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">presample_intensity_reference_rate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">presample_intensity_reference_rate</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">process</span><span class="p">(</span>
+                <span class="n">data</span><span class="p">,</span>
+                <span class="s1">&#39;np.nanmean(presample_intensity / dwell_time_actual)&#39;</span>
+            <span class="p">)</span>
+
+        <span class="n">tt</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">process</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span>
+            <span class="p">(</span><span class="s1">&#39;np.divide(postsample_intensity, presample_intensity) &#39;</span>
+             <span class="s1">&#39;/ np.average(&#39;</span>
+             <span class="s1">&#39;np.divide(background_postsample_intensity, background_presample_intensity))&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># Extend tt along last dim to have same shape as intensity</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">intensity</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">tt</span><span class="o">.</span><span class="n">ndim</span><span class="p">:]:</span>
+            <span class="n">tt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">tt</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">dim</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">presample_intensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;presample_intensity&#39;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Extend presample_intensity along last dim to have same shape</span>
+        <span class="c1"># as intensity</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">intensity</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">presample_intensity</span><span class="o">.</span><span class="n">ndim</span><span class="p">:]:</span>
+            <span class="n">presample_intensity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">presample_intensity</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">dim</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span>
+            <span class="p">)</span>
+
+        <span class="n">symtable</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;presample_intensity_reference_rate&#39;</span><span class="p">:</span>
+                <span class="n">presample_intensity_reference_rate</span><span class="p">,</span>
+            <span class="s1">&#39;intensity&#39;</span><span class="p">:</span> <span class="n">intensity</span><span class="p">,</span>
+            <span class="s1">&#39;presample_intensity&#39;</span><span class="p">:</span> <span class="n">presample_intensity</span><span class="p">,</span>
+            <span class="s1">&#39;tt&#39;</span><span class="p">:</span> <span class="n">tt</span>
+        <span class="p">}</span>
+        <span class="n">expression</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s1">&#39;(1 / tt)&#39;</span>
+            <span class="s1">&#39;* intensity&#39;</span>
+            <span class="s1">&#39;* (presample_intensity_reference_rate / presample_intensity)&#39;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">process</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">expression</span><span class="p">,</span> <span class="n">symtable</span><span class="o">=</span><span class="n">symtable</span><span class="p">,</span> <span class="n">nxprocess</span><span class="o">=</span><span class="n">nxprocess</span><span class="p">,</span>
+            <span class="n">nxfieldtable</span><span class="o">=</span><span class="p">{}</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FluxAbsorptionBackgroundCorrectionProcessor">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionBackgroundCorrectionProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FluxAbsorptionBackgroundCorrectionProcessor</span><span class="p">(</span><span class="n">ExpressionProcessor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Processor for flux, absorption, and background correction as</span>
+<span class="sd">    well as optional thickness correction.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FluxAbsorptionBackgroundCorrectionProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionBackgroundCorrectionProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">presample_intensity_reference_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">sample_thickness_cm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sample_mu_inv_cm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nxprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Given input data for `&#39;intensity&#39;`, `&#39;presample_intensity&#39;`,</span>
+<span class="sd">        `&#39;postsample_intensity&#39;`, `&#39;background_presample_intensity&#39;`,</span>
+<span class="sd">        `&#39;background_postsample_intensity&#39;`, `&#39;background_intensity&#39;`,</span>
+<span class="sd">        and `&#39;dwell_time_actual&#39;`, return flux, absorption and</span>
+<span class="sd">        background corrected intensity signal.</span>
+
+<span class="sd">        :param data: Input data list containing all necessary data</span>
+<span class="sd">            labelled with their proper names.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :param presample_intensity_reference_rate: Reference counting</span>
+<span class="sd">            rate for the `&#39;presample_intensity&#39;` signal. If not</span>
+<span class="sd">            specified, it will be calculated with</span>
+<span class="sd">            `&#39;numpy.nanmean(presample_intensity /</span>
+<span class="sd">            dwell_time_actual)&#39;`.</span>
+<span class="sd">        :type presample_intensity_reference_rate: float, optional</span>
+<span class="sd">        :param sample_thickness_cm: Sample thickness in</span>
+<span class="sd">            centimeters. If specified, this processor will</span>
+<span class="sd">            additionally perform thickness correction. Use of this</span>
+<span class="sd">            parameter is mutualy exclusive with</span>
+<span class="sd">            use of `sample_mu_inv_cm`.</span>
+<span class="sd">        :type sample_thickness_cm: float, optional</span>
+<span class="sd">        :param sample_mu_inv_cm: Sample linear attenuation coefficient</span>
+<span class="sd">            in inverse centimeters. If specified, this processor will</span>
+<span class="sd">            additionally perform thickness correction. Use of this</span>
+<span class="sd">            parameter is mutualy exclusive with use of</span>
+<span class="sd">            `sample_thickness_cm`.</span>
+<span class="sd">        :type sample_mu_inv_cm: float, optional</span>
+<span class="sd">        :param nxprocess: Flag to indicate the flux, absorption, and</span>
+<span class="sd">            background corrected data should be returned as a Nexus</span>
+<span class="sd">            style</span>
+<span class="sd">            `NXobject &lt;https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0&gt;`__</span>
+<span class="sd">            object. Defaults to `False`.</span>
+<span class="sd">        :type nxprocess: bool, optional</span>
+<span class="sd">        :returns: Flux, absorption and background corrected version of</span>
+<span class="sd">            input `&#39;intensity&#39;` data.</span>
+<span class="sd">        :rtype: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">sample_thickness_cm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">sample_mu_inv_cm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">((</span>
+                <span class="s1">&#39;Cannot use sample_thickness_cm and sample_mu_inv_cm&#39;</span>
+                <span class="s1">&#39; at the same time&#39;</span>
+            <span class="p">))</span>
+
+        <span class="n">intensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;intensity&#39;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">presample_intensity_reference_rate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">presample_intensity_reference_rate</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">process</span><span class="p">(</span>
+                <span class="n">data</span><span class="p">,</span>
+                <span class="s1">&#39;np.nanmean(presample_intensity / dwell_time_actual)&#39;</span>
+            <span class="p">)</span>
+
+        <span class="n">tt</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">process</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span>
+            <span class="p">(</span><span class="s1">&#39;np.divide(postsample_intensity, presample_intensity) &#39;</span>
+             <span class="s1">&#39;/ np.average(&#39;</span>
+             <span class="s1">&#39;np.divide(background_postsample_intensity, background_presample_intensity))&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># Extend tt along last dim to have same shape as intensity</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">intensity</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">tt</span><span class="o">.</span><span class="n">ndim</span><span class="p">:]:</span>
+            <span class="n">tt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">tt</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">dim</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">presample_intensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;presample_intensity&#39;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Extend presample_intensity along last dim to have same shape</span>
+        <span class="c1"># as intensity</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">intensity</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">presample_intensity</span><span class="o">.</span><span class="n">ndim</span><span class="p">:]:</span>
+            <span class="n">presample_intensity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">presample_intensity</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">dim</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Broadcast background intensity signal to shape of measured</span>
+        <span class="c1"># intensity signal</span>
+        <span class="n">background_intensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;background_intensity&#39;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">background_intensity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span>
+            <span class="n">background_intensity</span><span class="p">,</span> <span class="n">intensity</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">sample_thickness_cm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">sample_thickness_cm</span>
+        <span class="k">elif</span> <span class="n">sample_mu_inv_cm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">tt</span> <span class="o">/</span> <span class="n">sample_mu_inv_cm</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="n">symtable</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">t</span><span class="p">,</span>
+            <span class="s1">&#39;presample_intensity_reference_rate&#39;</span><span class="p">:</span>
+                <span class="n">presample_intensity_reference_rate</span><span class="p">,</span>
+            <span class="s1">&#39;intensity&#39;</span><span class="p">:</span> <span class="n">intensity</span><span class="p">,</span>
+            <span class="s1">&#39;presample_intensity&#39;</span><span class="p">:</span> <span class="n">presample_intensity</span><span class="p">,</span>
+            <span class="s1">&#39;tt&#39;</span><span class="p">:</span> <span class="n">tt</span><span class="p">,</span>
+            <span class="s1">&#39;background_intensity&#39;</span><span class="p">:</span> <span class="n">background_intensity</span>
+        <span class="p">}</span>
+        <span class="n">expression</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s1">&#39;(1 / t)&#39;</span>
+            <span class="s1">&#39;* (&#39;</span>
+            <span class="s1">&#39;(1 / tt)&#39;</span>
+            <span class="s1">&#39;* intensity&#39;</span>
+            <span class="s1">&#39;* (presample_intensity_reference_rate / presample_intensity)&#39;</span>
+            <span class="s1">&#39;) - (&#39;</span>
+            <span class="s1">&#39;background_intensity&#39;</span>
+            <span class="s1">&#39;* (presample_intensity_reference_rate / np.average(background_presample_intensity))&#39;</span>
+            <span class="s1">&#39;)&#39;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">process</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">,</span> <span class="n">expression</span><span class="p">,</span> <span class="n">symtable</span><span class="o">=</span><span class="n">symtable</span><span class="p">,</span> <span class="n">nxprocess</span><span class="o">=</span><span class="n">nxprocess</span><span class="p">,</span>
+            <span class="n">nxfieldtable</span><span class="o">=</span><span class="p">{}</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PyfaiIntegrationProcessor">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.PyfaiIntegrationProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PyfaiIntegrationProcessor</span><span class="p">(</span><span class="n">Processor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A processor for azimuthally integrating images.</span>
+
+<span class="sd">    :ivar config: Initialization parameters for an instance of</span>
+<span class="sd">        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.</span>
+<span class="sd">    :vartype config: dict, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pipeline_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">default</span><span class="o">=</span><span class="p">{</span>
+            <span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="s1">&#39;common.models.integration.PyfaiIntegrationConfig&#39;</span>
+        <span class="p">},</span>
+        <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">PyfaiIntegrationConfig</span>
+
+<div class="viewcode-block" id="PyfaiIntegrationProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.PyfaiIntegrationProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">idx_slices</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform a set of integrations on 2D detector data.</span>
+
+<span class="sd">        :param data: Input data.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :param idx_slices: List of dictionaries identifying the sliced</span>
+<span class="sd">            index at which the output data should be written in a</span>
+<span class="sd">            dataset, defaults to `[{&#39;start&#39;:0, &#39;step&#39;: 1}]`.</span>
+<span class="sd">        :type idx_slices: list[dict[str, int]], optional</span>
+<span class="sd">        :return: Integrated detector data ready for writing with</span>
+<span class="sd">            :class:`~CHAP.saxswaxs.ZarrResultsWriter` or</span>
+<span class="sd">            :class:`~CHAP.saxswaxs.NexusResultsWriter`.</span>
+<span class="sd">        :rtype: list[dict[str, Any]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+        <span class="k">if</span> <span class="n">idx_slices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">idx_slices</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;start&#39;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;step&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}]</span>
+
+        <span class="c1"># Organize input for integrations</span>
+        <span class="n">input_data</span> <span class="o">=</span> <span class="p">{</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]:</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)]}</span>
+        <span class="n">ais</span> <span class="o">=</span> <span class="p">{</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">():</span> <span class="n">ai</span> <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azimuthal_integrators</span><span class="p">}</span>
+
+        <span class="c1"># Finalize idx slice for results</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="n">idx_slice</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;start&#39;</span><span class="p">),</span>
+                     <span class="n">idx_slice</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;stop&#39;</span><span class="p">),</span>
+                     <span class="n">idx_slice</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;step&#39;</span><span class="p">))</span> <span class="k">for</span> <span class="n">idx_slice</span> <span class="ow">in</span> <span class="n">idx_slices</span><span class="p">)</span>
+
+        <span class="c1"># Perform integration(s), package results for ZarrResultsWriter</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">nframes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_data</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">input_data</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]])</span>
+        <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">integrations</span><span class="p">:</span>
+            <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Integrating </span><span class="si">{</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">...&#39;</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">integrate</span><span class="p">(</span><span class="n">ais</span><span class="p">,</span> <span class="n">input_data</span><span class="p">)</span>
+            <span class="n">tf</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Integrated </span><span class="si">{</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1"> &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;(</span><span class="si">{</span><span class="n">nframes</span><span class="o">/</span><span class="p">(</span><span class="n">tf</span><span class="o">-</span><span class="n">t0</span><span class="p">)</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> frames/sec)&#39;</span><span class="p">)</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="p">{</span>
+                        <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">/data/I&#39;</span><span class="p">,</span>
+                        <span class="s1">&#39;idx&#39;</span><span class="p">:</span> <span class="n">idx</span><span class="p">,</span>
+                        <span class="s1">&#39;data&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;intensities&#39;</span><span class="p">]),</span>
+                    <span class="p">},</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">results</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SetupResultsProcessor">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SetupResultsProcessor</span><span class="p">(</span><span class="n">Processor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Processor for creating an intital</span>
+<span class="sd">    `Zarr group &lt;https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group&gt;`__</span>
+<span class="sd">    object with empty datasets for filling in by</span>
+<span class="sd">    :class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor` and</span>
+<span class="sd">    :class:`~CHAP.common.ZarrValuesWriter`.</span>
+
+<span class="sd">    :ivar config: Initialization parameters for an instance of</span>
+<span class="sd">        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.</span>
+<span class="sd">    :vartype config: dict</span>
+<span class="sd">    :ivar dataset_shape: Shape of the completed dataset that will be</span>
+<span class="sd">        processed later on (shape of the measurement itself, _not_</span>
+<span class="sd">        including the dimensions of any signals collected at each point</span>
+<span class="sd">        in that measurement).</span>
+<span class="sd">    :vartype dataset_shape: int or list[int]</span>
+<span class="sd">    :ivar dataset_chunks: Extent of chunks along each dimension of the</span>
+<span class="sd">        completed dataset / measurement. Choose this according to how</span>
+<span class="sd">        you will process your data -- for example, if your</span>
+<span class="sd">        `dataset_shape` is `[m, n]`, and you are planning to process</span>
+<span class="sd">        each of the `m` rows as chunks, `dataset_chunks` should be</span>
+<span class="sd">        `[1, n]`. But if you plan to process each of the `n` columns as</span>
+<span class="sd">        chunks, `dataset_chunks` should be `[m, 1]`,</span>
+<span class="sd">        defaults to `&quot;auto&quot;`.</span>
+<span class="sd">    :vartype dataset_chunks: list[int] or Literal[&quot;auto&quot;], optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pipeline_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">default</span><span class="o">=</span><span class="p">{</span>
+            <span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="s1">&#39;common.models.integration.PyfaiIntegrationConfig&#39;</span>
+        <span class="p">},</span>
+        <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">PyfaiIntegrationConfig</span>
+    <span class="n">dataset_shape</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">dataset_chunks</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">Union</span><span class="p">[</span>
+            <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;auto&#39;</span><span class="p">],</span>
+            <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">]]</span> <span class="o">=</span> <span class="s1">&#39;auto&#39;</span>
+
+<div class="viewcode-block" id="SetupResultsProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create and return a</span>
+<span class="sd">        `Zarr group &lt;https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group&gt;`__</span>
+<span class="sd">        object to hold processed SAXS/WAXS data processed</span>
+<span class="sd">        by :class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.</span>
+
+<span class="sd">        :param data: Input data.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :return: Empty structure for filling in SAXS/WAXS data.</span>
+<span class="sd">        :rtype: zarr.Group</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Get Zarr tree as dict from the PyfaiIntegrationConfig</span>
+        <span class="n">tree</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">zarr_tree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset_chunks</span><span class="p">)</span>
+
+        <span class="c1"># Construct &amp; return the root Zarr group</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">zarr_setup</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SetupResultsProcessor.zarr_setup">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor.zarr_setup">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">zarr_setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tree</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a</span>
+<span class="sd">        `Zarr group &lt;https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group&gt;`__</span>
+<span class="sd">        object based on a dictionary representing a Zarr tree of groups</span>
+<span class="sd">        and arrays.</span>
+
+<span class="sd">        :param tree: Nested dictionary representing a Zarr tree of</span>
+<span class="sd">            groups and arrays.</span>
+<span class="sd">        :type tree: dict[str, Any]</span>
+<span class="sd">        :return: Zarr group corresponding to the contents of `tree`.</span>
+<span class="sd">        :rtype: zarr.Group</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="c1"># pylint: disable=import-error</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">zarr.storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">MemoryStore</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">create_group_or_dataset</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">zarr_parent</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Create and return a</span>
+<span class="sd">            `Zarr group &lt;https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group&gt;`__</span>
+<span class="sd">            `Zarr dataset &lt;https://zarr.readthedocs.io/en/stable/api/zarr/array/#zarr.Array&gt;`__.</span>
+
+<span class="sd">            :param node: Child Zarr tree group.</span>
+<span class="sd">            :type node: zarr.Group or zarr.Array</span>
+<span class="sd">            :param zarr_parent: Parent Zarr tree group.</span>
+<span class="sd">            :type zarr_parent: zarr.Group</span>
+<span class="sd">            :param indent: Indentation level, defaults to 0.</span>
+<span class="sd">            :type indent: int, optional</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="c1"># Set attributes if present</span>
+            <span class="k">if</span> <span class="s1">&#39;attributes&#39;</span> <span class="ow">in</span> <span class="n">node</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">node</span><span class="p">[</span><span class="s1">&#39;attributes&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">zarr_parent</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="c1"># Create children (groups or datasets)</span>
+            <span class="k">if</span> <span class="s1">&#39;children&#39;</span> <span class="ow">in</span> <span class="n">node</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="p">[</span><span class="s1">&#39;children&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="s1">&#39;shape&#39;</span> <span class="ow">in</span> <span class="n">child</span> <span class="ow">or</span> <span class="s1">&#39;data&#39;</span> <span class="ow">in</span> <span class="n">child</span><span class="p">:</span>
+                        <span class="c1"># It&#39;s a dataset</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Adding dset: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                        <span class="n">zarr_parent</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
+                            <span class="n">name</span><span class="p">,</span>
+                            <span class="o">**</span><span class="n">child</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="c1"># Set dataset attributes</span>
+                        <span class="k">if</span> <span class="s1">&#39;attributes&#39;</span> <span class="ow">in</span> <span class="n">child</span><span class="p">:</span>
+                            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">child</span><span class="p">[</span><span class="s1">&#39;attributes&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                                <span class="n">zarr_parent</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># It&#39;s a group</span>
+                        <span class="n">group</span> <span class="o">=</span> <span class="n">zarr_parent</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                        <span class="n">create_group_or_dataset</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">group</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="n">indent</span><span class="o">+</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">MemoryStore</span><span class="p">({}))</span>
+        <span class="n">create_group_or_dataset</span><span class="p">(</span><span class="n">tree</span><span class="p">[</span><span class="s1">&#39;root&#39;</span><span class="p">],</span> <span class="n">results</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">results</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SetupProcessor">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SetupProcessor</span><span class="p">(</span><span class="n">Processor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convenience Processor for setting up a container for SAXS/WAXS</span>
+<span class="sd">    experiments.</span>
+
+<span class="sd">    :ivar map_config: Map configuration.</span>
+<span class="sd">    :vartype map_config: dict, optional</span>
+<span class="sd">        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.</span>
+<span class="sd">    :ivar pyfai_config: Initialization parameters for an instance of</span>
+<span class="sd">        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.</span>
+<span class="sd">    :vartype pyfai_config: dict, optional</span>
+<span class="sd">    :ivar detectors: Detector configurations.</span>
+<span class="sd">    :vartype detectors: DetectorConfig</span>
+<span class="sd">    :ivar dataset_shape: Shape of the completed dataset that will be</span>
+<span class="sd">        processed later on (shape of the measurement itself, _not_</span>
+<span class="sd">        including the dimensions of any signals collected at each point</span>
+<span class="sd">        in that measurement).</span>
+<span class="sd">    :vartype dataset_shape: int or list[int]</span>
+<span class="sd">    :ivar dataset_chunks: Extent of chunks along each dimension of the</span>
+<span class="sd">        completed dataset / measurement. Choose this according to how</span>
+<span class="sd">        you will process your data -- for example, if your</span>
+<span class="sd">        `dataset_shape` is `[m, n]`, and you are planning to process</span>
+<span class="sd">        each of the `m` rows as chunks, `dataset_chunks` should be</span>
+<span class="sd">        `[1, n]`. But if you plan to process each of the `n` columns as</span>
+<span class="sd">        chunks, `dataset_chunks` should be `[m, 1]`,</span>
+<span class="sd">        defaults to `&quot;auto&quot;`.</span>
+<span class="sd">    :vartype dataset_chunks: list[int] or Literal[&quot;auto&quot;], optional</span>
+<span class="sd">    :ivar num_chunk: Used only if `dataset_chunks` is `&quot;auto&quot;`.</span>
+<span class="sd">        Preferred number of chunks in the dataset, defaults to `1`.</span>
+<span class="sd">    :vartype num_chunk: int, optional</span>
+<span class="sd">    :ivar raw_data: Flag to indicate wether or not space for raw</span>
+<span class="sd">        detector data should be included in the returned</span>
+<span class="sd">        `Zarr group &lt;https://zarr.readthedocs.io/en/latest/api/zarr/group/#zarr.Group&gt;`__,</span>
+<span class="sd">        defaults to `True`.</span>
+<span class="sd">    :vartype raw_data: bool, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pipeline_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">default</span><span class="o">=</span><span class="p">{</span>
+            <span class="s1">&#39;map_config&#39;</span><span class="p">:</span> <span class="s1">&#39;common.models.map.MapConfig&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;pyfai_config&#39;</span><span class="p">:</span> <span class="s1">&#39;common.models.integration.PyfaiIntegrationConfig&#39;</span>
+        <span class="p">},</span>
+        <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># map_config needs a default value because the map configuration</span>
+    <span class="c1"># may be created by an earlier item in the Pipeline. If this is</span>
+    <span class="c1"># the case, then map_config needs SOME value in order for the</span>
+    <span class="c1"># Pipeline to pass validation.</span>
+    <span class="n">map_config</span><span class="p">:</span> <span class="n">MapConfig</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">pyfai_config</span><span class="p">:</span> <span class="n">PyfaiIntegrationConfig</span>
+    <span class="n">detectors</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">Detector</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">dataset_shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">dataset_chunks</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">Union</span><span class="p">[</span>
+            <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;auto&#39;</span><span class="p">],</span>
+            <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">]]</span> <span class="o">=</span> <span class="s1">&#39;auto&#39;</span>
+    <span class="n">num_chunk</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">raw_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="SetupProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set up a container for SAXS/WAXS experiments.</span>
+
+<span class="sd">        :param data: Input data.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :return:</span>
+<span class="sd">            `Zarr group &lt;https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group&gt;`__</span>
+<span class="sd">            object representing a Zarr tree of the container contents.</span>
+<span class="sd">        :rtype: zarr.Group</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+        <span class="c1"># Third party modules</span>
+        <span class="c1"># pylint: disable=import-error</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">zarr.core.buffer</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_buffer_prototype</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">zarr.storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">MemoryStore</span>
+        <span class="c1"># pylint: enable=import-error</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">MapProcessor</span><span class="p">,</span>
+            <span class="n">NexusToZarrProcessor</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipelineData</span>
+        <span class="c1">#from CHAP.saxswaxs.processor import SetupResultsProcessor</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">set_logger</span><span class="p">(</span><span class="n">pipeline_item</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Set the logger and logging handler for given pipeline</span>
+<span class="sd">            item.</span>
+
+<span class="sd">            :param pipeline_item: Pipeline item.</span>
+<span class="sd">            :type pipeline_item: PipelineItem</span>
+<span class="sd">            :return: Input Pipeline item, with updated logger and</span>
+<span class="sd">                logging handler.</span>
+<span class="sd">            :rtype: PipelineItem</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">pipeline_item</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span>
+            <span class="n">pipeline_item</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">pipeline_item</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+            <span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
+            <span class="n">handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span>
+                <span class="s1">&#39;</span><span class="si">{asctime}</span><span class="s1">: </span><span class="si">{name:20}</span><span class="s1"> (from &#39;</span><span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+                <span class="o">+</span> <span class="s1">&#39;): </span><span class="si">{levelname}</span><span class="s1">: </span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="n">datefmt</span><span class="o">=</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;{&#39;</span><span class="p">))</span>
+            <span class="n">pipeline_item</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">removeHandler</span><span class="p">(</span>
+                <span class="n">pipeline_item</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">pipeline_item</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">pipeline_item</span>
+
+        <span class="c1"># Get NXroot container for raw data map</span>
+        <span class="n">map_processor_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_config</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">:</span>
+            <span class="n">map_processor_kwargs</span><span class="p">[</span><span class="s1">&#39;detector_config&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;detectors&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">detectors</span>
+            <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">map_processor_kwargs</span><span class="p">[</span><span class="s1">&#39;detector_config&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;detectors&#39;</span><span class="p">:</span> <span class="p">[]</span>
+            <span class="p">}</span>
+        <span class="n">setup_map_processor</span> <span class="o">=</span> <span class="n">set_logger</span><span class="p">(</span>
+            <span class="n">MapProcessor</span><span class="p">(</span>
+                <span class="o">**</span><span class="n">map_processor_kwargs</span>
+                <span class="c1"># config=self.map_config,</span>
+                <span class="c1"># detector_config={&#39;detectors&#39;: self.detectors},</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">ddata</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">PipelineData</span><span class="p">(</span>
+                <span class="n">data</span><span class="o">=</span><span class="n">setup_map_processor</span><span class="o">.</span><span class="n">process</span><span class="p">(</span>
+                    <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">fill_data</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset_shape</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">nxroot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">ddata</span><span class="p">,</span> <span class="n">remove</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">nxentry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_nxentry</span><span class="p">(</span><span class="n">nxroot</span><span class="p">)</span>
+                <span class="n">nxdata</span> <span class="o">=</span> <span class="n">nxentry</span><span class="p">[</span><span class="n">nxentry</span><span class="o">.</span><span class="n">default</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">detector</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">detectors</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset_shape</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">dataset_shape</span> <span class="o">=</span> <span class="n">nxdata</span><span class="p">[</span>
+                            <span class="n">detector</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">dataset_shape</span> <span class="o">==</span> <span class="n">nxdata</span><span class="p">[</span>
+                                <span class="n">detector</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+                        <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s1">&#39;Unable to get consistent dataset shape from map&#39;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset_chunks</span> <span class="o">==</span> <span class="s1">&#39;auto&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dataset_chunks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">//</span><span class="bp">self</span><span class="o">.</span><span class="n">num_chunk</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_chunk</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_chunks</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">dataset_chunks</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dataset_chunks</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_chunks</span><span class="p">]</span>
+
+        <span class="c1"># Convert raw data map container to Zarr format</span>
+        <span class="n">ddata_converter</span> <span class="o">=</span> <span class="n">set_logger</span><span class="p">(</span><span class="n">NexusToZarrProcessor</span><span class="p">())</span>
+        <span class="n">zarr_map</span> <span class="o">=</span> <span class="n">ddata_converter</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">ddata</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_chunks</span><span class="p">)</span>
+
+        <span class="c1"># Get Zarr container for integration results</span>
+        <span class="n">setup_results_processor</span> <span class="o">=</span> <span class="n">set_logger</span><span class="p">(</span>
+            <span class="n">SetupResultsProcessor</span><span class="p">(</span>
+                <span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pyfai_config</span><span class="p">,</span>
+                <span class="n">dataset_shape</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_shape</span><span class="p">,</span>
+                <span class="n">dataset_chunks</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_chunks</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">zarr_results</span> <span class="o">=</span> <span class="n">setup_results_processor</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="c1"># Assemble containers for raw &amp; processed data</span>
+        <span class="n">zarr_root</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">MemoryStore</span><span class="p">({}))</span>
+        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">copy_zarr_store</span><span class="p">(</span><span class="n">source_store</span><span class="p">,</span> <span class="n">dest_store</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Copy a Zarr &lt;https://zarr.readthedocs.io/en/stable/&gt;`__</span>
+<span class="sd">            store.</span>
+
+<span class="sd">            :param source_store: Source Zarr group.</span>
+<span class="sd">            :type: zarr.Group</span>
+<span class="sd">            :param dest_store: Destination Zarr group.</span>
+<span class="sd">            :type: zarr.Group</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">async</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">source_store</span><span class="o">.</span><span class="n">list</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Copying </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">buf</span> <span class="o">=</span> <span class="k">await</span> <span class="n">source_store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="n">k</span><span class="p">,</span> <span class="n">prototype</span><span class="o">=</span><span class="n">default_buffer_prototype</span><span class="p">())</span>
+                <span class="k">await</span> <span class="n">dest_store</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">buf</span><span class="p">)</span>
+        <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">copy_zarr_store</span><span class="p">(</span><span class="n">zarr_map</span><span class="o">.</span><span class="n">store</span><span class="p">,</span> <span class="n">zarr_root</span><span class="o">.</span><span class="n">store</span><span class="p">))</span>
+        <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">copy_zarr_store</span><span class="p">(</span><span class="n">zarr_results</span><span class="o">.</span><span class="n">store</span><span class="p">,</span> <span class="n">zarr_root</span><span class="o">.</span><span class="n">store</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">zarr_root</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="UnstructuredToStructuredProcessor">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UnstructuredToStructuredProcessor</span><span class="p">(</span><span class="n">Processor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Processor to aggregate &quot;unstructured&quot; data into a single NeXus</span>
+<span class="sd">    style</span>
+<span class="sd">    `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__</span>
+<span class="sd">    object with a &quot;structured&quot; representation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="UnstructuredToStructuredProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create and return a Nexus style</span>
+<span class="sd">        `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__</span>
+<span class="sd">        object containing a single structured dataset composed from</span>
+<span class="sd">        multiple unstructured input datasets.</span>
+
+<span class="sd">        This method validates the field configuration, validates and</span>
+<span class="sd">        reshapes the input data, determines common axes across all</span>
+<span class="sd">        signals, and constructs a `NXdata` group containing signal and</span>
+<span class="sd">        axis fields.</span>
+
+<span class="sd">        :param data: Input data objects containing unstructured</span>
+<span class="sd">            datasets.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :param fields: Configuration describing how to structure the</span>
+<span class="sd">            input data.  This is a list of dictionaries. Each</span>
+<span class="sd">            dictionary must contain the required keys:</span>
+
+<span class="sd">            - ``&quot;name&quot;``: Name of the data item, which must correspond</span>
+<span class="sd">              to the ``name`` field of an item in ``data``.</span>
+<span class="sd">            - ``&quot;type&quot;``: Either ``&quot;signal&quot;`` or ``&quot;axis&quot;``.</span>
+<span class="sd">            - ``&quot;axes&quot;``: Required only for items where ``&quot;type&quot;`` is</span>
+<span class="sd">              ``&quot;signal&quot;``. List of the names of the fields containing</span>
+<span class="sd">              coordinate axes data for each dimension of the signal.</span>
+
+<span class="sd">            Optional keys include:</span>
+<span class="sd">            - ``&quot;attrs&quot;``: Dictionary of NeXus attributes to attach to.</span>
+
+<span class="sd">        :type fields: list[dict[str, Any]]</span>
+<span class="sd">        :param name: Name of the resulting `NXdata` group,</span>
+<span class="sd">            defaults to `&quot;data&quot;`.</span>
+<span class="sd">        :type name: str, optional</span>
+<span class="sd">        :param attrs: Attributes to attach to the resulting `NXdata`</span>
+<span class="sd">            group. The common axes determined during processing will be</span>
+<span class="sd">            added to this dictionary under the ``&quot;axes&quot;`` key.</span>
+<span class="sd">        :type attrs: dict[str, Any], optional</span>
+<span class="sd">        :returns: A structured `NXdata` object containing all signals</span>
+<span class="sd">            and axes defined by the configuration.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXdata</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">NXdata</span><span class="p">,</span>
+            <span class="n">NXfield</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">signals</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate_config_fields</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
+        <span class="n">signals</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">signals</span><span class="p">,</span> <span class="n">axes</span><span class="p">)</span>
+        <span class="n">common_axes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_common_axes</span><span class="p">(</span><span class="n">signals</span><span class="p">)</span>
+
+        <span class="n">signals</span><span class="p">,</span> <span class="n">axes</span><span class="p">,</span> <span class="n">common_axes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">structure_signal_values</span><span class="p">(</span>
+            <span class="n">signals</span><span class="p">,</span> <span class="n">axes</span><span class="p">,</span> <span class="n">common_axes</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">attrs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">attrs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">attrs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;axes&#39;</span><span class="p">:</span> <span class="n">common_axes</span><span class="p">})</span>
+
+        <span class="k">return</span> <span class="n">NXdata</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span>
+            <span class="o">**</span><span class="p">{</span>
+                <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]:</span> <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">signal</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span>
+                    <span class="n">attrs</span><span class="o">=</span><span class="n">signal</span><span class="p">[</span><span class="s1">&#39;attrs&#39;</span><span class="p">],</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">signal</span><span class="p">[</span><span class="s1">&#39;value_structured&#39;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">signal</span> <span class="ow">in</span> <span class="n">signals</span>
+            <span class="p">},</span>
+            <span class="o">**</span><span class="p">{</span>
+                <span class="n">axis</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]:</span> <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">axis</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span>
+                    <span class="n">attrs</span><span class="o">=</span><span class="n">axis</span><span class="p">[</span><span class="s1">&#39;attrs&#39;</span><span class="p">],</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">axis</span><span class="p">[</span><span class="s1">&#39;value_unique&#39;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="n">axes</span>
+            <span class="p">}</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UnstructuredToStructuredProcessor.validate_config_fields">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.validate_config_fields">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_config_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fields</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate and normalize the field configuration.</span>
+
+<span class="sd">        This method separates the input field configuration into signal</span>
+<span class="sd">        and axis definitions, performs basic validation, and ensures</span>
+<span class="sd">        that all axes referenced by signals are defined as axis fields.</span>
+
+<span class="sd">        The returned signal and axis dictionaries are normalized into a</span>
+<span class="sd">        consistent internal representation used by later processing</span>
+<span class="sd">        stages.</span>
+
+<span class="sd">        :param fields: Configuration describing how input data should</span>
+<span class="sd">            be structured. Each item must define a ``&quot;name&quot;`` and</span>
+<span class="sd">            ``&quot;type&quot;`` key, where ``&quot;type&quot;`` is either ``&quot;signal&quot;``</span>
+<span class="sd">            or ``&quot;axis&quot;``. Signal entries must additionally define an</span>
+<span class="sd">            ``&quot;axes&quot;`` list.</span>
+<span class="sd">        :type fields: list[dict[str, Any]]</span>
+<span class="sd">        :raises ValueError: If a signal references an axis that is not</span>
+<span class="sd">            defined, or if a signal is defined before any axis exist.</span>
+<span class="sd">        :returns: Validated signal and axis definitions.</span>
+<span class="sd">        :rtype: tuple[list[dict], list[dict]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Validating fields parameter&#39;</span><span class="p">)</span>
+
+        <span class="n">axes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">signals</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
+            <span class="n">field_type</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">)</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">)</span>
+            <span class="n">attrs</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;attrs&#39;</span><span class="p">,</span> <span class="p">{})</span>
+
+            <span class="k">if</span> <span class="n">field_type</span> <span class="o">==</span> <span class="s1">&#39;axis&#39;</span><span class="p">:</span>
+                <span class="n">axes</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span> <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="n">attrs</span><span class="p">})</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Registered axis &quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot;&#39;</span><span class="p">)</span>
+
+            <span class="k">elif</span> <span class="n">field_type</span> <span class="o">==</span> <span class="s1">&#39;signal&#39;</span><span class="p">:</span>
+                <span class="n">_axes</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;axes&#39;</span><span class="p">,</span> <span class="p">[])</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">axes</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Signal &quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot; has no axes defined&#39;</span><span class="p">)</span>
+                <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span> <span class="s1">&#39;axes&#39;</span><span class="p">:</span> <span class="n">_axes</span><span class="p">,</span>
+                                <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="n">attrs</span><span class="p">})</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;Registered signal &quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot; with axes </span><span class="si">{</span><span class="n">_axes</span><span class="si">}</span><span class="s1">&#39;</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Validate that all axes used by signals exist as type: axis</span>
+        <span class="n">axes_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">signal</span> <span class="ow">in</span> <span class="n">signals</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">axis</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">axes_names</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;Signal </span><span class="si">{</span><span class="n">signal</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1"> &#39;</span>
+                        <span class="o">+</span> <span class="sa">f</span><span class="s1">&#39;references unknown axis &quot;</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s1">&quot;&#39;</span>
+                    <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s1">&#39;Validated configuration for &#39;</span>
+            <span class="o">+</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">signals</span><span class="p">)</span><span class="si">}</span><span class="s1"> signals and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">axes</span><span class="p">)</span><span class="si">}</span><span class="s1"> axes&#39;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">signals</span><span class="p">,</span> <span class="n">axes</span></div>
+
+
+<div class="viewcode-block" id="UnstructuredToStructuredProcessor.get_common_axes">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.get_common_axes">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_common_axes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">signals</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Determine the common leading axis shared by all signals.</span>
+
+<span class="sd">        This method computes the longest common *prefix* of axis names</span>
+<span class="sd">        across all signal definitions. Only axes that appear in the</span>
+<span class="sd">        same order at the beginning of each signal&#39;s ``axes`` list are</span>
+<span class="sd">        included in the result.</span>
+
+<span class="sd">        This is used to identify the shared coordinate dimensions for a</span>
+<span class="sd">        structured NeXus style</span>
+<span class="sd">        `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__`NXdata`</span>
+<span class="sd">        object.</span>
+
+<span class="sd">        :param signals: Validated signal definitions. Each signal must</span>
+<span class="sd">            define an ``&quot;axes&quot;`` key containing an ordered list of axis</span>
+<span class="sd">            names.</span>
+<span class="sd">        :type signals: list[dict]</span>
+<span class="sd">        :returns: Axis names that form the common leading axis for all</span>
+<span class="sd">            signals. Returns an empty list if no common prefix exists.</span>
+<span class="sd">        :rtype: list[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Computing common dataset axes&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">signals</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;No signals provided; no common axes&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="c1"># Start with the first signal&#39;s axes</span>
+        <span class="n">common_axes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">signals</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;axes&#39;</span><span class="p">])</span>
+
+        <span class="k">for</span> <span class="n">signal</span> <span class="ow">in</span> <span class="n">signals</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="n">_axes</span> <span class="o">=</span> <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">]</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">max_i</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">common_axes</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">_axes</span><span class="p">))</span>
+            <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">max_i</span> <span class="ow">and</span> <span class="n">common_axes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">_axes</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">common_axes</span> <span class="o">=</span> <span class="n">common_axes</span><span class="p">[:</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">common_axes</span><span class="p">:</span>
+                <span class="k">break</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Computed common axes: </span><span class="si">{</span><span class="n">common_axes</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">common_axes</span></div>
+
+
+<div class="viewcode-block" id="UnstructuredToStructuredProcessor.validate_data">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.validate_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">signals</span><span class="p">,</span> <span class="n">axes</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate and normalize input data for axes and signals.</span>
+
+<span class="sd">        This method retrieves raw input data for each axis and signal,</span>
+<span class="sd">        propagates metadata attributes, computes unique axis values,</span>
+<span class="sd">        and allocates structured arrays for signal data.</span>
+
+<span class="sd">        For each axis:</span>
+<span class="sd">          - Raw data is loaded.</span>
+<span class="sd">          - Attributes are merged (without overwriting user-specified</span>
+<span class="sd">            ones).</span>
+<span class="sd">          - Unique axis values are computed.</span>
+
+<span class="sd">        For each signal:</span>
+<span class="sd">          - Raw data is loaded.</span>
+<span class="sd">          - Attributes are merged (without overwriting user-specified</span>
+<span class="sd">            ones).</span>
+<span class="sd">          - A structured output array is allocated based on its axes.</span>
+<span class="sd">          - Total signal size is validated against the expected shape.</span>
+
+<span class="sd">        :param data: Input data.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :param signals: Validated signal field definitions.</span>
+<span class="sd">        :type signals: list[dict]</span>
+<span class="sd">        :param axes: Validated axis field definitions.</span>
+<span class="sd">        :type axes: list[dict]</span>
+<span class="sd">        :raises ValueError: If a signal&#39;s data size does not match the</span>
+<span class="sd">            expected size derived from its axes.</span>
+<span class="sd">        :returns: Updated signal and axis definitions with populated</span>
+<span class="sd">            values and derived metadata.</span>
+<span class="sd">        :rtype: tuple[list[dict], list[dict]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Validating input data&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Validating axis data&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">axis</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">])</span>
+            <span class="c1"># Merge attributes, preserving explicitly defined ones</span>
+            <span class="n">axis</span><span class="p">[</span><span class="s1">&#39;attrs&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="o">**</span><span class="n">axis</span><span class="p">[</span><span class="s1">&#39;attrs&#39;</span><span class="p">],</span>
+                <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                   <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">axis</span><span class="p">[</span><span class="s1">&#39;attrs&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">k</span> <span class="o">!=</span> <span class="s1">&#39;target&#39;</span><span class="p">}</span>
+            <span class="p">}</span>
+            <span class="n">axis</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="n">axis</span><span class="p">[</span><span class="s1">&#39;value_unique&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Axis </span><span class="si">{</span><span class="n">axis</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">value</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s1"> entries, &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">axis</span><span class="p">[</span><span class="s2">&quot;value_unique&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s1"> unique&#39;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Build a lookup table for faster axis access by name</span>
+        <span class="n">axes_by_name</span> <span class="o">=</span> <span class="p">{</span><span class="n">a</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]:</span> <span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Validating signal data&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">signal</span> <span class="ow">in</span> <span class="n">signals</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+            <span class="c1"># Merge attributes, preserving explicitly defined ones</span>
+            <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;attrs&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="o">**</span><span class="n">signal</span><span class="p">[</span><span class="s1">&#39;attrs&#39;</span><span class="p">],</span>
+                <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                   <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;attrs&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">k</span> <span class="o">!=</span> <span class="s1">&#39;target&#39;</span><span class="p">}</span>
+            <span class="p">}</span>
+            <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="n">_axes</span> <span class="o">=</span> <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">]</span>
+            <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;attrs&#39;</span><span class="p">][</span><span class="s1">&#39;axes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_axes</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">axes_by_name</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="s1">&#39;value_unique&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">_axes</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;value_structured&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">value</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="n">size_expected</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">size_actual</span> <span class="o">=</span> <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">size</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Signal &quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot;: expected size </span><span class="si">{</span><span class="n">size_expected</span><span class="si">}</span><span class="s1"> (shape: </span><span class="si">{</span><span class="n">shape</span><span class="si">}</span><span class="s1">), &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;actual size </span><span class="si">{</span><span class="n">size_actual</span><span class="si">}</span><span class="s1"> (shape: </span><span class="si">{</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1">)&#39;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">size_actual</span> <span class="o">!=</span> <span class="n">size_expected</span><span class="p">:</span>
+                <span class="k">raise</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;Signal </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1"> has size </span><span class="si">{</span><span class="n">size_actual</span><span class="si">}</span><span class="s1">; &#39;</span>
+                    <span class="o">+</span> <span class="sa">f</span><span class="s1">&#39;expected </span><span class="si">{</span><span class="n">size_expected</span><span class="si">}</span><span class="s1">&#39;</span>
+                <span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Validated input data&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">signals</span><span class="p">,</span> <span class="n">axes</span></div>
+
+
+<div class="viewcode-block" id="UnstructuredToStructuredProcessor.structure_signal_values">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.structure_signal_values">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">structure_signal_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">signals</span><span class="p">,</span> <span class="n">axes</span><span class="p">,</span> <span class="n">common_axes</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reshape and populate structured signal arrays using common</span>
+<span class="sd">        axes.</span>
+
+<span class="sd">        This method determines computes index mappings from raw axis</span>
+<span class="sd">        values to their unique sorted representations, and inserts each</span>
+<span class="sd">        signal&#39;s unstructured data into its preallocated structured</span>
+<span class="sd">        array.</span>
+
+<span class="sd">        Only the common axes are used for structuring; any trailing,</span>
+<span class="sd">        signal-specific axes are assumed to have already been handled</span>
+<span class="sd">        when allocating the structured signal arrays.</span>
+
+<span class="sd">        :param signals: Signal definitions with raw and preallocated</span>
+<span class="sd">            structured data arrays.</span>
+<span class="sd">        :type signals: list[dict]</span>
+<span class="sd">        :param axes: Axis definitions containing raw values and unique</span>
+<span class="sd">            values.</span>
+<span class="sd">        :type axes: list[dict]</span>
+<span class="sd">        :param common_axes: Ordered list of the names of the dataset&#39;s</span>
+<span class="sd">            common axes.</span>
+<span class="sd">        :type common_axes: list[str]</span>
+<span class="sd">        :returns:</span>
+<span class="sd">            - Updated signal definitions with populated structured</span>
+<span class="sd">              arrays.</span>
+<span class="sd">            - Unmodified axis definitions.</span>
+<span class="sd">            - Common axis names shared by all signals.</span>
+<span class="sd">        :rtype: tuple[list[dict], list[dict], list[str]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Structuring dataset&#39;</span><span class="p">)</span>
+        <span class="n">axes_by_name</span> <span class="o">=</span> <span class="p">{</span><span class="n">a</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]:</span> <span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">axes</span> <span class="k">if</span> <span class="n">a</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">common_axes</span><span class="p">}</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">a</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">axes_by_name</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="s1">&#39;value_unique&#39;</span><span class="p">],</span>
+                               <span class="n">axes_by_name</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="s1">&#39;value&#39;</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">common_axes</span>
+        <span class="p">}</span>
+        <span class="n">_indices</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">common_axes</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">signal</span> <span class="ow">in</span> <span class="n">signals</span><span class="p">:</span>
+            <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;value_structured&#39;</span><span class="p">][</span><span class="n">_indices</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">signals</span><span class="p">,</span> <span class="n">axes</span><span class="p">,</span> <span class="n">common_axes</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="UpdateValuesProcessor">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UpdateValuesProcessor</span><span class="p">(</span><span class="n">Processor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Processes a slice of data for updating values in an existing</span>
+<span class="sd">    container for a SAXS/WAXS experiment.</span>
+
+<span class="sd">    :ivar map_config: Map Configuration.</span>
+<span class="sd">    :vartype map_config: dict dict, optional</span>
+<span class="sd">    :ivar pyfai_config: Initialization parameters for an instance of</span>
+<span class="sd">        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.</span>
+<span class="sd">    :vartype pyfai_config: dict, optional</span>
+<span class="sd">    :ivar spec_file: SPEC file containing the scan from which to read</span>
+<span class="sd">        and process a slice of raw data.</span>
+<span class="sd">    :vartype spec_file: str</span>
+<span class="sd">    :ivar scan_number: Scan number from which to read and process a</span>
+<span class="sd">        slice of raw data.</span>
+<span class="sd">    :vartype scan_number: int</span>
+<span class="sd">    :ivar detectors: Detector configurations.</span>
+<span class="sd">    :vartype detectors: list[CHAP.common.models.map.Detector]</span>
+<span class="sd">    :ivar raw_data: Flag to indicate wether or not space for raw</span>
+<span class="sd">        detector data should be included in the values returned,</span>
+<span class="sd">        defaults to `True`.</span>
+<span class="sd">    :vartype raw_data: bool, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pipeline_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">default</span><span class="o">=</span><span class="p">{</span>
+            <span class="s1">&#39;map_config&#39;</span><span class="p">:</span> <span class="s1">&#39;common.models.map.MapConfig&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;pyfai_config&#39;</span><span class="p">:</span> <span class="s1">&#39;common.models.integration.PyfaiIntegrationConfig&#39;</span>
+        <span class="p">},</span>
+        <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># map_config needs a default value because the map configuration</span>
+    <span class="c1"># may be created by an earlier item in the Pipeline. If this is</span>
+    <span class="c1"># the case, then map_config needs SOME value in order for the</span>
+    <span class="c1"># Pipeline to pass validation.</span>
+    <span class="n">map_config</span><span class="p">:</span> <span class="n">MapConfig</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">pyfai_config</span><span class="p">:</span> <span class="n">PyfaiIntegrationConfig</span>
+    <span class="n">spec_file</span><span class="p">:</span> <span class="n">FilePath</span>
+    <span class="n">scan_number</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">detectors</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">Detector</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">raw_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="UpdateValuesProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">idx_slice</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Processes a slice of data for updating values in an existing</span>
+<span class="sd">        container for a SAXS/WAXS experiment.</span>
+
+<span class="sd">        :param data: Input data.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :param idx_slice: Dictionaries identifying the sliced index at which</span>
+<span class="sd">            the output data should be written in a dataset, defaults to</span>
+<span class="sd">            `{&#39;start&#39;:0, &#39;step&#39;: 1}`.</span>
+<span class="sd">        :type idx_slice: dict[str, int], optional</span>
+<span class="sd">        :return: Integrated detector data ready for writing with</span>
+<span class="sd">            :class:`~CHAP.saxswaxs.ZarrResultsWriter` or</span>
+<span class="sd">            :class:`~CHAP.saxswaxs.NexusResultsWriter`.</span>
+<span class="sd">        :rtype: list[dict[str, Any]]</span>
+<span class="sd">        :return: Integrated detector data for updating values in an</span>
+<span class="sd">            existing container for a SAXS/WAXS experiment.</span>
+<span class="sd">        :rtype: list[dict[str, Any]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Get updates with MapSliceProcessor</span>
+        <span class="c1"># Pass detector data to PyfaiIntegration processor</span>
+        <span class="c1"># Concatenate &amp; return results</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">MapSliceProcessor</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipelineData</span>
+        <span class="c1">#from CHAP.saxswaxs.processor import PyfaiIntegrationProcessor</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">set_logger</span><span class="p">(</span><span class="n">pipeline_item</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Set the logger and logging handler for given pipeline</span>
+<span class="sd">            item.</span>
+
+<span class="sd">            :param pipeline_item: Pipeline item.</span>
+<span class="sd">            :type pipeline_item: PipelineItem</span>
+<span class="sd">            :return: Input Pipeline item, with updated logger and</span>
+<span class="sd">                logging handler.</span>
+<span class="sd">            :rtype: PipelineItem</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">pipeline_item</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span>
+            <span class="n">pipeline_item</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">pipeline_item</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+            <span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
+            <span class="n">handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span>
+                <span class="s1">&#39;</span><span class="si">{asctime}</span><span class="s1">: </span><span class="si">{name:20}</span><span class="s1"> (from &#39;</span><span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+                <span class="o">+</span> <span class="s1">&#39;): </span><span class="si">{levelname}</span><span class="s1">: </span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="n">datefmt</span><span class="o">=</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;{&#39;</span><span class="p">))</span>
+            <span class="n">pipeline_item</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">removeHandler</span><span class="p">(</span>
+                <span class="n">pipeline_item</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">pipeline_item</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">pipeline_item</span>
+
+        <span class="k">if</span> <span class="n">idx_slice</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">idx_slice</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;start&#39;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;step&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+
+        <span class="c1"># Read in slice of raw data</span>
+        <span class="n">raw_values</span> <span class="o">=</span> <span class="n">set_logger</span><span class="p">(</span>
+            <span class="n">MapSliceProcessor</span><span class="p">(</span>
+                <span class="n">map_config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">map_config</span><span class="p">,</span>
+                <span class="n">detectors</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">detectors</span><span class="p">,</span>
+                <span class="n">spec_file</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spec_file</span><span class="p">),</span>
+                <span class="n">scan_number</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">idx_slice</span><span class="o">=</span><span class="n">idx_slice</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_get_detector_data</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+            <span class="s2">&quot;Get the detector data.&quot;&quot;&quot;</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">v</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># Use raw detector data as input to integration</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">detectors</span><span class="p">:</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">PipelineData</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">get_id</span><span class="p">(),</span>
+                    <span class="n">data</span><span class="o">=</span><span class="n">_get_detector_data</span><span class="p">(</span><span class="n">raw_values</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">get_id</span><span class="p">()),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="c1"># Get integrated data</span>
+        <span class="n">processed_values</span> <span class="o">=</span> <span class="n">set_logger</span><span class="p">(</span>
+            <span class="n">PyfaiIntegrationProcessor</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pyfai_config</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">idx_slices</span><span class="o">=</span><span class="p">[</span><span class="n">idx_slice</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_data</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">raw_values</span> <span class="o">+</span> <span class="n">processed_values</span>
+
+        <span class="n">detector_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">detectors</span><span class="p">]</span>
+        <span class="n">scalar_values</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">raw_values</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">])</span> <span class="ow">in</span> <span class="n">detector_ids</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="n">scalar_values</span> <span class="o">+</span> <span class="n">processed_values</span></div>
+</div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c1"># Local modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">main</span>
+
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

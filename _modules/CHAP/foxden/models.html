@@ -1,0 +1,243 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.foxden.models &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.foxden.models</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.foxden.models</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;`Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__ model</span>
+<span class="sd">configuration classes unique to the the </span>
+<span class="sd">`FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__ integration.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># System modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<span class="c1">#    Literal,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Third party modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">conint</span><span class="p">,</span>
+    <span class="n">constr</span><span class="p">,</span>
+<span class="c1">#    field_validator,</span>
+<span class="p">)</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">CHAPBaseModel</span>
+
+
+<div class="viewcode-block" id="FoxdenRequestConfig">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.models.FoxdenRequestConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FoxdenRequestConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;`FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
+<span class="sd">    HTTP request base configuration class.</span>
+
+<span class="sd">    :ivar did: FOXDEN dataset identifier (DID).</span>
+<span class="sd">    :vartype did: string, optional</span>
+<span class="sd">    :ivar idx: Index of the first record in the list of records to</span>
+<span class="sd">        be retured, defaults to `0`.</span>
+<span class="sd">    :vartype idx: int, optional</span>
+<span class="sd">    :ivar limit: Maximum number of returned records,</span>
+<span class="sd">        defaults to `10`.</span>
+<span class="sd">    :vartype limit: int, optional</span>
+<span class="sd">    :ivar query: FOXDEN query.</span>
+<span class="sd">    :vartype query: string, optional</span>
+<span class="sd">    :ivar url: URL of service.</span>
+<span class="sd">    :vartype url: str</span>
+<span class="sd">    :ivar verbose: Verbose output flag, defaults to `False`.</span>
+<span class="sd">    :vartype verbose: bool, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<span class="c1">#    :ivar method: HTTP request method (not case sensitive),</span>
+<span class="c1">#        defaults to `&#39;POST&#39;`.</span>
+<span class="c1">#    :vartype method: Literal[&#39;DELETE&#39;, &#39;GET&#39;, &#39;POST&#39;, &#39;PUT&#39;], optional</span>
+<span class="c1">#    :ivar scope: FOXDEN scope (not case sensitive).</span>
+<span class="c1">#    :vartype scope: Literal[&#39;read&#39;, &#39;write&#39;], optional</span>
+    <span class="c1"># Mimics golib.services.data.ServiceQuery</span>
+    <span class="n">did</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span>
+        <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">to_lower</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">limit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">query</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span>
+        <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">to_lower</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="c1">#    method: Optional[Literal[&#39;DELETE&#39;, &#39;GET&#39;, &#39;POST&#39;, &#39;PUT&#39;]] = &#39;POST&#39;</span>
+<span class="c1">#    scope: Optional[Literal[&#39;read&#39;, &#39;write&#39;]] = None</span>
+<span class="c1">#    sortkeys: Optional[</span>
+<span class="c1">#        conlist[item_type=constr(strict=True, strip_whitespace=True)]] = None</span>
+<span class="c1">#    sortorder: Optional[int] = None</span>
+<span class="c1">#    spec: Optional[map[string]any] ?</span>
+<span class="c1">#    sql: Optional[constr(strict=True, strip_whitespace=True)] = None</span>
+    <span class="n">url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;False&#39;</span>
+
+<span class="c1">#    @field_validator(&#39;method&#39;, mode=&#39;before&#39;)</span>
+<span class="c1">#    @classmethod</span>
+<span class="c1">#    def validate_method(cls, method):</span>
+<span class="c1">#        &quot;&quot;&quot;Capitalize method.&quot;&quot;&quot;</span>
+<span class="c1">#        return method.upper()</span>
+
+<span class="c1">#    @field_validator(&#39;scope&#39;, mode=&#39;before&#39;)</span>
+<span class="c1">#    @classmethod</span>
+<span class="c1">#    def validate_scope(cls, scope):</span>
+<span class="c1">#        &quot;&quot;&quot;Enforce lowercase for scope.&quot;&quot;&quot;</span>
+<span class="c1">#        if isinstance(scope, str):</span>
+<span class="c1">#            return scope.lower()</span>
+<span class="c1">#        return scope</span>
+
+<div class="viewcode-block" id="FoxdenRequestConfig.create_http_request_payload">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.models.FoxdenRequestConfig.create_http_request_payload">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_http_request_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reader</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create the payload for a HTTP request.</span>
+
+<span class="sd">        :param reader: Any of the FOXDEN readers in</span>
+<span class="sd">            :mod:`~CHAP.foxden.reader`.</span>
+<span class="sd">        :type reader: FoxdenDataDiscoveryReader or</span>
+<span class="sd">            FoxdenMetadataReader or FoxdenProvenanceReader</span>
+<span class="sd">        :return: JSON string of the HTTP request.</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">json</span><span class="w"> </span><span class="kn">import</span> <span class="n">dumps</span>
+
+        <span class="n">request</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;client&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;CHAP-</span><span class="si">{</span><span class="n">reader</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;service_query&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;query&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">&#39;</span><span class="p">}}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">did</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">request</span><span class="p">[</span><span class="s1">&#39;service_query&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;query&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">})</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">reader</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;FoxdenMetadataReader&#39;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">reader</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;Ignoring parameter &quot;idx&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="si">}</span><span class="s1">), &#39;</span>
+                        <span class="s1">&#39;when &quot;did&quot; is specified&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">reader</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;Ignoring parameter &quot;limit&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="si">}</span><span class="s1">), &#39;</span>
+                        <span class="s1">&#39;when &quot;did&quot; is specified&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">request</span><span class="p">[</span><span class="s1">&#39;service_query&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+                    <span class="s1">&#39;idx&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="p">,</span> <span class="s1">&#39;limit&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="p">})</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">reader</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;Ignoring parameter &quot;query&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="si">}</span><span class="s1">), &#39;</span>
+                    <span class="s1">&#39;when &quot;did&quot; is specified&#39;</span><span class="p">)</span>
+            <span class="n">request</span><span class="p">[</span><span class="s1">&#39;service_query&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;query&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;did:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">did</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">})</span>
+        <span class="k">return</span> <span class="n">dumps</span><span class="p">(</span><span class="n">request</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

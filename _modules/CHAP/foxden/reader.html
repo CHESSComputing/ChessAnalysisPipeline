@@ -1,0 +1,432 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.foxden.reader &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.foxden.reader</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.foxden.reader</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Module for Readers unique to the</span>
+<span class="sd">`FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
+<span class="sd">integration with CHAP.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># System modules</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="c1"># Third party modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Field</span><span class="p">,</span>
+    <span class="n">model_validator</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.foxden.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">FoxdenRequestConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.foxden.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">HTTP_request</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipelineItem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">Processor</span>
+
+
+<div class="viewcode-block" id="FoxdenDataDiscoveryReader">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.reader.FoxdenDataDiscoveryReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FoxdenDataDiscoveryReader</span><span class="p">(</span><span class="n">PipelineItem</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for the</span>
+<span class="sd">    `FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
+<span class="sd">    Data Discovery service.</span>
+
+<span class="sd">    :ivar config: Initialization parameters for an instance of</span>
+<span class="sd">        :class:`~CHAP.foxden.models.FoxdenRequestConfig`.</span>
+<span class="sd">    :vartype config: dict, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pipeline_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="s1">&#39;foxden.models.FoxdenRequestConfig&#39;</span><span class="p">},</span>
+        <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FoxdenRequestConfig</span><span class="p">]</span> <span class="o">=</span> <span class="n">FoxdenRequestConfig</span><span class="p">()</span>
+
+    <span class="n">_validate_config</span> <span class="o">=</span> <span class="n">model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)(</span>
+        <span class="n">Processor</span><span class="o">.</span><span class="n">validate_processor_before</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FoxdenDataDiscoveryReader.validate_foxdendatadiscoveryreader_after">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.reader.FoxdenDataDiscoveryReader.validate_foxdendatadiscoveryreader_after">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_foxdendatadiscoveryreader_after</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the `FoxdenDataDiscoveryReader` configuration.</span>
+
+<span class="sd">        :return: Validated model configuration</span>
+<span class="sd">        :rtype: FoxdenDataDiscoveryReader</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">url</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="FoxdenDataDiscoveryReader.read">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.reader.FoxdenDataDiscoveryReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read records from the</span>
+<span class="sd">        `FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
+<span class="sd">        Data Discovery service based on</span>
+<span class="sd">        DID (Dataset Identifier) or an arbitrary query.</span>
+
+<span class="sd">        :return: Discovered data records.</span>
+<span class="sd">        :rtype: list</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;config: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Submit HTTP request and return response</span>
+        <span class="n">rurl</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s1">/search&#39;</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">create_http_request_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;method=POST url=</span><span class="si">{</span><span class="n">rurl</span><span class="si">}</span><span class="s1"> payload=</span><span class="si">{</span><span class="n">payload</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">HTTP_request</span><span class="p">(</span><span class="n">rurl</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;POST&#39;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s1">&#39;read&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;code=</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s1"> data=</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Returning </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="si">}</span><span class="s1"> records&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;HTTP error code </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;HTTP response:</span><span class="se">\n</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="vm">__dict__</span><span class="si">}</span><span class="se">\n</span><span class="s1">payload:</span><span class="se">\n</span><span class="si">{</span><span class="n">payload</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FoxdenMetadataReader">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.reader.FoxdenMetadataReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FoxdenMetadataReader</span><span class="p">(</span><span class="n">PipelineItem</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for the</span>
+<span class="sd">    `FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
+<span class="sd">    Metadata service.</span>
+
+<span class="sd">    :ivar config: Initialization parameters for an instance of</span>
+<span class="sd">        :class:`~CHAP.foxden.models.FoxdenRequestConfig`.</span>
+<span class="sd">    :vartype config: dict, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pipeline_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="s1">&#39;foxden.models.FoxdenRequestConfig&#39;</span><span class="p">},</span>
+        <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FoxdenRequestConfig</span><span class="p">]</span> <span class="o">=</span> <span class="n">FoxdenRequestConfig</span><span class="p">()</span>
+
+    <span class="n">_validate_config</span> <span class="o">=</span> <span class="n">model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)(</span>
+        <span class="n">Processor</span><span class="o">.</span><span class="n">validate_processor_before</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FoxdenMetadataReader.validate_foxdenmetadatareader_after">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.reader.FoxdenMetadataReader.validate_foxdenmetadatareader_after">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_foxdenmetadatareader_after</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the `FoxdenMetadataReader` configuration.</span>
+
+<span class="sd">        :return: Validated model configuration</span>
+<span class="sd">        :rtype: FoxdenMetadataReader</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_schema</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">schema_</span> <span class="o">=</span> <span class="s1">&#39;foxden.reader.FoxdenMetadataReader&#39;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">url</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="FoxdenMetadataReader.read">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.reader.FoxdenMetadataReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read a record from the</span>
+<span class="sd">        `FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
+<span class="sd">        Metadata service based on DID (Dataset Identifier) or an</span>
+<span class="sd">        arbitrary query.</span>
+
+<span class="sd">        :return: Metadata record.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;config: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Submit HTTP request and return response</span>
+        <span class="n">rurl</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s1">/search&#39;</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">create_http_request_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;method=POST url=</span><span class="si">{</span><span class="n">rurl</span><span class="si">}</span><span class="s1"> payload=</span><span class="si">{</span><span class="n">payload</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">HTTP_request</span><span class="p">(</span><span class="n">rurl</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;POST&#39;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s1">&#39;read&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;code=</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s1"> data=</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;FOXDEN Metadata service did not return a &#39;</span>
+                                    <span class="sa">f</span><span class="s1">&#39;valid record for did </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">did</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;FOXDEN Metadata service did not return &#39;</span>
+                                    <span class="sa">f</span><span class="s1">&#39;any records for did </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">did</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Received </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="si">}</span><span class="s1"> records&#39;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;FOXDEN Metadata service did not return a &#39;</span>
+                                    <span class="sa">f</span><span class="s1">&#39;unique record for did </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">did</span><span class="si">}</span><span class="s1">.&#39;</span>
+                                    <span class="s1">&#39; Returning the last record.&#39;</span><span class="p">)</span>
+            <span class="c1"># FIX For now don&#39;t allow multiple parent did records</span>
+<span class="c1">#            assert &#39;parent_did&#39; not in self._metadata</span>
+<span class="c1">#            self._metadata[&#39;parent_did&#39;] = result[-1][&#39;did&#39;]</span>
+            <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;HTTP error code </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;HTTP response:</span><span class="se">\n</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="vm">__dict__</span><span class="si">}</span><span class="se">\n</span><span class="s1">payload:</span><span class="se">\n</span><span class="si">{</span><span class="n">payload</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FoxdenProvenanceReader">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.reader.FoxdenProvenanceReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FoxdenProvenanceReader</span><span class="p">(</span><span class="n">PipelineItem</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for the</span>
+<span class="sd">    `FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
+<span class="sd">    Provenance service.</span>
+
+<span class="sd">    :ivar config: Initialization parameters for an instance of</span>
+<span class="sd">        :class:`~CHAP.foxden.models.FoxdenRequestConfig`.</span>
+<span class="sd">    :vartype config: dict, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pipeline_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="s1">&#39;foxden.models.FoxdenRequestConfig&#39;</span><span class="p">},</span>
+        <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FoxdenRequestConfig</span><span class="p">]</span> <span class="o">=</span> <span class="n">FoxdenRequestConfig</span><span class="p">()</span>
+
+    <span class="n">_validate_config</span> <span class="o">=</span> <span class="n">model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)(</span>
+        <span class="n">Processor</span><span class="o">.</span><span class="n">validate_processor_before</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FoxdenProvenanceReader.validate_foxdenprovenancereader_after">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.reader.FoxdenProvenanceReader.validate_foxdenprovenancereader_after">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_foxdenprovenancereader_after</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the `FoxdenProvenanceReader` configuration.</span>
+
+<span class="sd">        :return: Validated model configuration</span>
+<span class="sd">        :rtype: FoxdenProvenanceReader</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_schema</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">schema_</span> <span class="o">=</span> <span class="s1">&#39;foxden.reader.FoxdenProvenanceReader&#39;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">url</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="FoxdenProvenanceReader.read">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.reader.FoxdenProvenanceReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read records from the</span>
+<span class="sd">        `FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
+<span class="sd">        Provenance service based on did or an arbitrary query.</span>
+
+<span class="sd">        :return: Provenance input and output file records.</span>
+<span class="sd">        :rtype: list</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># FIX right now the provenance reader only returns input and</span>
+        <span class="c1"># output files, not the did. So you always also have to read a</span>
+        <span class="c1"># metadata record</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;config: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Submit HTTP request and return response</span>
+        <span class="n">rurl</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s1">/files?did=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">did</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">create_http_request_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;method=GET url=</span><span class="si">{</span><span class="n">rurl</span><span class="si">}</span><span class="s1"> payload=</span><span class="si">{</span><span class="n">payload</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">HTTP_request</span><span class="p">(</span><span class="n">rurl</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="s1">&#39;read&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;code=</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s1"> data=</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">v</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="s1">&#39;file_type&#39;</span><span class="p">:</span> <span class="n">v</span><span class="p">[</span><span class="s1">&#39;file_type&#39;</span><span class="p">]}</span>
+                      <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">)]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Returning </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="si">}</span><span class="s1"> records&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;HTTP error code </span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;HTTP response:</span><span class="se">\n</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="vm">__dict__</span><span class="si">}</span><span class="se">\n</span><span class="s1">payload:</span><span class="se">\n</span><span class="si">{</span><span class="n">payload</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FoxdenSpecScansReader">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.reader.FoxdenSpecScansReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FoxdenSpecScansReader</span><span class="p">(</span><span class="n">PipelineItem</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for `FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
+<span class="sd">    SpecScans data from a specific FOXDEN SpecScans service.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FoxdenSpecScansReader.read">
+<a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.reader.FoxdenSpecScansReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">did</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">query</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">spec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;POST&#39;</span><span class="p">,</span>
+            <span class="c1"># &#39;GET&#39;,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read and return data from a specific</span>
+<span class="sd">        `FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
+<span class="sd">        SpecScans service.</span>
+
+<span class="sd">        :param url: URL of service.</span>
+<span class="sd">        :type url: str</span>
+<span class="sd">        :param data: Input data.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :param did: FOXDEN dataset identifier (DID).</span>
+<span class="sd">        :type did: string, optional</span>
+<span class="sd">        :param query: FOXDEN query.</span>
+<span class="sd">        :type query: string, optional</span>
+<span class="sd">        :param spec: FOXDEN spec.</span>
+<span class="sd">        :type spec: dictionary, optional</span>
+<span class="sd">        :param method: HTTP method to use, `&#39;POST&#39;` for creation or</span>
+<span class="sd">            `&#39;PUT&#39;` for update, defaults to `&#39;POST&#39;`.</span>
+<span class="sd">        :type method: str, optional</span>
+<span class="sd">        :param verbose: Verbose output flag, defaults to `False`.</span>
+<span class="sd">        :type verbose: bool, optional</span>
+<span class="sd">        :return: Contents of the input data.</span>
+<span class="sd">        :rtype: list</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># TODO FIX</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;Executing &quot;process&quot; with url=</span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s1"> data=</span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s1"> did=</span><span class="si">{</span><span class="n">did</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">rurl</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s1">/search&#39;</span>
+        <span class="n">request</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;client&#39;</span><span class="p">:</span> <span class="s1">&#39;CHAP-FoxdenSpecScansReader&#39;</span><span class="p">,</span> <span class="s1">&#39;service_query&#39;</span><span class="p">:</span> <span class="p">{}}</span>
+        <span class="k">if</span> <span class="n">did</span><span class="p">:</span>
+            <span class="n">request</span><span class="p">[</span><span class="s1">&#39;service_query&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;spec&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;did&#39;</span><span class="p">:</span> <span class="n">did</span><span class="p">}})</span>
+        <span class="k">if</span> <span class="n">query</span><span class="p">:</span>
+            <span class="n">request</span><span class="p">[</span><span class="s1">&#39;service_query&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;query&#39;</span><span class="p">:</span> <span class="n">query</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">spec</span><span class="p">:</span>
+            <span class="n">request</span><span class="p">[</span><span class="s1">&#39;service_query&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;spec&#39;</span><span class="p">:</span> <span class="n">spec</span><span class="p">})</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;method=</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s1"> url=</span><span class="si">{</span><span class="n">rurl</span><span class="si">}</span><span class="s1"> payload=</span><span class="si">{</span><span class="n">payload</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">HTTP_request</span><span class="p">(</span><span class="n">rurl</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;code=</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s1"> data=</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+</div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c1"># Local modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">main</span>
+
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,263 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.server &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.server</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.server</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Python server with thread pool and CHAP pipeline.</span>
+
+<span class="sd">===========</span>
+<span class="sd">Client side</span>
+<span class="sd">===========</span>
+<span class="sd">cat /tmp/chap.json</span>
+<span class="sd">{&quot;pipeline&quot;: [{&quot;common.PrintProcessor&quot;: {}}], &quot;input&quot;: 1}</span>
+
+<span class="sd">==========================================</span>
+<span class="sd">Curl call to the server with CHAP pipeline</span>
+<span class="sd">==========================================</span>
+<span class="sd">curl -X POST -H &quot;Content-type: application/json&quot; -d@/tmp/chap.json http://localhost:5000/pipeline</span>
+<span class="sd">{&quot;pipeline&quot;: [{&quot;common.PrintProcessor&quot;:{}}], &quot;status&quot;:&quot;ok&quot;}</span>
+
+<span class="sd">===========</span>
+<span class="sd">Server side</span>
+<span class="sd">===========</span>
+<span class="sd">flask --app server run</span>
+
+<span class="sd">* Serving Flask app &#39;server&#39;</span>
+<span class="sd">* Debug mode: off</span>
+
+<span class="sd">WARNING: This is a development server. Do not use it in a production</span>
+<span class="sd">deployment. Use a production WSGI server instead.</span>
+
+<span class="sd">* Running on http://127.0.0.1:5000</span>
+
+<span class="sd">Press CTRL+C to quit</span>
+
+<span class="sd">CHAP output::</span>
+
+<span class="sd">    CHAP.server         : Call pipeline args=()</span>
+<span class="sd">        kwds={&#39;pipeline&#39;: [{&#39;common.PrintProcessor&#39;: {}}]}</span>
+<span class="sd">    CHAP.server         : pipeline [{&#39;common.PrintProcessor&#39;: {}}]</span>
+<span class="sd">    CHAP.server         : Loaded</span>
+<span class="sd">        &lt;CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0&gt;</span>
+<span class="sd">    CHAP.server         : Loaded</span>
+<span class="sd">        &lt;CHAP.pipeline.Pipeline object at 0x10e0f1f10&gt; with 1 items</span>
+<span class="sd">    CHAP.server         : Calling &quot;execute&quot; on &lt;CHAP.pipeline.Pipeline</span>
+<span class="sd">        object at 0x10e0f1f10&gt;</span>
+<span class="sd">    Pipeline            : Executing &quot;execute&quot;</span>
+<span class="sd">    Pipeline            : Calling &quot;process&quot; on</span>
+<span class="sd">        &lt;CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0&gt;</span>
+<span class="sd">    PrintProcessor      : Executing &quot;process&quot; with</span>
+<span class="sd">        type(data)=&lt;class &#39;NoneType&#39;&gt;</span>
+<span class="sd">    PrintProcessor data : None</span>
+<span class="sd">    PrintProcessor      : Finished &quot;process&quot; in 0.000 seconds</span>
+<span class="sd">    Pipeline            : Executed &quot;execute&quot; in 0.000 seconds</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="c1"># System modules</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">queue</span><span class="w"> </span><span class="kn">import</span> <span class="n">Queue</span>
+
+<span class="c1"># Third-party modules</span>
+
+<span class="c1"># Flask modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">flask</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flask</span><span class="p">,</span> <span class="n">request</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.taskmanager</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TaskManager</span><span class="p">,</span>
+    <span class="n">start_new_thread</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.runner</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">run</span><span class="p">,</span>
+    <span class="n">set_logger</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Task manager to execute our tasks</span>
+<span class="n">taskManager</span> <span class="o">=</span> <span class="n">TaskManager</span><span class="p">()</span>
+
+<span class="c1"># Flask Server</span>
+<span class="n">app</span> <span class="o">=</span> <span class="n">Flask</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># daemon task queue</span>
+<span class="n">task_queue</span> <span class="o">=</span> <span class="n">Queue</span><span class="p">()</span>
+
+<div class="viewcode-block" id="index_route">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.server.index_route">[docs]</a>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">index_route</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Server main end-point.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="s2">&quot;CHAP daemon&quot;</span></div>
+
+
+<div class="viewcode-block" id="run_route">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.server.run_route">[docs]</a>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/run&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_route</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Server main end-point.&quot;&quot;&quot;</span>
+    <span class="n">ttask</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;task&#39;</span><span class="p">)</span>
+    <span class="n">task_queue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">ttask</span><span class="p">)</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;Execute </span><span class="si">{</span><span class="n">ttask</span><span class="si">}</span><span class="s1">&#39;</span></div>
+
+
+<div class="viewcode-block" id="pipeline_route">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.server.pipeline_route">[docs]</a>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/pipeline&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">pipeline_route</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Server /pipeline end-point.&quot;&quot;&quot;</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">json</span>
+    <span class="k">if</span> <span class="s1">&#39;pipeline&#39;</span> <span class="ow">in</span> <span class="n">content</span><span class="p">:</span>
+        <span class="c1"># spawn new pipeline task</span>
+        <span class="n">jobs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">taskManager</span><span class="o">.</span><span class="n">spawn</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">pipeline</span><span class="o">=</span><span class="n">content</span><span class="p">[</span><span class="s1">&#39;pipeline&#39;</span><span class="p">]))</span>
+        <span class="n">taskManager</span><span class="o">.</span><span class="n">joinall</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;ok&#39;</span><span class="p">,</span> <span class="s1">&#39;pipeline&#39;</span><span class="p">:</span> <span class="n">content</span><span class="p">[</span><span class="s1">&#39;pipeline&#39;</span><span class="p">]}</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;fail&#39;</span><span class="p">,</span> <span class="s1">&#39;reason&#39;</span><span class="p">:</span> <span class="s1">&#39;no pipeline in incoming request&#39;</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="task">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.server.task">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">task</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper function to execute CHAP pipeline.&quot;&quot;&quot;</span>
+    <span class="n">log_level</span> <span class="o">=</span> <span class="s1">&#39;INFO&#39;</span>
+    <span class="n">logger</span><span class="p">,</span> <span class="n">log_handler</span> <span class="o">=</span> <span class="n">set_logger</span><span class="p">(</span><span class="n">log_level</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;call pipeline args=</span><span class="si">{</span><span class="n">args</span><span class="si">}</span><span class="s1"> kwds=</span><span class="si">{</span><span class="n">kwds</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">pipeline</span> <span class="o">=</span> <span class="n">kwds</span><span class="p">[</span><span class="s1">&#39;pipeline&#39;</span><span class="p">]</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;pipeline</span><span class="se">\n</span><span class="si">{</span><span class="n">pipeline</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">run</span><span class="p">(</span><span class="n">pipeline</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">log_level</span><span class="p">,</span> <span class="n">log_handler</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="daemon">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.server.daemon">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">daemon</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">queue</span><span class="p">,</span> <span class="n">interval</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Daemon example based on Queue.&quot;&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Daemon </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">queue</span><span class="o">.</span><span class="n">qsize</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Default action&#39;</span><span class="p">)</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">interval</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ttask</span> <span class="o">=</span> <span class="n">queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">ttask</span> <span class="o">==</span> <span class="s1">&#39;exit&#39;</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;daemon run </span><span class="si">{</span><span class="n">ttask</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+
+<span class="c1"># start daemon thread in addition to Flask server</span>
+<span class="n">start_new_thread</span><span class="p">(</span><span class="s1">&#39;daemon&#39;</span><span class="p">,</span> <span class="n">daemon</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;daemon&#39;</span><span class="p">,</span> <span class="n">task_queue</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

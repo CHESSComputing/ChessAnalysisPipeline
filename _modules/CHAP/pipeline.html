@@ -1,0 +1,803 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.pipeline &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.pipeline</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.pipeline</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Base pipeline `Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__</span>
+<span class="sd">model classes.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># System modules</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="kn">import</span> <span class="n">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="kn">import</span> <span class="n">MethodType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Literal</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Third party modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Field</span><span class="p">,</span>
+<span class="c1">#    FilePath,</span>
+    <span class="n">PrivateAttr</span><span class="p">,</span>
+    <span class="n">conlist</span><span class="p">,</span>
+    <span class="n">constr</span><span class="p">,</span>
+    <span class="n">model_validator</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic._internal._model_construction</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelMetaclass</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CHAPBaseModel</span><span class="p">,</span>
+    <span class="n">RunConfig</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="PipelineData">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineData">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PipelineData</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrapper for all results of PipelineItem.execute.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="fm">__setitem__</span><span class="p">(</span><span class="s1">&#39;schema&#39;</span><span class="p">,</span> <span class="n">schema</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="PipelineItem">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PipelineItem</span><span class="p">(</span><span class="n">RunConfig</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing a single item in a `Pipeline` object.</span>
+
+<span class="sd">    :ivar logger: CHAP logger.</span>
+<span class="sd">    :vartype logger: logging.Logger, optional</span>
+<span class="sd">    :ivar name: `Pipeline` object name.</span>
+<span class="sd">    :vartype name: str, optional</span>
+<span class="sd">    :ivar schema: `Pipeline` object schema.</span>
+<span class="sd">    :vartype schema: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">logger</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">schema_</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> \
+        <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">alias</span><span class="o">=</span><span class="s1">&#39;schema&#39;</span><span class="p">)</span>
+
+    <span class="n">_method</span><span class="p">:</span> <span class="n">MethodType</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">_method_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+        <span class="s1">&#39;read&#39;</span><span class="p">,</span> <span class="s1">&#39;process&#39;</span><span class="p">,</span> <span class="s1">&#39;write&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">_args</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="p">{})</span>
+    <span class="n">_allowed_args</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="p">[])</span>
+<span class="c1">#    _metadata: dict = PrivateAttr(default=None)</span>
+<span class="c1">#    _provenance: dict = PrivateAttr(default=None)</span>
+    <span class="n">_status</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+        <span class="s1">&#39;read&#39;</span><span class="p">,</span> <span class="s1">&#39;write_pending&#39;</span><span class="p">,</span> <span class="s1">&#39;written&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PipelineItem.validate_pipelineitem_after">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.validate_pipelineitem_after">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_pipelineitem_after</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the `PipelineItem` configuration.</span>
+
+<span class="sd">        :return: Validated configuration.</span>
+<span class="sd">        :rtype: PipelineItem</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">inspect</span><span class="w"> </span><span class="kn">import</span> <span class="n">signature</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">log_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
+            <span class="n">log_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span>
+                <span class="s1">&#39;</span><span class="si">{asctime}</span><span class="s1">: </span><span class="si">{name:20}</span><span class="s1">: </span><span class="si">{levelname}</span><span class="s1">: </span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="n">datefmt</span><span class="o">=</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;{&#39;</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">log_handler</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_level</span><span class="p">)</span>
+        <span class="c1"># Optinal, but it&#39;s already available in the &#39;name&#39; field</span>
+        <span class="c1">#if self.get_schema() is None:</span>
+        <span class="c1">#    mod_name = &#39;.&#39;.join(self.__class__.__module__.split(&#39;.&#39;)[1:])</span>
+        <span class="c1">#    self.schema_ = f&#39;{mod_name}.{self.__class__.__name__}&#39;</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;read&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_method_type</span> <span class="o">=</span> <span class="s1">&#39;read&#39;</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;process&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_method_type</span> <span class="o">=</span> <span class="s1">&#39;process&#39;</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;write&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_method_type</span> <span class="o">=</span> <span class="s1">&#39;write&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_method</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_method_type</span><span class="p">)</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_method</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_allowed_args</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                              <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">v</span><span class="o">.</span><span class="n">POSITIONAL_OR_KEYWORD</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">method</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the `PipelineItem`\\s `read`, `process` or `write`</span>
+<span class="sd">        method.</span>
+
+<span class="sd">        :type: types.MethodType</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_method</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">method_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the `PipelineItem`\\s execute method type.</span>
+
+<span class="sd">        :type: Literal[&#39;read&#39;, &#39;process&#39;, &#39;write&#39;]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_method_type</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the `PipelineItem`\\s run configuration.</span>
+
+<span class="sd">        :type: RunConfig</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">RunConfig</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">model_dump</span><span class="p">())</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the `PipelineItem`\\s status.</span>
+
+<span class="sd">        :type: Literal[&#39;read&#39;, &#39;write_pending&#39;, &#39;written&#39;]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span>
+
+    <span class="nd">@status</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the `PipelineItem`\\s status.</span>
+
+<span class="sd">        :param status: `PipelineItem`\\s status.</span>
+<span class="sd">        :type: Literal[&#39;read&#39;, &#39;write_pending&#39;, &#39;written&#39;]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="n">status</span>
+
+<div class="viewcode-block" id="PipelineItem.get_args">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.get_args">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_args</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the `PipelineItem`\\s execution method run time</span>
+<span class="sd">        arguments.</span>
+
+<span class="sd">        :type: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_args</span></div>
+
+
+<div class="viewcode-block" id="PipelineItem.set_args">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.set_args">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the `PipelineItem`\\s execution method run time</span>
+<span class="sd">        arguments that are allowed by its method declaration.</span>
+
+<span class="sd">        :param: `PipelineItem`\\s execution method run time arguments.</span>
+<span class="sd">        :type: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_allowed_args</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_args</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span></div>
+
+
+<div class="viewcode-block" id="PipelineItem.has_filename">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.has_filename">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">has_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Does the `PipelineItem` has a `filename` class attribute?</span>
+
+<span class="sd">        :return: `True` if the `PipelineItem` has a `filename` class</span>
+<span class="sd">            attribute.</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;filename&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="PipelineItem.get_schema">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.get_schema">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the `PipelineItem`\\s schema.</span>
+
+<span class="sd">        :type: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema_</span></div>
+
+
+<div class="viewcode-block" id="PipelineItem.get_config">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.get_config">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_config</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">remove</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Look through `data` for the last item which value for the</span>
+<span class="sd">        `&#39;schema&#39;` key matches `schema`. Convert the value for that</span>
+<span class="sd">        item&#39;s `&#39;data&#39;` key into the configuration&#39;s</span>
+<span class="sd">        `Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__ model</span>
+<span class="sd">        identified by `schema` and return it. If no item is found and</span>
+<span class="sd">        `config` and `schema` are specified, validate `config` against</span>
+<span class="sd">        the configuration&#39;s Pydantic model identified by `schema` and</span>
+<span class="sd">        return it. Return `config` if no item is found and `config` is</span>
+<span class="sd">        specified, but `schema` is not.</span>
+
+<span class="sd">        :param data: Input data.</span>
+<span class="sd">        :type data: list[PipelineData], optional</span>
+<span class="sd">        :param config: Initialization parameters for an instance of the</span>
+<span class="sd">            `Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__ model</span>
+<span class="sd">            identified by `schema`, required if data is unspecified,</span>
+<span class="sd">            invalid or does not contain an item that matches the</span>
+<span class="sd">            schema, superseeds any equal parameters contained in</span>
+<span class="sd">            `data`.</span>
+<span class="sd">        :type config: dict, optional</span>
+<span class="sd">        :param schema: Schema of the `PipelineItem` class to match in</span>
+<span class="sd">             `data`, defaults to the internal PipelineItem `schema`</span>
+<span class="sd">             attribute.</span>
+<span class="sd">        :type schema: str, optional</span>
+<span class="sd">        :param remove: If there is a matching entry in `data`, remove</span>
+<span class="sd">           it from the list, defaults to `True`.</span>
+<span class="sd">        :type remove: bool, optional</span>
+<span class="sd">        :raises ValueError: If there&#39;s no match for `schema` in `data`.</span>
+<span class="sd">        :return: Last matching validated configuration model.</span>
+<span class="sd">        :rtype: PipelineItem</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Getting </span><span class="si">{</span><span class="n">schema</span><span class="si">}</span><span class="s1"> configuration&#39;</span><span class="p">)</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">schema</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">schema_</span>
+        <span class="n">matching_config</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">data</span><span class="p">))):</span>
+                    <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;schema&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="n">schema</span><span class="p">:</span>
+                        <span class="n">matching_config</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">remove</span><span class="p">:</span>
+                            <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                        <span class="k">break</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+        <span class="k">if</span> <span class="n">matching_config</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Local modules</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">dictionary_update</span>
+
+                <span class="c1"># Update matching_config with config if both exist</span>
+                <span class="n">matching_config</span> <span class="o">=</span> <span class="n">dictionary_update</span><span class="p">(</span><span class="n">matching_config</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">matching_config</span> <span class="o">=</span> <span class="n">config</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;Unable to find a configuration for schema `</span><span class="si">{</span><span class="n">schema</span><span class="si">}</span><span class="s1">`&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_method_type</span> <span class="o">==</span> <span class="s1">&#39;read&#39;</span> <span class="ow">and</span> <span class="s1">&#39;inputdir&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">matching_config</span><span class="p">:</span>
+            <span class="n">matching_config</span><span class="p">[</span><span class="s1">&#39;inputdir&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inputdir</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_method_type</span> <span class="o">==</span> <span class="s1">&#39;write&#39;</span> <span class="ow">and</span> <span class="s1">&#39;outputdir&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">matching_config</span><span class="p">:</span>
+            <span class="n">matching_config</span><span class="p">[</span><span class="s1">&#39;outputdir&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">outputdir</span>
+
+        <span class="n">mod_name</span><span class="p">,</span> <span class="n">cls_name</span> <span class="o">=</span> <span class="n">schema</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">module</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;CHAP.</span><span class="si">{</span><span class="n">mod_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">fromlist</span><span class="o">=</span><span class="n">cls_name</span><span class="p">)</span>
+        <span class="n">model_config</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">cls_name</span><span class="p">)(</span><span class="o">**</span><span class="n">matching_config</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;Got </span><span class="si">{</span><span class="n">schema</span><span class="si">}</span><span class="s1"> configuration in </span><span class="si">{</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">t0</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> seconds&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">model_config</span></div>
+
+
+<div class="viewcode-block" id="PipelineItem.get_data">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.get_data">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">remove</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Look through `data` for the last item which `&#39;data&#39;` value</span>
+<span class="sd">        is a NeXus style</span>
+<span class="sd">        `NXobject &lt;https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0&gt;`__</span>
+<span class="sd">        object or matches a given name or schema. Pick the last item for which</span>
+<span class="sd">        the `&#39;name&#39;` key matches `name` if set or the `&#39;schema&#39;` key matches</span>
+<span class="sd">        `schema` if set, pick the last match for a `NXobjecta` object</span>
+<span class="sd">        otherwise. Return the data object.</span>
+
+<span class="sd">        :param data: Input data.</span>
+<span class="sd">        :type data: list[PipelineData].</span>
+<span class="sd">        :param name: Name of the `PipelineItem` class to match in</span>
+<span class="sd">            `data`.</span>
+<span class="sd">        :type name: str, optional</span>
+<span class="sd">        :param schema: Schema of the `PipelineItem` class to match in</span>
+<span class="sd">            `data` &amp; return.</span>
+<span class="sd">        :type schema: str | list[str], optional</span>
+<span class="sd">        :param remove: If there is a matching entry in `data`, remove</span>
+<span class="sd">            it from the list, defaults to `True`.</span>
+<span class="sd">        :type remove: bool, optional</span>
+<span class="sd">        :raises ValueError: If there&#39;s no match for `name` or &#39;schema`</span>
+<span class="sd">            in `data`, or if there is no object of type</span>
+<span class="sd">            nexusformat.nexus.NXobject.</span>
+<span class="sd">        :return: Last matching data item.</span>
+<span class="sd">        :rtype: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">NXobject</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">schema</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">data</span><span class="p">))):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">),</span> <span class="n">NXobject</span><span class="p">):</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">remove</span><span class="p">:</span>
+                        <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;No NXobject data item found&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">data</span><span class="p">))):</span>
+                <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">remove</span><span class="p">:</span>
+                        <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;No match for data item named &quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot;&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">schema</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">schema</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">schema</span> <span class="o">=</span> <span class="p">[</span><span class="n">schema</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">data</span><span class="p">))):</span>
+                <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;schema&#39;</span><span class="p">)</span> <span class="ow">in</span> <span class="n">schema</span><span class="p">:</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">remove</span><span class="p">:</span>
+                        <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;No match for data item with schema &quot;</span><span class="si">{</span><span class="n">schema</span><span class="si">}</span><span class="s1">&quot;&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="PipelineItem.get_default_nxentry">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.get_default_nxentry">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_default_nxentry</span><span class="p">(</span><span class="n">nxobject</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Given a NeXus style</span>
+<span class="sd">        `NXroot &lt;https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0&gt;`__ </span>
+<span class="sd">        object or a NeXus style</span>
+<span class="sd">        `NXentry &lt;https://manual.nexusformat.org/classes/base_classes/NXentry.html#index-0&gt;`__</span>
+<span class="sd">        object, return the default or first `NXentry` match.</span>
+
+<span class="sd">        :param nxobject: Input data.</span>
+<span class="sd">        :type nxobject: nexusformat.nexus.NXroot | nexusformat.nexus.NXentry</span>
+<span class="sd">        :raises ValueError: If unable to retrieve a `NXentry` object.</span>
+<span class="sd">        :return: Input data if a `NXentry` object or the default or first</span>
+<span class="sd">            `NXentry` object if a `NXroot` object.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXentry</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">NXentry</span><span class="p">,</span>
+            <span class="n">NXroot</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxobject</span><span class="p">,</span> <span class="n">NXroot</span><span class="p">):</span>
+            <span class="k">if</span> <span class="s1">&#39;default&#39;</span> <span class="ow">in</span> <span class="n">nxobject</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+                <span class="n">nxentry</span> <span class="o">=</span> <span class="n">nxobject</span><span class="p">[</span><span class="n">nxobject</span><span class="o">.</span><span class="n">default</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">nxentries</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">nxobject</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">NXentry</span><span class="p">)]</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">nxentries</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unable to retrieve a NXentry object&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nxentries</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;WARNING: Found multiple NXentries, returning the &#39;</span>
+                          <span class="s1">&#39;first&#39;</span><span class="p">)</span>
+                <span class="n">nxentry</span> <span class="o">=</span> <span class="n">nxentries</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxobject</span><span class="p">,</span> <span class="n">NXentry</span><span class="p">):</span>
+            <span class="n">nxentry</span> <span class="o">=</span> <span class="n">nxobject</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid parameter nxobject (</span><span class="si">{</span><span class="n">nxobject</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">nxentry</span></div>
+
+
+<div class="viewcode-block" id="PipelineItem.get_nxroot">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.get_nxroot">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_nxroot</span><span class="p">(</span><span class="n">nxobject</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Given a NeXus style</span>
+<span class="sd">        `NXroot &lt;https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0&gt;`__ </span>
+<span class="sd">        object or a NeXus style</span>
+<span class="sd">        `NXentry &lt;https://manual.nexusformat.org/classes/base_classes/NXentry.html#index-0&gt;`__</span>
+<span class="sd">        object, return a `NXroot` object with the appropriate default path to</span>
+<span class="sd">        the `NXentry` object set.</span>
+
+<span class="sd">        :param nxobject: Input data.</span>
+<span class="sd">        :type nxobject: nexusformat.nexus.NXroot | nexusformat.nexus.NXentry</span>
+<span class="sd">        :raises ValueError: If unable to retrieve a</span>
+<span class="sd">            `NXroot` or `NXentry` object.</span>
+<span class="sd">        :return: Input data if a `NXroot` object or a `NXroot` object with the</span>
+<span class="sd">             input as its default `NXentry` object.</span>
+<span class="sd">        :return: `NXroot` object.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXroot</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">NXentry</span><span class="p">,</span>
+            <span class="n">NXroot</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxobject</span><span class="p">,</span> <span class="n">NXroot</span><span class="p">):</span>
+            <span class="n">nxroot</span> <span class="o">=</span> <span class="n">nxobject</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxobject</span><span class="p">,</span> <span class="n">NXentry</span><span class="p">):</span>
+            <span class="n">nxroot</span> <span class="o">=</span> <span class="n">NXroot</span><span class="p">()</span>
+            <span class="n">nxroot</span><span class="p">[</span><span class="n">nxobject</span><span class="o">.</span><span class="n">nxname</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxobject</span>
+            <span class="n">nxobject</span><span class="o">.</span><span class="n">set_default</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid nxobject (</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">nxobject</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">nxroot</span></div>
+
+
+<div class="viewcode-block" id="PipelineItem.get_pipelinedata_item">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.get_pipelinedata_item">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_pipelinedata_item</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">remove</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;If &#39;data&#39; is a list, then retrieve from `data` the list</span>
+<span class="sd">        item matching `index` and return it&#39;s `data` value, otherwise</span>
+<span class="sd">        return `data` itself.</span>
+
+<span class="sd">        :param data: Input data.</span>
+<span class="sd">        :type data: Any | list[PipelineData]</span>
+<span class="sd">        :param index: List index of the item to retrieve from</span>
+<span class="sd">            `data`, default to -1 or the last item in the list.</span>
+<span class="sd">        :type index: int, optional</span>
+<span class="sd">        :param remove: If there is a matching entry in `data`, remove</span>
+<span class="sd">            it from the list, defaults to `False`.</span>
+<span class="sd">        :type remove: bool, optional</span>
+<span class="sd">        :return: Matching data item.</span>
+<span class="sd">        :rtype: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">remove</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">index</span><span class="p">)[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="n">index</span><span class="p">][</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="PipelineItem.unwrap_pipelinedata">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.unwrap_pipelinedata">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unwrap_pipelinedata</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Given a list of PipelineData objects, return a list of</span>
+<span class="sd">        their `data` values.</span>
+
+<span class="sd">        :param data: Input data to read, write, or process that needs</span>
+<span class="sd">            to be unwrapped from PipelineData before use.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :return: `&#39;data&#39;` values of the items in the input data.</span>
+<span class="sd">        :rtype: list</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">unwrapped_data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">PipelineData</span><span class="p">):</span>
+                    <span class="n">unwrapped_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">unwrapped_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">unwrapped_data</span> <span class="o">=</span> <span class="p">[</span><span class="n">data</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">unwrapped_data</span></div>
+
+
+<div class="viewcode-block" id="PipelineItem.execute">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.execute">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span><span class="c1">#, metadata, provenance):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Execute the appropriate method of the object and return the</span>
+<span class="sd">        result.</span>
+
+<span class="sd">        :param data: Input data.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :return: Wrapped result of executing read, process, or write.</span>
+<span class="sd">        :rtype: PipelineData | tuple[PipelineData]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+<span class="c1">#        self._metadata = metadata</span>
+<span class="c1">#        self._provenance = provenance</span>
+
+        <span class="k">if</span> <span class="s1">&#39;data&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_allowed_args</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_args</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Executing &quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_method_type</span><span class="si">}</span><span class="s1">&quot; with schema &#39;</span>
+                          <span class="sa">f</span><span class="s1">&#39;&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">get_schema</span><span class="p">()</span><span class="si">}</span><span class="s1">&quot; and </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_args</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Executing &quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_method_type</span><span class="si">}</span><span class="s1">&quot;&#39;</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_method</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_args</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;Finished &quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_method</span><span class="si">}</span><span class="s1">&quot; in </span><span class="si">{</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">t0</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> seconds</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Pipeline">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.Pipeline">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Pipeline</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing a full `Pipeline` object.</span>
+
+<span class="sd">    :ivar args: List of `PipelineItem` arguments for each item in the</span>
+<span class="sd">        full pipeline.</span>
+<span class="sd">    :vartype args: list[dict]</span>
+<span class="sd">    :ivar logger: CHAP logger.</span>
+<span class="sd">    :vartype logger: logging.Logger, optional</span>
+<span class="sd">    :ivar mmcs: List of `PipelineItem`\\s classes in the full pipeline.</span>
+<span class="sd">    :vartype mmcs:</span>
+<span class="sd">        list[pydantic._internal._model_construction.ModelMetaclass]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">args</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">logger</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">mmcs</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">ModelMetaclass</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">_data</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">PipelineData</span><span class="p">)</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="p">[])</span>
+    <span class="n">_items</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">PipelineItem</span><span class="p">)</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="p">[])</span>
+    <span class="c1">#_output_filenames: conlist(item_type=FilePath) = PrivateAttr(default=[])</span>
+    <span class="n">_filename_mapping</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="p">{})</span>
+<span class="c1">#    _metadata: dict = PrivateAttr(</span>
+<span class="c1">#        default={&#39;application&#39;: &#39;CHAP&#39;, &#39;user_metadata&#39;: {}})</span>
+<span class="c1">#    _provenance: dict = PrivateAttr(default={})</span>
+
+<div class="viewcode-block" id="Pipeline.validate_pipeline_after">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.Pipeline.validate_pipeline_after">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_pipeline_after</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the `Pipeline` configuration and initialize and</span>
+<span class="sd">        validate the private attributes.</span>
+
+<span class="sd">        :return: Validated configuration.</span>
+<span class="sd">        :rtype: Pipeline</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="n">output_filenames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">mmc</span><span class="p">,</span> <span class="n">args</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mmcs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">):</span>
+            <span class="c1"># FIX add a validation status, so that the validator</span>
+            <span class="c1"># doesn&#39;t get executed twice with the config staying</span>
+            <span class="c1"># on the pipeline for processors</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Validating </span><span class="si">{</span><span class="n">mmc</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">item</span> <span class="o">=</span> <span class="n">mmc</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">,</span> <span class="n">modelmetaclass</span><span class="o">=</span><span class="n">mmc</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">has_filename</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">method_type</span> <span class="o">==</span> <span class="s1">&#39;read&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">_mapping_filename</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filename_mapping</span><span class="p">:</span>
+                        <span class="n">item</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filename_mapping</span><span class="p">[</span>
+                            <span class="n">item</span><span class="o">.</span><span class="n">_mapping_filename</span><span class="p">][</span><span class="s1">&#39;path&#39;</span><span class="p">]</span>
+                        <span class="n">item</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filename_mapping</span><span class="p">[</span>
+                            <span class="n">item</span><span class="o">.</span><span class="n">_mapping_filename</span><span class="p">][</span><span class="s1">&#39;status&#39;</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1">#if item.filename in self._output_filenames:</span>
+                        <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">filename</span> <span class="ow">in</span> <span class="n">output_filenames</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_filename_mapping</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">_mapping_filename</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                                <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="n">item</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+                                <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;write_pending&#39;</span><span class="p">}</span>
+                            <span class="n">item</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="s1">&#39;write_pending&#39;</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_filename_mapping</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">_mapping_filename</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                                <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="n">item</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+                <span class="k">elif</span> <span class="n">item</span><span class="o">.</span><span class="n">method_type</span> <span class="o">==</span> <span class="s1">&#39;write&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">item</span><span class="o">.</span><span class="n">force_overwrite</span>
+                            <span class="ow">and</span> <span class="n">item</span><span class="o">.</span><span class="n">filename</span> <span class="ow">in</span> <span class="n">output_filenames</span><span class="p">):</span>
+                            <span class="c1">#and self.filename in self._output_filenames):</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="s1">&#39;Writing to an existing file without overwrite &#39;</span>
+                            <span class="sa">f</span><span class="s1">&#39;permission. Remove </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1"> or set &#39;</span>
+                            <span class="s1">&#39;&quot;force_overwrite&quot; in the pipeline configuration &#39;</span>
+                            <span class="sa">f</span><span class="s1">&#39;for </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">item</span><span class="o">.</span><span class="n">set_args</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">method_type</span> <span class="o">==</span> <span class="s1">&#39;read&#39;</span>
+                    <span class="ow">and</span> <span class="n">item</span><span class="o">.</span><span class="n">status</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;read&#39;</span><span class="p">,</span> <span class="s1">&#39;write_pending&#39;</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">get_schema</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;Reading &quot;</span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot; with schema &#39;</span>
+                        <span class="sa">f</span><span class="s1">&#39;&quot;</span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">get_schema</span><span class="p">()</span><span class="si">}</span><span class="s1">&quot; and </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">get_args</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Reading &quot;</span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot;&#39;</span><span class="p">)</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">method</span><span class="p">(</span><span class="o">**</span><span class="n">item</span><span class="o">.</span><span class="n">get_args</span><span class="p">())</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PipelineData</span><span class="p">(</span>
+                        <span class="n">name</span><span class="o">=</span><span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">item</span><span class="o">.</span><span class="n">get_schema</span><span class="p">()))</span>
+                    <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">has_filename</span><span class="p">():</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_filename_mapping</span><span class="p">[</span>
+                            <span class="n">item</span><span class="o">.</span><span class="n">_mapping_filename</span><span class="p">][</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;read&#39;</span>
+                    <span class="c1"># FIX make part of pipelineitem for read</span>
+                    <span class="n">item</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="s1">&#39;read&#39;</span>
+            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">method_type</span> <span class="o">==</span> <span class="s1">&#39;write&#39;</span> <span class="ow">and</span> <span class="n">item</span><span class="o">.</span><span class="n">has_filename</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filename_mapping</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">v</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">item</span><span class="o">.</span><span class="n">filename</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_filename_mapping</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> \
+                            <span class="s1">&#39;write_pending&#39;</span>
+                <span class="c1">#if item.filename not in self._output_filenames:</span>
+                <span class="c1">#    self._output_filenames.append(item.filename)</span>
+                <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">filename</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">output_filenames</span><span class="p">:</span>
+                    <span class="n">output_filenames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Validated pipeline in </span><span class="si">{</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">t0</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> seconds&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="Pipeline.execute">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.Pipeline.execute">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Executes the pipeline.</span>
+
+<span class="sd">        :return: List of `PipelineData` items after pipeline execution.</span>
+<span class="sd">        :rtype: list[PipelineData]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Executing &quot;execute&quot;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">mmc</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">args</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mmcs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="s1">&#39;execute&#39;</span><span class="p">):</span>
+                <span class="n">current_item</span> <span class="o">=</span> <span class="n">mmc</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">,</span> <span class="n">modelmetaclass</span><span class="o">=</span><span class="n">mmc</span><span class="p">,</span> <span class="o">**</span><span class="n">args</span><span class="p">)</span>
+                <span class="n">read_status</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">method_type</span> <span class="o">==</span> <span class="s1">&#39;read&#39;</span> <span class="ow">and</span> <span class="n">item</span><span class="o">.</span><span class="n">has_filename</span><span class="p">():</span>
+                    <span class="n">read_status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filename_mapping</span><span class="p">[</span>
+                        <span class="n">item</span><span class="o">.</span><span class="n">_mapping_filename</span><span class="p">][</span><span class="s1">&#39;status&#39;</span><span class="p">]</span>
+                    <span class="n">current_item</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">read_status</span>
+                    <span class="n">current_item</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">filename</span>
+                <span class="n">current_item</span><span class="o">.</span><span class="n">set_args</span><span class="p">(</span><span class="o">**</span><span class="n">item</span><span class="o">.</span><span class="n">get_args</span><span class="p">())</span>
+                <span class="c1"># FIX RV update to only read when not yet read or when</span>
+                <span class="c1"># written to in the mean time, make this happen for any</span>
+                <span class="c1"># type of read, from file, url, ...</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">method_type</span> <span class="o">==</span> <span class="s1">&#39;read&#39;</span> <span class="ow">and</span> <span class="n">read_status</span> <span class="o">==</span> <span class="s1">&#39;read&#39;</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;Calling &quot;execute&quot; on </span><span class="si">{</span><span class="n">current_item</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="n">current_item</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">)</span>
+<span class="c1">#                        self._data, self._metadata, self._provenance)</span>
+                    <span class="k">if</span> <span class="n">current_item</span><span class="o">.</span><span class="n">method_type</span> <span class="o">==</span> <span class="s1">&#39;read&#39;</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">))):</span>
+                            <span class="k">if</span> <span class="n">d</span> <span class="o">==</span> <span class="n">PipelineData</span><span class="p">(</span>
+                                    <span class="n">name</span><span class="o">=</span><span class="n">current_item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+                                    <span class="n">schema</span><span class="o">=</span><span class="n">current_item</span><span class="o">.</span><span class="n">get_schema</span><span class="p">()):</span>
+                                <span class="k">break</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PipelineData</span><span class="p">(</span>
+                                <span class="n">name</span><span class="o">=</span><span class="n">current_item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+                                <span class="n">schema</span><span class="o">=</span><span class="n">current_item</span><span class="o">.</span><span class="n">get_schema</span><span class="p">()))</span>
+                        <span class="c1">#FIX RF move to pipelineitem after read</span>
+                        <span class="n">current_item</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="s1">&#39;read&#39;</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                                <span class="p">[</span><span class="n">d</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">PipelineData</span><span class="p">)</span>
+                                 <span class="k">else</span> <span class="n">PipelineData</span><span class="p">(</span>
+                                     <span class="n">name</span><span class="o">=</span><span class="n">current_item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">d</span><span class="p">,</span>
+                                     <span class="n">schema</span><span class="o">=</span><span class="n">current_item</span><span class="o">.</span><span class="n">get_schema</span><span class="p">())</span>
+                                 <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">])</span>
+                        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">PipelineData</span><span class="p">):</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                        <span class="k">elif</span> <span class="n">data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PipelineData</span><span class="p">(</span>
+                                <span class="n">name</span><span class="o">=</span><span class="n">current_item</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+                                <span class="n">schema</span><span class="o">=</span><span class="n">current_item</span><span class="o">.</span><span class="n">get_schema</span><span class="p">()))</span>
+                    <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">method_type</span> <span class="o">==</span> <span class="s1">&#39;write&#39;</span> <span class="ow">and</span> <span class="n">item</span><span class="o">.</span><span class="n">has_filename</span><span class="p">():</span>
+                        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filename_mapping</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                            <span class="k">if</span> <span class="n">v</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">item</span><span class="o">.</span><span class="n">filename</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">_filename_mapping</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;written&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Executed &quot;execute&quot; in </span><span class="si">{</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">t0</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> seconds&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

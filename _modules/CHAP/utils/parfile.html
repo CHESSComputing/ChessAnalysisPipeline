@@ -1,0 +1,379 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.utils.parfile &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.utils.parfile</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.utils.parfile</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Utilities for interacting with scans using an SMB-style par file</span>
+<span class="sd">as input.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># System modules</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">csv</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="c1"># Third party modules</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+
+<div class="viewcode-block" id="ParFile">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.parfile.ParFile">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ParFile</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Representation of a par file.</span>
+
+<span class="sd">    :ivar column_names: List of the names of each column in the par</span>
+<span class="sd">        file.</span>
+<span class="sd">    :vartype column_names: list[str]</span>
+<span class="sd">    :ivar data: A 2D array of the data in this par file: 0th index:</span>
+<span class="sd">        row, 1st index: column</span>
+<span class="sd">    :vartype data: list[list]</span>
+<span class="sd">    :ivar json_file: Name of the json file containing the keys for</span>
+<span class="sd">        the column names of the par file.</span>
+<span class="sd">    :vartype json_file: str</span>
+<span class="sd">    :ivar par_file: Name of the par file.</span>
+<span class="sd">    :vartype par_file: str</span>
+<span class="sd">    :ivar scann_i: Column index for the scan number column in the par</span>
+<span class="sd">        file.</span>
+<span class="sd">    :vartype scann_i: int</span>
+<span class="sd">    :ivar scan_numbers: Scan numbers for which data is available in the</span>
+<span class="sd">        par file.</span>
+<span class="sd">    :vartype scan_numbers: list[int]</span>
+<span class="sd">    :ivar spec_file: Name of the SPEC data file associated with this</span>
+<span class="sd">        par file.</span>
+<span class="sd">    :vartype spec_file: str</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">par_file</span><span class="p">,</span> <span class="n">scan_numbers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">scann_col_name</span><span class="o">=</span><span class="s1">&#39;SCAN_N&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize ParFile.</span>
+
+<span class="sd">        :param par_file: Name of the par file.</span>
+<span class="sd">        :type par_file: str</span>
+<span class="sd">        :param scan_numbers: List of scan numbers to use.</span>
+<span class="sd">        :type scan_numbers: int or list[int] or str, optional</span>
+<span class="sd">        :param scann_col_name: Column name for scan number in the par</span>
+<span class="sd">            file, defaults to &#39;SCAN_N&#39;.</span>
+<span class="sd">        :type scann_col_name: str, optional</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">is_int_series</span><span class="p">,</span>
+            <span class="n">string_to_list</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">par_file</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">par_file</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">json_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">par_file</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.par&#39;</span><span class="p">,</span> <span class="s1">&#39;.json&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spec_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">par_file</span><span class="p">),</span> <span class="s1">&#39;spec.log&#39;</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">json_file</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">json_file</span><span class="p">:</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">json_file</span><span class="p">)</span>
+        <span class="n">num_column</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">column_names</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">num_column</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">columns</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">column_names</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span> <span class="o">=</span> <span class="n">name</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">par_file</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">reader</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">reader</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39; &#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">reader</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="n">row_data</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">row</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                            <span class="k">pass</span>
+                    <span class="n">row_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">row_data</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_column</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s1">&#39;Mismatch between the number of columns in the json &#39;</span>
+                        <span class="sa">f</span><span class="s1">&#39;(</span><span class="si">{</span><span class="n">num_column</span><span class="si">}</span><span class="s1">) and line </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1"> of the par file &#39;</span>
+                        <span class="sa">f</span><span class="s1">&#39;(</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">row_data</span><span class="p">)</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row_data</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">scann_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">scann_col_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scan_numbers</span> <span class="o">=</span> <span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scann_i</span><span class="p">]</span> <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">scan_numbers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scan_numbers</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">scan_numbers</span> <span class="o">=</span> <span class="p">[</span><span class="n">scan_numbers</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scan_numbers</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">scan_numbers</span> <span class="o">=</span> <span class="n">string_to_list</span><span class="p">(</span><span class="n">scan_numbers</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int_series</span><span class="p">(</span><span class="n">scan_numbers</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;Invalid scan_numbers parameter (</span><span class="si">{</span><span class="n">scan_numbers</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scan_numbers</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">n</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">scan_numbers</span> <span class="k">if</span> <span class="n">n</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">]</span>
+
+<div class="viewcode-block" id="ParFile.get_map">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.parfile.ParFile.get_map">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_map</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">experiment_type</span><span class="p">,</span> <span class="n">station</span><span class="p">,</span> <span class="n">par_dims</span><span class="p">,</span> <span class="n">other_dims</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a map configuration based on this par file.</span>
+
+<span class="sd">        :param experiment_type: Experiment type name for the map</span>
+<span class="sd">            that this par file represents.</span>
+<span class="sd">        :type experiment_type:</span>
+<span class="sd">            Literal[&#39;EDD&#39;, &#39;GIWAXS&#39;, &#39;SAXSWAXS&#39;, &#39;TOMO&#39;, &#39;XRF&#39;]</span>
+<span class="sd">        :param station: Station name at which the data were collected.</span>
+<span class="sd">        :type station: Literal[&#39;id1a3&#39;,&#39;id3a&#39;,&#39;id3b&#39;]</span>
+<span class="sd">        :param par_dims: List of dictionaries configuring the map&#39;s</span>
+<span class="sd">            independent dimensions.</span>
+<span class="sd">        :type par_dims: list[dict[str, str]]</span>
+<span class="sd">        :param other_dims: Other dimensions to include in the returned</span>
+<span class="sd">            :class:`~CHAP.common.models.map.MapConfig`&#39;s</span>
+<span class="sd">            `independednt_dimensions`. Use this if each scans in this</span>
+<span class="sd">            par file captured more than one frame of data.</span>
+<span class="sd">        :type other_dims: list[dict[str,str]], optional</span>
+<span class="sd">        :return: Map configuration.</span>
+<span class="sd">        :rtype: MapConfig</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modeuls</span>
+        <span class="c1"># pylint: disable=import-error</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">chess_scanparsers</span><span class="w"> </span><span class="kn">import</span> <span class="n">SMBScanParser</span>
+        <span class="c1"># pylint: enable=import-error</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="n">MapConfig</span>
+
+        <span class="n">scanparser</span> <span class="o">=</span> <span class="n">SMBScanParser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">good_scans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">good_scan_numbers</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">other_dims</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">other_dims</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">map_config</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;title&#39;</span><span class="p">:</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">scan_name</span><span class="p">,</span>
+            <span class="s1">&#39;station&#39;</span><span class="p">:</span> <span class="n">station</span><span class="p">,</span> <span class="c1">#scanparser.station,</span>
+            <span class="s1">&#39;experiment_type&#39;</span><span class="p">:</span> <span class="n">experiment_type</span><span class="p">,</span>
+            <span class="s1">&#39;sample&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">scan_name</span><span class="p">},</span>
+            <span class="s1">&#39;spec_scans&#39;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span><span class="s1">&#39;spec_file&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span>
+                 <span class="s1">&#39;scan_numbers&#39;</span><span class="p">:</span> <span class="n">good_scans</span><span class="p">}],</span>
+            <span class="s1">&#39;independent_dimensions&#39;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">dim</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">],</span>
+                 <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="n">dim</span><span class="p">[</span><span class="s1">&#39;units&#39;</span><span class="p">],</span>
+                 <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">dim</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span>
+                 <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">}</span>
+                <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">par_dims</span><span class="p">]</span> <span class="o">+</span> <span class="n">other_dims</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">MapConfig</span><span class="p">(</span><span class="o">**</span><span class="n">map_config</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ParFile.good_scan_numbers">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.parfile.ParFile.good_scan_numbers">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">good_scan_numbers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">good_col_name</span><span class="o">=</span><span class="s1">&#39;1/0&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the numbers of scans marked with a &quot;1&quot; in the</span>
+<span class="sd">        indicated &quot;good&quot; column of the par file.</span>
+<span class="sd">        </span>
+<span class="sd">        :param good_col_name: Name of the &quot;good&quot; column of the par</span>
+<span class="sd">            file, defaults to &quot;1/0&quot;</span>
+<span class="sd">        :type good_col_name: str, optional</span>
+<span class="sd">        :raises ValueError: If this par file does not have a column</span>
+<span class="sd">            with the same name as `good_col_name`.</span>
+<span class="sd">        :return: &quot;good&quot; scan numbers.</span>
+<span class="sd">        :rtype: list[int]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">good_col_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">good_col_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">))</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">good_col_i</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="ParFile.get_values">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.parfile.ParFile.get_values">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">column</span><span class="p">,</span> <span class="n">scan_numbers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return values from a single column of the par file.</span>
+
+<span class="sd">        :param column: String name OR index of the column to return</span>
+<span class="sd">            values for.</span>
+<span class="sd">        :type column: str or int</span>
+<span class="sd">        :param scan_numbers: Specific scan numbers to return values in</span>
+<span class="sd">            the given column for (instead of the default behavior:</span>
+<span class="sd">            return the entire column of values).</span>
+<span class="sd">        :type scan_numbers: list[int], optional</span>
+<span class="sd">        :raise:</span>
+<span class="sd">            ValueError: Unavailable column name.</span>
+<span class="sd">            TypeError: Illegal column name type.</span>
+<span class="sd">        :return: Values from a single column in the par file.</span>
+<span class="sd">        :rtype: list[object]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">column</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">column</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_names</span><span class="p">:</span>
+                <span class="n">column_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">column</span><span class="p">)</span>
+<span class="c1">#            elif column in (&#39;dataset_id&#39;, &#39;scan_type&#39;):</span>
+<span class="c1">#                column_idx = None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unavailable column name: </span><span class="si">{</span><span class="n">column</span><span class="si">}</span><span class="s1"> not in &#39;</span>
+                                 <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">column_names</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">column</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">column_idx</span> <span class="o">=</span> <span class="n">column</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Column must be a str or int, not </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">column</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">column_idx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">column_data</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">column_data</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">column_idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">))]</span>
+        <span class="k">if</span> <span class="n">scan_numbers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">column_data</span> <span class="o">=</span> <span class="p">[</span><span class="n">column_data</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_numbers</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">scan_n</span><span class="p">)]</span> \
+                           <span class="k">for</span> <span class="n">scan_n</span> <span class="ow">in</span> <span class="n">scan_numbers</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">column_data</span></div>
+
+
+<div class="viewcode-block" id="ParFile.map_values">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.parfile.ParFile.map_values">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">map_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">map_config</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a reshaped array of the 1D list `values` so that it</span>
+<span class="sd">        matches up with the coordinates of `map_config`.</span>
+
+<span class="sd">        :param map_config: Map configuration according to which values</span>
+<span class="sd">            will be reshaped.</span>
+<span class="sd">        :type map_config: MapConfig</span>
+<span class="sd">        :param values: 1D list of values to reshape.</span>
+<span class="sd">        :type values: list or numpy.ndarray</span>
+<span class="sd">        :return: Reshaped array of values.</span>
+<span class="sd">        :rtype: numpy.ndarray</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+        <span class="n">good_scans</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">good_scan_numbers</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">good_scans</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Number of values provided ({len(values)}) does &#39;</span>
+                             <span class="s1">&#39;not match the number of good scans in &#39;</span>
+                             <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">par_file</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">good_scans</span><span class="p">)</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+        <span class="n">n_map_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n_map_points</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Cannot reshape </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span><span class="si">}</span><span class="s1"> values into an array of shape &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="n">map_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">map_index</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="p">):</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> \
+                <span class="n">map_config</span><span class="o">.</span><span class="n">get_scan_step_index</span><span class="p">(</span><span class="n">map_index</span><span class="p">)</span>
+            <span class="n">value_index</span> <span class="o">=</span> <span class="n">good_scans</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">scan_number</span><span class="p">)</span>
+            <span class="n">map_values</span><span class="p">[</span><span class="n">map_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">value_index</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">map_values</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

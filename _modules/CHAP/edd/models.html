@@ -1,0 +1,1202 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.edd.models &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.edd.models</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.edd.models</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;`Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__ model</span>
+<span class="sd">configuration classes unique to the the EDD workflow.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># System modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Literal</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Third party modules</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="c1">#from hexrd.material import Material</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.material</span><span class="w"> </span><span class="kn">import</span> <span class="n">Material</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Field</span><span class="p">,</span>
+    <span class="n">FilePath</span><span class="p">,</span>
+    <span class="n">PrivateAttr</span><span class="p">,</span>
+    <span class="n">confloat</span><span class="p">,</span>
+    <span class="n">conint</span><span class="p">,</span>
+    <span class="n">conlist</span><span class="p">,</span>
+    <span class="n">constr</span><span class="p">,</span>
+    <span class="n">field_validator</span><span class="p">,</span>
+    <span class="n">model_validator</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">interp1d</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Annotated</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">CHAPBaseModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="n">Detector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Multipeak</span>
+<span class="c1">#from CHAP.utils.parfile import ParFile</span>
+
+<span class="c1"># Baseline configuration class</span>
+
+
+<div class="viewcode-block" id="BaselineConfig">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.BaselineConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BaselineConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Baseline model configuration class.</span>
+
+<span class="sd">    :ivar attrs: Additional baseline model configuration attributes.</span>
+<span class="sd">    :vartype attrs: dict, optional</span>
+<span class="sd">    :ivar lam: &amp;lambda (smoothness) parameter (the balance between the</span>
+<span class="sd">        residual of the data and the baseline and the smoothness of the</span>
+<span class="sd">        baseline). The suggested range is between 100 and 10^8,</span>
+<span class="sd">        defaults to `10^6`.</span>
+<span class="sd">    :vartype lam: float, optional</span>
+<span class="sd">    :ivar max_iter: Maximum number of iterations,</span>
+<span class="sd">        defaults to `100`.</span>
+<span class="sd">    :vartype max_iter: int, optional</span>
+<span class="sd">    :ivar tol: Convergence tolerence, defaults to `1.e-6`.</span>
+<span class="sd">    :vartype tol: float, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">attrs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">lam</span><span class="p">:</span> <span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">=</span> <span class="mf">1.e6</span>
+    <span class="n">max_iter</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">=</span> <span class="mi">100</span>
+    <span class="n">tol</span><span class="p">:</span> <span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">=</span> <span class="mf">1.e-6</span></div>
+
+
+
+<span class="c1"># Fit configuration class</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_FitConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fit parameters configuration class for peak fitting.</span>
+
+<span class="sd">    :ivar background: Background model for peak fitting, defaults</span>
+<span class="sd">        to `constant`.</span>
+<span class="sd">    :vartype background: str, list[str], optional</span>
+<span class="sd">    :ivar baseline: Automated baseline subtraction configuration,</span>
+<span class="sd">        defaults to `False`.</span>
+<span class="sd">    :vartype baseline: bool or BaselineConfig, optional</span>
+<span class="sd">    :ivar centers_range: Peak centers range for peak fitting.</span>
+<span class="sd">        The allowed range for the peak centers will be the initial</span>
+<span class="sd">        values &amp;pm; `centers_range` (in MCA channels for calibration</span>
+<span class="sd">        or keV for strain analysis). Defaults to `20` for calibration</span>
+<span class="sd">        and `2.0` for strain analysis.</span>
+<span class="sd">    :vartype centers_range: float, optional</span>
+<span class="sd">    :ivar energy_mask_ranges: MCA energy mask ranges in keV for</span>
+<span class="sd">        selecting the data to be included after applying a mask (bounds</span>
+<span class="sd">        are inclusive). Specify either energy_mask_ranges or</span>
+<span class="sd">        mask_ranges, not both.</span>
+<span class="sd">    :vartype energy_mask_ranges: list[[float, float]], optional</span>
+<span class="sd">    :ivar fwhm_min: Minimum FWHM for peak fitting (in MCA channels</span>
+<span class="sd">        for calibration or keV for strain analysis). Defaults to `3`</span>
+<span class="sd">        for calibration and `0.25` for strain analysis.</span>
+<span class="sd">    :vartype fwhm_min: float, optional</span>
+<span class="sd">    :ivar fwhm_max: Maximum FWHM for peak fitting (in MCA channels</span>
+<span class="sd">        for calibration or keV for strain analysis). Defaults to `25`</span>
+<span class="sd">        for calibration and `2.0` for strain analysis.</span>
+<span class="sd">    :vartype fwhm_max: float, optional</span>
+<span class="sd">    :ivar mask_ranges: MCA channel bin ranges for selecting the data</span>
+<span class="sd">        to be included in the energy calibration after applying a mask</span>
+<span class="sd">        (bounds are inclusive). Specify for energy calibration only.</span>
+<span class="sd">    :vartype mask_ranges: list[[int, int]], optional</span>
+<span class="sd">    :ivar backgroundpeaks: Additional background peaks (their</span>
+<span class="sd">        associated fit parameters in units of keV).</span>
+<span class="sd">    :vartype backgroundpeaks: Multipeak, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">background</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">constr</span><span class="p">(</span>
+        <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">to_lower</span><span class="o">=</span><span class="kc">True</span><span class="p">))]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;constant&#39;</span><span class="p">]</span>
+    <span class="n">baseline</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">BaselineConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">centers_range</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">20</span>
+    <span class="n">energy_mask_ranges</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span>
+        <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">item_type</span><span class="o">=</span><span class="n">conlist</span><span class="p">(</span>
+            <span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">max_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">item_type</span><span class="o">=</span><span class="n">confloat</span><span class="p">(</span><span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)))]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">fwhm_min</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">fwhm_max</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">25</span>
+    <span class="n">mask_ranges</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span>
+        <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">item_type</span><span class="o">=</span><span class="n">conlist</span><span class="p">(</span>
+            <span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">max_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)))]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">backgroundpeaks</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Multipeak</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;background&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_background</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">background</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the background model.</span>
+
+<span class="sd">        :param background: Background model for peak fitting.</span>
+<span class="sd">        :type background: str or list[str], optional</span>
+<span class="sd">        :return: Validated background models.</span>
+<span class="sd">        :rtype: list[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">background</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">background</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">background</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">background</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">background</span><span class="p">)</span>
+
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;baseline&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_baseline</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">baseline</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the baseline configuration.</span>
+
+<span class="sd">        :param baseline: Automated baseline subtraction configuration.</span>
+<span class="sd">        :type baseline: BaselineConfig, optional</span>
+<span class="sd">        :return: Validated baseline subtraction configuration.</span>
+<span class="sd">        :rtype: BaselineConfig or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">baseline</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">and</span> <span class="n">baseline</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">BaselineConfig</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">baseline</span>
+
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;energy_mask_ranges&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_energy_mask_ranges</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">energy_mask_ranges</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the mask ranges for selecting the data to include.</span>
+
+<span class="sd">        :param energy_mask_ranges: MCA energy mask ranges in keV for</span>
+<span class="sd">            selecting the data to be included after applying a mask</span>
+<span class="sd">            (bounds are inclusive).</span>
+<span class="sd">        :type energy_mask_ranges: list[[float, float]], optional</span>
+<span class="sd">        :return: Validated energy mask ranges.</span>
+<span class="sd">        :rtype: list[[float, float]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">energy_mask_ranges</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">sorted</span><span class="p">([</span><span class="nb">sorted</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">energy_mask_ranges</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">energy_mask_ranges</span>
+
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;mask_ranges&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_mask_ranges</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">mask_ranges</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the mask ranges for selecting the data to include.</span>
+
+<span class="sd">        :param mask_ranges: MCA channel bin ranges for selecting the</span>
+<span class="sd">            data to be included after applying a mask (bounds are</span>
+<span class="sd">            inclusive).</span>
+<span class="sd">        :type mask_ranges: list[[int, int]], optional</span>
+<span class="sd">        :return: Validated mask ranges.</span>
+<span class="sd">        :rtype: list[[int, int]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">mask_ranges</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">sorted</span><span class="p">([</span><span class="nb">sorted</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">mask_ranges</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">mask_ranges</span>
+
+
+<span class="c1"># Material configuration class</span>
+
+<div class="viewcode-block" id="MaterialConfig">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MaterialConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MaterialConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample material parameters configuration class.</span>
+
+<span class="sd">    :ivar material_name: Sample material name.</span>
+<span class="sd">    :vartype material_name: str, optional</span>
+<span class="sd">    :ivar lattice_parameters: Lattice spacing(s) in angstroms.</span>
+<span class="sd">    :vartype lattice_parameters: float, list[float], optional</span>
+<span class="sd">    :ivar sgnum: Space group of the material.</span>
+<span class="sd">    :vartype sgnum: int, optional</span>
+<span class="sd">    :ivar dmin: Minimum d-spacing for selecting the available HKLs,</span>
+<span class="sd">        defaults to 0.35.</span>
+<span class="sd">    :vartype dmin: float, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1">#RV FIX create a getter for lattice_parameters that always returns a list?</span>
+    <span class="n">material_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">lattice_parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span>
+        <span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="n">conlist</span><span class="p">(</span>
+            <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+            <span class="n">item_type</span><span class="o">=</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">))]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">sgnum</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">dmin</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.35</span>
+
+    <span class="n">_material</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Material</span><span class="p">]</span>
+
+<div class="viewcode-block" id="MaterialConfig.validate_materialconfig_after">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MaterialConfig.validate_materialconfig_after">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_materialconfig_after</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create and validate the private attribute _material.</span>
+
+<span class="sd">        :return: Validated configuration class.</span>
+<span class="sd">        :rtype: MaterialConfig</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+<span class="c1">#        self._material = make_material(</span>
+<span class="c1">#            self.material_name, self.sgnum, self.lattice_parameters, self.dmin)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_material</span> <span class="o">=</span> <span class="n">Material</span><span class="o">.</span><span class="n">make_material</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">material_name</span><span class="p">,</span> <span class="n">sgnum</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sgnum</span><span class="p">,</span>
+            <span class="n">lattice_parameters_angstroms</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lattice_parameters</span><span class="p">)</span>
+<span class="c1">#            pos=[&#39;4a&#39;, &#39;8c&#39;])</span>
+            <span class="c1">#pos=[(0,0,0), (1/4, 1/4, 1/4), (3/4, 3/4, 3/4)])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lattice_parameters</span> <span class="o">=</span> <span class="nb">list</span><span class="p">([</span>
+            <span class="n">x</span><span class="o">.</span><span class="n">getVal</span><span class="p">(</span><span class="s1">&#39;angstrom&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">isLength</span><span class="p">()</span> <span class="k">else</span> <span class="n">x</span><span class="o">.</span><span class="n">getVal</span><span class="p">(</span><span class="s1">&#39;radians&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_material</span><span class="o">.</span><span class="n">_lparms</span><span class="p">])</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+</div>
+
+
+
+<span class="c1"># Detector configuration classes</span>
+
+<span class="c1"># Avoid Pydantic &quot;Class not fully defined&quot; in sphinx autodoc as a</span>
+<span class="c1"># result of lazy importing by using in an _exclude pydantic instance</span>
+<span class="c1"># variable</span>
+<span class="n">_FitConfig</span><span class="o">.</span><span class="n">model_rebuild</span><span class="p">(</span><span class="n">_types_namespace</span><span class="o">=</span><span class="nb">vars</span><span class="p">(</span><span class="n">typing</span><span class="p">))</span>
+
+<div class="viewcode-block" id="MCADetectorCalibration">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MCADetectorCalibration</span><span class="p">(</span><span class="n">Detector</span><span class="p">,</span> <span class="n">_FitConfig</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing the configuration for a single MCA detector</span>
+<span class="sd">    element to perform detector calibration.</span>
+
+<span class="sd">    :ivar energy_calibration_coeffs: Detector channel index to energy</span>
+<span class="sd">        polynomial conversion coefficients ([a, b, c] with</span>
+<span class="sd">        E_i = a*i^2 + b*i + c).</span>
+<span class="sd">    :vartype energy_calibration_coeffs:</span>
+<span class="sd">        list[float, float, float], optional</span>
+<span class="sd">    :ivar num_bins: Number of MCA channels.</span>
+<span class="sd">    :vartype num_bins: int, optional</span>
+<span class="sd">    :ivar tth_max: Detector rotation about lab frame x axis.</span>
+<span class="sd">    :vartype tth_max: float, optional</span>
+<span class="sd">    :ivar tth_tol: Minimum resolvable difference in 2&amp;theta between</span>
+<span class="sd">        two unique Bragg peaks,</span>
+<span class="sd">    :vartype tth_tol: float, optional</span>
+<span class="sd">    :ivar tth_calibrated: Calibrated value for 2&amp;theta.</span>
+<span class="sd">    :vartype tth_calibrated: float, optional</span>
+<span class="sd">    :ivar tth_initial_guess: Initial guess for 2&amp;theta superseding</span>
+<span class="sd">        the global one in</span>
+<span class="sd">        :class:`~CHAP.edd.models.MCATthCalibrationConfig`.</span>
+<span class="sd">    :vartype tth_initial_guess: float, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">processor_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;calibration&#39;</span><span class="p">]</span>
+    <span class="n">energy_calibration_coeffs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span>
+        <span class="n">min_length</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">item_type</span><span class="o">=</span><span class="n">confloat</span><span class="p">(</span><span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">))]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">num_bins</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">tth_max</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">tth_tol</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">tth_calibrated</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">tth_initial_guess</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">_energy_calibration_mask_ranges</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span>
+        <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">item_type</span><span class="o">=</span><span class="n">conlist</span><span class="p">(</span>
+            <span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">max_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)))</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">()</span>
+    <span class="n">_hkl_indices</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">()</span>
+
+<span class="c1">#    def add_calibration(self, calibration):</span>
+<span class="c1">#        &quot;&quot;&quot;Finalize values for some fields using a calibration</span>
+<span class="c1">#        MCADetectorCalibration corresponding to the same detector.</span>
+<span class="c1">#</span>
+<span class="c1">#        :param calibration: Existing calibration configuration.</span>
+<span class="c1">#        :type calibration: MCADetectorCalibration</span>
+<span class="c1">#        &quot;&quot;&quot;</span>
+<span class="c1">#        raise RuntimeError(&#39;To do&#39;)</span>
+<span class="c1">#        for field in [&#39;energy_calibration_coeffs&#39;, &#39;num_bins&#39;,</span>
+<span class="c1">#                      &#39;_energy_calibration_mask_ranges&#39;]:</span>
+<span class="c1">#            setattr(self, field, deepcopy(getattr(calibration, field)))</span>
+<span class="c1">#        if self.tth_calibrated is not None:</span>
+<span class="c1">#            self.logger.warning(</span>
+<span class="c1">#                &#39;Ignoring tth_calibrated in calibration configuration&#39;)</span>
+<span class="c1">#            self.tth_calibrated = None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">energies</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the calibrated bin energies.</span>
+
+<span class="sd">        :type: numpy.ndarray</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_calibration_coeffs</span><span class="p">)</span>
+        <span class="n">channel_bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">a</span><span class="o">*</span><span class="n">channel_bins</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span><span class="o">*</span><span class="n">channel_bins</span> <span class="o">+</span> <span class="n">c</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hkl_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the HKL indices consistent with the selected energy</span>
+<span class="sd">        ranges (include_energy_ranges).</span>
+
+<span class="sd">        :type: list</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_hkl_indices&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hkl_indices</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="nd">@hkl_indices</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hkl_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hkl_indices</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the HKL indices.</span>
+
+<span class="sd">        :param hkl_indices: HKL indices.</span>
+<span class="sd">        :type: list</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_hkl_indices</span> <span class="o">=</span> <span class="n">hkl_indices</span>
+
+<div class="viewcode-block" id="MCADetectorCalibration.convert_mask_ranges">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.convert_mask_ranges">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">convert_mask_ranges</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mask_ranges</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Given a list of mask ranges in channel bins, set the</span>
+<span class="sd">        corresponding list of channel energy mask ranges.</span>
+
+<span class="sd">        :param mask_ranges: Mask ranges to convert to energy mask</span>
+<span class="sd">            ranges.</span>
+<span class="sd">        :type mask_ranges: list[[int, int]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">energies</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">energy_mask_ranges</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">energies</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">range_</span><span class="p">]</span>
+             <span class="k">for</span> <span class="n">range_</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">([</span><span class="nb">sorted</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">mask_ranges</span><span class="p">])]</span></div>
+
+
+<div class="viewcode-block" id="MCADetectorCalibration.get_mask_ranges">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.get_mask_ranges">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_mask_ranges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the list of mask ranges if set or convert the</span>
+<span class="sd">        energy mask ranges from channel energies to channel indices</span>
+<span class="sd">        and return those.</span>
+
+<span class="sd">        :type: list[[float, float]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask_ranges</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask_ranges</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_mask_ranges</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">index_nearest_down</span><span class="p">,</span>
+            <span class="n">index_nearest_up</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">mask_ranges</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">energies</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span>
+        <span class="k">for</span> <span class="n">e_min</span><span class="p">,</span> <span class="n">e_max</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_mask_ranges</span><span class="p">:</span>
+            <span class="n">mask_ranges</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">index_nearest_down</span><span class="p">(</span><span class="n">energies</span><span class="p">,</span> <span class="n">e_min</span><span class="p">),</span>
+                 <span class="n">index_nearest_up</span><span class="p">(</span><span class="n">energies</span><span class="p">,</span> <span class="n">e_max</span><span class="p">)])</span>
+        <span class="k">return</span> <span class="n">mask_ranges</span></div>
+
+
+<div class="viewcode-block" id="MCADetectorCalibration.mca_mask">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.mca_mask">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mca_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a boolean mask array to use on this MCA element&#39;s data.</span>
+<span class="sd">        Note that the bounds of the mask ranges are inclusive.</span>
+
+<span class="sd">        :return: Boolean mask array.</span>
+<span class="sd">        :rtype: numpy.ndarray</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="kc">False</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span><span class="p">)</span>
+        <span class="n">mask_ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_mask_ranges</span><span class="p">()</span>
+        <span class="n">channel_bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">min_</span><span class="p">,</span> <span class="n">max_</span><span class="p">)</span> <span class="ow">in</span> <span class="n">mask_ranges</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span>
+                <span class="n">mask</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">channel_bins</span> <span class="o">&gt;=</span> <span class="n">min_</span><span class="p">,</span> <span class="n">channel_bins</span> <span class="o">&lt;=</span> <span class="n">max_</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">mask</span></div>
+
+
+<div class="viewcode-block" id="MCADetectorCalibration.set_energy_calibration_mask_ranges">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.set_energy_calibration_mask_ranges">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_energy_calibration_mask_ranges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the value of the private attribite</span>
+<span class="sd">        `_energy_calibration_mask_ranges` to value of `mask_ranges`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_energy_calibration_mask_ranges</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask_ranges</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="MCADetectorDiffractionVolumeLength">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorDiffractionVolumeLength">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MCADetectorDiffractionVolumeLength</span><span class="p">(</span><span class="n">MCADetectorCalibration</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing the configuration for a single MCA detector</span>
+<span class="sd">    element to perform a diffraction volume length measurement.</span>
+
+<span class="sd">    :ivar dvl: Measured diffraction volume length.</span>
+<span class="sd">    :vartype dvl: float, optional</span>
+<span class="sd">    :ivar fit_amplitude: Amplitude of the Gaussian fit.</span>
+<span class="sd">    :vartype fit_amplitude: float, optional</span>
+<span class="sd">    :ivar fit_center: Center of the Gaussian fit.</span>
+<span class="sd">    :vartype fit_center: float, optional</span>
+<span class="sd">    :ivar fit_sigma: Sigma of the Gaussian fit.</span>
+<span class="sd">    :vartype fit_sigma: float, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">processor_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;diffractionvolumelength&#39;</span><span class="p">]</span>
+    <span class="n">dvl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">fit_amplitude</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">fit_center</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">fit_sigma</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="MCADetectorStrainAnalysis">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MCADetectorStrainAnalysis</span><span class="p">(</span><span class="n">MCADetectorCalibration</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing the configuration to perform a strain</span>
+<span class="sd">    analysis.</span>
+
+<span class="sd">    :ivar centers_range: Peak centers range for peak fitting.</span>
+<span class="sd">        The allowed range for the peak centers will be the initial</span>
+<span class="sd">        values &amp;pm; `centers_range` (in keV), defaults to `2.0`.</span>
+<span class="sd">    :vartype centers_range: float, optional</span>
+<span class="sd">    :ivar fwhm_min: Minimum FWHM for peak fitting (in keV),</span>
+<span class="sd">        defaults to `0.25`.</span>
+<span class="sd">    :vartype fwhm_min: float, optional</span>
+<span class="sd">    :ivar fwhm_max: Maximum FWHM for peak fitting (in keV),</span>
+<span class="sd">        defaults to `2.0`.</span>
+<span class="sd">    :vartype fwhm_max: float, optional</span>
+<span class="sd">    :ivar peak_models: Peak model(s) for peak fitting,</span>
+<span class="sd">        defaults to `&#39;gaussian&#39;`.</span>
+<span class="sd">    :vartype peak_models: Literal[&#39;gaussian&#39;, &#39;lorentzian&#39;, &#39;pvoigt&#39;]],</span>
+<span class="sd">        list[Literal[&#39;gaussian&#39;, &#39;lorentzian&#39;, &#39;pvoigt&#39;]]], optional</span>
+<span class="sd">    :ivar rel_height_cutoff: Relative peak height cutoff for</span>
+<span class="sd">        peak fitting (any peak with a height smaller than</span>
+<span class="sd">        `rel_height_cutoff` times the maximum height of all peaks </span>
+<span class="sd">        gets removed from the fit model), defaults to `None`.</span>
+<span class="sd">    :vartype rel_height_cutoff: float, optional</span>
+<span class="sd">    :ivar tth_map: Map of the 2&amp;theta values.</span>
+<span class="sd">    :vartype tth_map: numpy.ndarray, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1">#:ivar tth_file: Path to the file with the 2&amp;theta map.</span>
+    <span class="c1">#:vartype tth_file: FilePath, optional</span>
+
+    <span class="n">centers_range</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">fwhm_min</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.25</span>
+    <span class="n">fwhm_max</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">2.0</span>
+    <span class="n">processor_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;strainanalysis&#39;</span><span class="p">]</span>
+    <span class="n">peak_models</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span>
+            <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">item_type</span><span class="o">=</span><span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;gaussian&#39;</span><span class="p">,</span> <span class="s1">&#39;lorentzian&#39;</span><span class="p">,</span> <span class="s1">&#39;pvoigt&#39;</span><span class="p">]),</span>
+        <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;gaussian&#39;</span><span class="p">,</span> <span class="s1">&#39;lorentzian&#39;</span><span class="p">,</span> <span class="s1">&#39;pvoigt&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">&#39;gaussian&#39;</span>
+    <span class="n">rel_height_cutoff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">lt</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="c1">#    tth_file: Optional[FilePath] = None</span>
+    <span class="n">tth_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">_calibration_energy_mask_ranges</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span>
+        <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">item_type</span><span class="o">=</span><span class="n">conlist</span><span class="p">(</span>
+            <span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">max_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">item_type</span><span class="o">=</span><span class="n">confloat</span><span class="p">(</span><span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)))</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">()</span>
+
+<div class="viewcode-block" id="MCADetectorStrainAnalysis.validate_peak_models">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.validate_peak_models">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;peak_models&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_peak_models</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">peak_models</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the specified peak_models.</span>
+
+<span class="sd">        :param peak_models: Peak model(s) for peak fitting.</span>
+<span class="sd">        :type peak_models:</span>
+<span class="sd">            Literal[&#39;gaussian&#39;, &#39;lorentzian&#39;, &#39;pvoigt&#39;]] or</span>
+<span class="sd">            list[Literal[&#39;gaussian&#39;, &#39;lorentzian&#39;, &#39;pvoigt&#39;]]],</span>
+<span class="sd">            optional</span>
+<span class="sd">        :type peak_models:</span>
+<span class="sd">        :return: Validated peak_models</span>
+<span class="sd">        :rtype: Literal[&#39;gaussian&#39;, &#39;lorentzian&#39;, &#39;pvoigt&#39;]] or</span>
+<span class="sd">            list[Literal[&#39;gaussian&#39;, &#39;lorentzian&#39;, &#39;pvoigt&#39;]]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">peak_models</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s1">&#39;Multiple peak models not yet implemented&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">peak_models</span></div>
+
+
+<div class="viewcode-block" id="MCADetectorStrainAnalysis.add_calibration">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.add_calibration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_calibration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">calibration</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transfer certain 2&amp;theta calibration parameters for use by</span>
+<span class="sd">        :class:`~CHAP.edd.processor.LatticeParameterRefinementProcessor`</span>
+<span class="sd">        or :class:`~CHAP.edd.processor.StrainAnalysisProcessor`.</span>
+
+<span class="sd">        :param calibration: Existing calibration configuration.</span>
+<span class="sd">        :type calibration: MCADetectorCalibration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;energy_calibration_coeffs&#39;</span><span class="p">,</span> <span class="s1">&#39;num_bins&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;tth_calibrated&#39;</span><span class="p">]:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">deepcopy</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">calibration</span><span class="p">,</span> <span class="n">field</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_mask_ranges</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">energy_mask_ranges</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">calibration</span><span class="o">.</span><span class="n">energy_mask_ranges</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_calibration_energy_mask_ranges</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span>
+            <span class="n">calibration</span><span class="o">.</span><span class="n">energy_mask_ranges</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MCADetectorStrainAnalysis.get_calibration_mask_ranges">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.get_calibration_mask_ranges">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_calibration_mask_ranges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the MCA channel bin ranges for the data used during</span>
+<span class="sd">        the 2&amp;theta calibration.</span>
+
+<span class="sd">        :type: list[[int, int]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_calibration_energy_mask_ranges&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">index_nearest_down</span><span class="p">,</span>
+            <span class="n">index_nearest_up</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">energy_mask_ranges</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">energies</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">energies</span>
+        <span class="k">for</span> <span class="n">e_min</span><span class="p">,</span> <span class="n">e_max</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calibration_energy_mask_ranges</span><span class="p">:</span>
+            <span class="n">energy_mask_ranges</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">index_nearest_down</span><span class="p">(</span><span class="n">energies</span><span class="p">,</span> <span class="n">e_min</span><span class="p">),</span>
+                 <span class="n">index_nearest_up</span><span class="p">(</span><span class="n">energies</span><span class="p">,</span> <span class="n">e_max</span><span class="p">)])</span>
+        <span class="k">return</span> <span class="n">energy_mask_ranges</span></div>
+
+
+<div class="viewcode-block" id="MCADetectorStrainAnalysis.get_tth_map">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.get_tth_map">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_tth_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">map_shape</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the map of 2&amp;theta values to use -- may vary at each</span>
+<span class="sd">        point in the map.</span>
+
+<span class="sd">        :param map_shape: Shape of the suplied 2&amp;theta map.</span>
+<span class="sd">        :type map_shape: tuple</span>
+<span class="sd">        :return: Map of 2&amp;theta values.</span>
+<span class="sd">        :rtype: numpy.ndarray</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;tth_map&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tth_map</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">map_shape</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s1">&#39;Invalid &quot;tth_map&quot; field shape &#39;</span>
+                    <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tth_map</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1"> (expected </span><span class="si">{</span><span class="n">map_shape</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">tth_map</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">map_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">tth_calibrated</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="n">MCADetector</span> <span class="o">=</span> <span class="n">Annotated</span><span class="p">[</span>
+    <span class="n">Union</span><span class="p">[</span>
+        <span class="n">MCADetectorCalibration</span><span class="p">,</span>
+        <span class="n">MCADetectorDiffractionVolumeLength</span><span class="p">,</span>
+        <span class="n">MCADetectorStrainAnalysis</span><span class="p">],</span>
+    <span class="n">Field</span><span class="p">(</span><span class="n">discriminator</span><span class="o">=</span><span class="s1">&#39;processor_type&#39;</span><span class="p">)</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="MCADetectorConfig">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MCADetectorConfig</span><span class="p">(</span><span class="n">_FitConfig</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing metadata required to configure a full MCA</span>
+<span class="sd">    detector.</span>
+
+<span class="sd">    :ivar detectors: Individual MCA detector elements.</span>
+<span class="sd">    :vartype detectors: list[MCADetector], optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">processor_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+        <span class="s1">&#39;calibration&#39;</span><span class="p">,</span> <span class="s1">&#39;diffractionvolumelength&#39;</span><span class="p">,</span> <span class="s1">&#39;strainanalysis&#39;</span><span class="p">]</span>
+    <span class="n">detectors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">item_type</span><span class="o">=</span><span class="n">MCADetector</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">_exclude</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">vars</span><span class="p">(</span><span class="n">_FitConfig</span><span class="p">())</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+<div class="viewcode-block" id="MCADetectorConfig.validate_mcadetectorconfig_before">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.validate_mcadetectorconfig_before">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_mcadetectorconfig_before</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the `MCADetectorConfig` class attributes.</span>
+
+<span class="sd">        :param data:</span>
+<span class="sd">            `Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__</span>
+<span class="sd">            validator data object.</span>
+<span class="sd">        :type data: dict</span>
+<span class="sd">        :return: Currently validated class attributes.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">processor_type</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;processor_type&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">if</span> <span class="s1">&#39;detectors&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                <span class="n">detectors</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;detectors&#39;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">detectors</span><span class="p">:</span>
+                    <span class="n">d</span><span class="p">[</span><span class="s1">&#39;processor_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">processor_type</span>
+                    <span class="n">attrs</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;attrs&#39;</span><span class="p">,</span> <span class="p">{})</span>
+                    <span class="k">if</span> <span class="s1">&#39;default_fields&#39;</span> <span class="ow">in</span> <span class="n">attrs</span><span class="p">:</span>
+                        <span class="n">attrs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;default_fields&#39;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">attrs</span><span class="p">:</span>
+                        <span class="n">d</span><span class="p">[</span><span class="s1">&#39;attrs&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">attrs</span>
+                <span class="n">data</span><span class="p">[</span><span class="s1">&#39;detectors&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">detectors</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="MCADetectorConfig.validate_mcadetectorconfig_after">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.validate_mcadetectorconfig_after">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_mcadetectorconfig_after</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate and update the detectors.</span>
+
+<span class="sd">        :return: Validated detectors.</span>
+<span class="sd">        :rtype: MCADetectorConfig</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">detectors</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update_detectors</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="MCADetectorConfig.update_detectors">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.update_detectors">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_detectors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update individual detector parameters with any non-default</span>
+<span class="sd">        values from the global detector configuration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_fields_set</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">detectors</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+                        <span class="nb">setattr</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">v</span><span class="p">))</span></div>
+</div>
+
+
+
+<span class="c1"># Processor configuration classes</span>
+
+<div class="viewcode-block" id="DiffractionVolumeLengthConfig">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.DiffractionVolumeLengthConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DiffractionVolumeLengthConfig</span><span class="p">(</span><span class="n">_FitConfig</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the differential volume length processor</span>
+<span class="sd">    :class:`~CHAP.edd.processor.DiffractionVolumeLengthProcessor`</span>
+<span class="sd">    for an EDD setup using a steel-foil raster scan.</span>
+
+<span class="sd">    :ivar max_energy_kev: Maximum channel energy of the MCA in</span>
+<span class="sd">        keV, defaults to `200.0`.</span>
+<span class="sd">    :vartype max_energy_kev: float, optional</span>
+<span class="sd">    :ivar measurement_mode: Placeholder for recording whether the</span>
+<span class="sd">        measured DVL value was obtained through the automated</span>
+<span class="sd">        calculation or a manual selection, defaults to `&#39;auto&#39;`.</span>
+<span class="sd">    :vartype measurement_mode: Literal[&#39;manual&#39;, &#39;auto&#39;], optional</span>
+<span class="sd">    :ivar sample_thickness: Thickness of scanned foil sample. Quantity</span>
+<span class="sd">        must be provided in the same units as the values of the</span>
+<span class="sd">        scanning motor.</span>
+<span class="sd">    :vartype sample_thickness: float</span>
+<span class="sd">    :ivar sigma_to_dvl_factor: The DVL is obtained by fitting a reduced</span>
+<span class="sd">        form of the MCA detector data. `sigma_to_dvl_factor` is a</span>
+<span class="sd">        scalar value that converts the standard deviation of the</span>
+<span class="sd">        gaussian fit to the measured DVL, defaults to `3.5`.</span>
+<span class="sd">    :vartype sigma_to_dvl_factor: Literal[2.0, 3.5, 4.0], optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">max_energy_kev</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">200.0</span>
+    <span class="n">measurement_mode</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;manual&#39;</span><span class="p">,</span> <span class="s1">&#39;auto&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">&#39;auto&#39;</span>
+    <span class="n">sample_thickness</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">sigma_to_dvl_factor</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">3.5</span>
+
+    <span class="n">_exclude</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">vars</span><span class="p">(</span><span class="n">_FitConfig</span><span class="p">())</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+<div class="viewcode-block" id="DiffractionVolumeLengthConfig.validate_diffractionvolumelengthconfig_after">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.DiffractionVolumeLengthConfig.validate_diffractionvolumelengthconfig_after">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_diffractionvolumelengthconfig_after</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the configuration with costum defaults after the</span>
+<span class="sd">        normal native pydantic validation.</span>
+
+<span class="sd">        :return: Updated DVL configuration class.</span>
+<span class="sd">        :rtype: DiffractionVolumeLengthConfig</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">measurement_mode</span> <span class="o">==</span> <span class="s1">&#39;manual&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_exclude</span> <span class="o">|=</span> <span class="p">{</span><span class="s1">&#39;sigma_to_dvl_factor&#39;</span><span class="p">}</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+</div>
+
+
+
+<span class="c1"># Avoid Pydantic &quot;Class not fully defined&quot; in sphinx autodoc as a</span>
+<span class="c1"># result of lazy importing by using MaterialConfig within a default</span>
+<span class="c1"># value of a pydantic instance variable</span>
+<span class="n">MaterialConfig</span><span class="o">.</span><span class="n">model_rebuild</span><span class="p">(</span><span class="n">_types_namespace</span><span class="o">=</span><span class="nb">vars</span><span class="p">(</span><span class="n">typing</span><span class="p">))</span>
+
+<div class="viewcode-block" id="MCACalibrationConfig">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MCACalibrationConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class configuration for energy and 2&amp;theta calibration</span>
+<span class="sd">    processors.</span>
+
+<span class="sd">    :ivar flux_file: File name of the csv flux file containing station</span>
+<span class="sd">        beam energy in eV (column 0) versus flux (column 1).</span>
+<span class="sd">    :vartype flux_file: str, optional</span>
+<span class="sd">    :ivar materials: Material configurations for the calibration,</span>
+<span class="sd">        defaults to [`Ceria`].</span>
+<span class="sd">    :vartype materials: list[MaterialConfig], optional</span>
+<span class="sd">    :ivar peak_energies: Theoretical locations of the fluorescence</span>
+<span class="sd">        peaks in keV to use for calibrating the MCA channel energies.</span>
+<span class="sd">    :vartype peak_energies: list[float], optional for energy calibration</span>
+<span class="sd">    :ivar scan_step_indices: Optional scan step indices to use for the</span>
+<span class="sd">        calibration. If not specified, the calibration will be</span>
+<span class="sd">        performed on the average of all MCA spectra for the scan.</span>
+<span class="sd">    :vartype scan_step_indices: int, str, list[int], optional</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">       Fluorescence data:</span>
+<span class="sd">       https://physics.nist.gov/PhysRefData/XrayTrans/Html/search.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">flux_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FilePath</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">materials</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">MaterialConfig</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="n">MaterialConfig</span><span class="p">(</span>
+        <span class="n">material_name</span><span class="o">=</span><span class="s1">&#39;CeO2&#39;</span><span class="p">,</span> <span class="n">lattice_parameters</span><span class="o">=</span><span class="mf">5.41153</span><span class="p">,</span> <span class="n">sgnum</span><span class="o">=</span><span class="mi">225</span><span class="p">)]</span>
+    <span class="n">peak_energies</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span>
+        <span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">item_type</span><span class="o">=</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">))]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="mf">34.279</span><span class="p">,</span> <span class="mf">34.720</span><span class="p">,</span> <span class="mf">39.258</span><span class="p">,</span> <span class="mf">40.233</span><span class="p">]</span>
+    <span class="n">scan_step_indices</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">))]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="MCACalibrationConfig.validate_mcacalibrationconfig_before">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.validate_mcacalibrationconfig_before">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_mcacalibrationconfig_before</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure that a valid configuration was provided and finalize</span>
+<span class="sd">        flux_file filepath.</span>
+
+<span class="sd">        :param data:</span>
+<span class="sd">            `Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__</span>
+<span class="sd">            validator data object.</span>
+<span class="sd">        :type data: dict</span>
+<span class="sd">        :return: Currently validated class attributes.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">inputdir</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;inputdir&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">inputdir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">flux_file</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;flux_file&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">flux_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">flux_file</span><span class="p">):</span>
+                    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;flux_file&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">inputdir</span><span class="p">,</span> <span class="n">flux_file</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="MCACalibrationConfig.validate_scan_step_indices">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.validate_scan_step_indices">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;scan_step_indices&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_scan_step_indices</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">scan_step_indices</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the specified list of scan numbers.</span>
+
+<span class="sd">        :param scan_step_indices: Optional scan step indices to use for</span>
+<span class="sd">            the calibration. If not specified, the calibration will be</span>
+<span class="sd">            performed on the average of all MCA spectra for the scan.</span>
+<span class="sd">        :type scan_step_indices: int or str or list[int], optional</span>
+<span class="sd">        :raises ValueError: Invalid experiment type.</span>
+<span class="sd">        :return: Validated scan step indices.</span>
+<span class="sd">        :rtype: list[int]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scan_step_indices</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">scan_step_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">scan_step_indices</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scan_step_indices</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="c1"># Local modules</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">string_to_list</span>
+
+            <span class="n">scan_step_indices</span> <span class="o">=</span> <span class="n">string_to_list</span><span class="p">(</span><span class="n">scan_step_indices</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">scan_step_indices</span></div>
+
+
+<div class="viewcode-block" id="MCACalibrationConfig.flux_file_energy_range">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.flux_file_energy_range">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flux_file_energy_range</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the energy range in the flux correction file.</span>
+
+<span class="sd">        :type: tuple(float, float)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flux_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">flux</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flux_file</span><span class="p">)</span>
+        <span class="n">energies</span> <span class="o">=</span> <span class="n">flux</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mf">1.e3</span>
+        <span class="k">return</span> <span class="n">energies</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">energies</span><span class="o">.</span><span class="n">max</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MCACalibrationConfig.flux_correction_interpolation_function">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.flux_correction_interpolation_function">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flux_correction_interpolation_function</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get an interpolation function to correct MCA data for the</span>
+<span class="sd">        relative energy flux of the incident beam.</span>
+
+<span class="sd">        :type: scipy.interpolate._polyint._Interpolator1D</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flux_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">flux</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flux_file</span><span class="p">)</span>
+        <span class="n">energies</span> <span class="o">=</span> <span class="n">flux</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mf">1.e3</span>
+        <span class="n">relative_intensities</span> <span class="o">=</span> <span class="n">flux</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">flux</span><span class="p">[:,</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">interpolation_function</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">energies</span><span class="p">,</span> <span class="n">relative_intensities</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">interpolation_function</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="MCAEnergyCalibrationConfig">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MCAEnergyCalibrationConfig</span><span class="p">(</span><span class="n">MCACalibrationConfig</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the energy calibration processor</span>
+<span class="sd">    :class:`~CHAP.edd.processor.MCAEnergyCalibrationProcessor`.</span>
+
+<span class="sd">    :ivar max_energy_kev: Maximum channel energy of the MCA in</span>
+<span class="sd">        keV, defaults to `200.0`.</span>
+<span class="sd">    :vartype max_energy_kev: float, optional</span>
+<span class="sd">    :ivar max_peak_index: Index of the peak in `peak_energies`</span>
+<span class="sd">        with the highest amplitude, defaults to `1` (the second peak)</span>
+<span class="sd">        for CeO2 calibration. Required for any other materials.</span>
+<span class="sd">    :vartype max_peak_index: int, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">max_energy_kev</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">200.0</span>
+    <span class="n">max_peak_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_before">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_before">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_mcaenergycalibrationconfig_before</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the `MCAEnergyCalibrationConfig` class attributes.</span>
+
+<span class="sd">        :param data:</span>
+<span class="sd">            `Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__</span>
+<span class="sd">            validator data object.</span>
+<span class="sd">        :type data: dict</span>
+<span class="sd">        :return: Currently validated class attributes.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">detectors</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;detectors&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">detectors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">data</span><span class="p">[</span><span class="s1">&#39;detector_config&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;detectors&#39;</span><span class="p">:</span> <span class="n">detectors</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_after">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_after">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_mcaenergycalibrationconfig_after</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the detector (energy) mask ranges and update any</span>
+<span class="sd">        detector configuration parameters not superseded by their</span>
+<span class="sd">        individual values.</span>
+
+<span class="sd">        :return: Validated energy calibration configuration class.</span>
+<span class="sd">        :rtype: MCAEnergyCalibrationConfig</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">peak_energies</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;peak_energies is required&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_peak_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="ow">and</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_peak_index</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">peak_energies</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;max_peak_index out of bounds&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="MCAEnergyCalibrationConfig.validate_max_peak_index">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.validate_max_peak_index">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;max_peak_index&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_max_peak_index</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">max_peak_index</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate max_peak_index.</span>
+
+<span class="sd">        :param max_peak_index: Index of the peak in `peak_energies`</span>
+<span class="sd">            with the highest amplitude, defaults to `1` (the second</span>
+<span class="sd">            peak) for CeO2 calibration. Required for any other</span>
+<span class="sd">            materials.</span>
+<span class="sd">        :type max_peak_index: int, optional</span>
+<span class="sd">        :param info: Model parameter validation information.</span>
+<span class="sd">        :type info: pydantic.ValidationInfo</span>
+<span class="sd">        :return: Validated max_peak_index.</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">max_peak_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">materials</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;materials&#39;</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">materials</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">materials</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">material_name</span> <span class="o">!=</span> <span class="s1">&#39;CeO2&#39;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;max_peak_index is required unless the &#39;</span>
+                                 <span class="s1">&#39;calibration material is CeO2&#39;</span><span class="p">)</span>
+            <span class="n">max_peak_index</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">max_peak_index</span></div>
+</div>
+
+
+<div class="viewcode-block" id="MCATthCalibrationConfig">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MCATthCalibrationConfig</span><span class="p">(</span><span class="n">MCACalibrationConfig</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the 2&amp;theta calibration and the reduced data</span>
+<span class="sd">    processors, :class:`~CHAP.edd.processor.MCATthCalibrationProcessor`</span>
+<span class="sd">    and :class:`~CHAP.edd.processor.ReducedDataProcessor`,</span>
+<span class="sd">    respectively.</span>
+
+<span class="sd">    :ivar calibration_method: Type of calibration method,</span>
+<span class="sd">        defaults to `&#39;direct_fit_bragg&#39;`.</span>
+<span class="sd">    :vartype calibration_method:</span>
+<span class="sd">        Literal[&#39;direct_fit_bragg&#39;, &#39;direct_fit_tth_ecc&#39;], optional</span>
+<span class="sd">    :ivar quadratic_energy_calibration: Adds a quadratic term to</span>
+<span class="sd">        the detector channel index to energy conversion, defaults</span>
+<span class="sd">        to `False` (linear only).</span>
+<span class="sd">    :vartype quadratic_energy_calibration: bool, optional</span>
+<span class="sd">    :ivar tth_initial_guess: Initial guess for 2&amp;theta.</span>
+<span class="sd">    :vartype tth_initial_guess: float, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">calibration_method</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span>
+        <span class="s1">&#39;direct_fit_bragg&#39;</span><span class="p">,</span> <span class="s1">&#39;direct_fit_tth_ecc&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">&#39;direct_fit_bragg&#39;</span>
+    <span class="n">quadratic_energy_calibration</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">tth_initial_guess</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">exclude</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MCATthCalibrationConfig.flux_file_energy_range">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.flux_file_energy_range">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flux_file_energy_range</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the energy range in the flux corection file.</span>
+
+<span class="sd">        :type: tuple(float, float)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flux_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">flux</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flux_file</span><span class="p">)</span>
+        <span class="n">energies</span> <span class="o">=</span> <span class="n">flux</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mf">1.e3</span>
+        <span class="k">return</span> <span class="n">energies</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">energies</span><span class="o">.</span><span class="n">max</span><span class="p">()</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="StrainAnalysisConfig">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">StrainAnalysisConfig</span><span class="p">(</span><span class="n">MCACalibrationConfig</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the lattice parameter refinement and strain</span>
+<span class="sd">    analysis processors,</span>
+<span class="sd">    :class:`~CHAP.edd.processor.LatticeParameterRefinementProcessor`</span>
+<span class="sd">    and :class:`~CHAP.edd.processor.StrainAnalysisProcessor`,</span>
+<span class="sd">    respectively.</span>
+
+<span class="sd">    :ivar find_peak_cutoff: Use scipy.signal.find_peaks to exclude</span>
+<span class="sd">        peaks for all spectra for a given detector and user specified</span>
+<span class="sd">        mask. A particular HKL peak is removed from the set of HKLs,</span>
+<span class="sd">        when its mean peak height is  below `find_peak_cutoff` times</span>
+<span class="sd">        the maximum mean intensity for that detector. Defaults to `0`</span>
+<span class="sd">        in which case this step is ignored.</span>
+<span class="sd">    :vartype find_peak_cutoff: float, optional</span>
+<span class="sd">    :ivar num_proc: Number of processors to be used by the strain</span>
+<span class="sd">        analysis peak fitting routine.</span>
+<span class="sd">    :vartype num_proc: int</span>
+<span class="sd">    :ivar rel_height_cutoff: Used to excluded peaks based on the</span>
+<span class="sd">        `find_peak` parameter as well as for peak fitting exclusion</span>
+<span class="sd">        of the individual detector spectra (see the strain detector</span>
+<span class="sd">        configuration</span>
+<span class="sd">        :class:`~CHAP.edd.models.MCADetectorStrainAnalysis`).</span>
+<span class="sd">        Defaults to `None`.</span>
+<span class="sd">    :vartype rel_height_cutoff: float, optional</span>
+<span class="sd">    :ivar skip_animation: Skip the animation and plotting of</span>
+<span class="sd">        the strain analysis fits, defaults to `False`.</span>
+<span class="sd">    :vartype skip_animation: bool, optional</span>
+<span class="sd">    :ivar sum_axes: Whether to sum over the fly axis or not</span>
+<span class="sd">        for EDD scan types not 0, defaults to `True`.</span>
+<span class="sd">    :vartype sum_axes: bool or list[str], optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1">#:ivar oversampling: FIX</span>
+    <span class="c1">#:vartype oversampling: FIX</span>
+
+    <span class="n">find_peak_cutoff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">num_proc</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span><span class="o">//</span><span class="mi">4</span><span class="p">)</span>
+    <span class="c1">#oversampling: dict = {&#39;num&#39;: 10}</span>
+    <span class="n">rel_height_cutoff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">lt</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">skip_animation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">sum_axes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">conlist</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">item_type</span><span class="o">=</span><span class="nb">str</span><span class="p">)]]</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<span class="c1"># FIX tth_file/tth_map not updated</span>
+<span class="c1">#    @field_validator(&#39;detectors&#39;)</span>
+<span class="c1">#    @classmethod</span>
+<span class="c1">#    def validate_detectors(cls, detectors, info):</span>
+<span class="c1">#        &quot;&quot;&quot;Validate detector element tth_file field. It may only be</span>
+<span class="c1">#        used if StrainAnalysisConfig used par_file.</span>
+<span class="c1">#        &quot;&quot;&quot;</span>
+<span class="c1">#        for detector in detectors:</span>
+<span class="c1">#            tth_file = detector.tth_file</span>
+<span class="c1">#            if tth_file is not None:</span>
+<span class="c1">#                if not info.data.get(&#39;par_file&#39;):</span>
+<span class="c1">#                    raise ValueError(</span>
+<span class="c1">#                        &#39;variable tth angles may only be used with a &#39;</span>
+<span class="c1">#                        &#39;StrainAnalysisConfig that uses par_file.&#39;)</span>
+<span class="c1">#                else:</span>
+<span class="c1">#                    try:</span>
+<span class="c1">#                        detector.tth_map = ParFile(</span>
+<span class="c1">#                            info.data[&#39;par_file&#39;]).map_values(</span>
+<span class="c1">#                                info.data[&#39;map_config&#39;],</span>
+<span class="c1">#                                np.loadtxt(tth_file))</span>
+<span class="c1">#                    except Exception as e:</span>
+<span class="c1">#                        raise ValueError(</span>
+<span class="c1">#                            &#39;Could not get map of tth angles from &#39;</span>
+<span class="c1">#                            f&#39;{tth_file}&#39;) from e</span>
+<span class="c1">#        return detectors</span>
+
+<span class="c1">#    @field_validator(&#39;oversampling&#39;)</span>
+<span class="c1">#    @classmethod</span>
+<span class="c1">#    def validate_oversampling(cls, oversampling, info):</span>
+<span class="c1">#        &quot;&quot;&quot;Validate the oversampling field.</span>
+<span class="c1">#</span>
+<span class="c1">#        :param oversampling: Value of `oversampling` to validate.</span>
+<span class="c1">#        :type oversampling: dict</span>
+<span class="c1">#        :param info: Model parameter validation information.</span>
+<span class="c1">#        :type info: pydantic.ValidationInfo</span>
+<span class="c1">#        :return: Validated oversampling value.</span>
+<span class="c1">#        :rtype: bool</span>
+<span class="c1">#        &quot;&quot;&quot;</span>
+<span class="c1">#        # Local modules</span>
+<span class="c1">#        from CHAP.utils.general import is_int</span>
+<span class="c1">#</span>
+<span class="c1">#        raise ValueError(&#39;oversampling not updated yet&#39;)</span>
+<span class="c1">#        map_config = info.data.get(&#39;map_config&#39;)</span>
+<span class="c1">#        if map_config is None or map_config.attrs[&#39;scan_type&#39;] &lt; 3:</span>
+<span class="c1">#            return None</span>
+<span class="c1">#        if oversampling is None:</span>
+<span class="c1">#            return {&#39;num&#39;: 10}</span>
+<span class="c1">#        if &#39;start&#39; in oversampling and not is_int(oversampling[&#39;start&#39;], ge=0):</span>
+<span class="c1">#            raise ValueError(&#39;Invalid &quot;start&quot; parameter in &quot;oversampling&quot; &#39;</span>
+<span class="c1">#                             f&#39;field ({oversampling[&quot;start&quot;]})&#39;)</span>
+<span class="c1">#        if &#39;end&#39; in oversampling and not is_int(oversampling[&#39;end&#39;], gt=0):</span>
+<span class="c1">#            raise ValueError(&#39;Invalid &quot;end&quot; parameter in &quot;oversampling&quot; &#39;</span>
+<span class="c1">#                             f&#39;field ({oversampling[&quot;end&quot;]})&#39;)</span>
+<span class="c1">#        if &#39;width&#39; in oversampling and not is_int(oversampling[&#39;width&#39;], gt=0):</span>
+<span class="c1">#            raise ValueError(&#39;Invalid &quot;width&quot; parameter in &quot;oversampling&quot; &#39;</span>
+<span class="c1">#                             f&#39;field ({oversampling[&quot;width&quot;]})&#39;)</span>
+<span class="c1">#        if (&#39;stride&#39; in oversampling</span>
+<span class="c1">#                and not is_int(oversampling[&#39;stride&#39;], gt=0)):</span>
+<span class="c1">#            raise ValueError(&#39;Invalid &quot;stride&quot; parameter in &quot;oversampling&quot; &#39;</span>
+<span class="c1">#                             f&#39;field ({oversampling[&quot;stride&quot;]})&#39;)</span>
+<span class="c1">#        if &#39;num&#39; in oversampling and not is_int(oversampling[&#39;num&#39;], gt=0):</span>
+<span class="c1">#            raise ValueError(&#39;Invalid &quot;num&quot; parameter in &quot;oversampling&quot; &#39;</span>
+<span class="c1">#                             f&#39;field ({oversampling[&quot;num&quot;]})&#39;)</span>
+<span class="c1">#        if &#39;mode&#39; in oversampling and &#39;mode&#39; not in (&#39;valid&#39;, &#39;full&#39;):</span>
+<span class="c1">#            raise ValueError(&#39;Invalid &quot;mode&quot; parameter in &quot;oversampling&quot; &#39;</span>
+<span class="c1">#                             f&#39;field ({oversampling[&quot;mode&quot;]})&#39;)</span>
+<span class="c1">#        if not (&#39;width&#39; in oversampling or &#39;stride&#39; in oversampling</span>
+<span class="c1">#                or &#39;num&#39; in oversampling):</span>
+<span class="c1">#            raise ValueError(&#39;Invalid input parameters, specify at least one &#39;</span>
+<span class="c1">#                             &#39;of &quot;width&quot;, &quot;stride&quot; or &quot;num&quot;&#39;)</span>
+<span class="c1">#        return oversampling</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,556 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.runner &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.runner</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.runner</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Main functions to execute a ChessAnalysisPipeline (CHAP).&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="parser">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.runner.parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parser</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return an argument parser for the CHAP comment line interface</span>
+<span class="sd">    (CLI). This parser accepts one required argument: the input CHAP</span>
+<span class="sd">    configuration file name and several optional arguments. Execute:</span>
+
+<span class="sd">    .. code-block:: bash</span>
+
+<span class="sd">        $ CHAP --help</span>
+
+<span class="sd">    from the command line for a description on how to use CHAP.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># System modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">argparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArgumentParser</span>
+    <span class="n">pparser</span> <span class="o">=</span> <span class="n">ArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s1">&#39;PROG&#39;</span><span class="p">)</span>
+
+    <span class="n">pparser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">&#39;config&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Input configuration file&#39;</span><span class="p">)</span>
+    <span class="n">pparser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">&#39;-p&#39;</span><span class="p">,</span> <span class="s1">&#39;--pipeline&#39;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Pipeline name(s)&#39;</span><span class="p">)</span>
+    <span class="n">pparser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">&#39;--regex&#39;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s1">&#39;?&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">const</span><span class="o">=</span><span class="s1">&#39;match&#39;</span><span class="p">,</span>
+        <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;match&#39;</span><span class="p">,</span> <span class="s1">&#39;search&#39;</span><span class="p">,</span> <span class="s1">&#39;fullmatch&#39;</span><span class="p">],</span>
+        <span class="n">dest</span><span class="o">=</span><span class="s1">&#39;regex_function&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;&#39;&#39;Name of Python</span>
+<span class="s1">        RegEx function (https://docs.python.org/3/howto/regex.html)</span>
+<span class="s1">        to use for matching configured pipeline names against the</span>
+<span class="s1">        string provided with the -p / --pipeline option.&#39;&#39;&#39;</span>
+    <span class="p">)</span>
+    <span class="n">pparser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">&#39;--batch&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;&#39;&#39;Enables &quot;batch mode&quot; operation where every sub-pipeline</span>
+<span class="s1">        is run in separate parallel processes. Log files for each</span>
+<span class="s1">        pipeline process will be created in the directory specified</span>
+<span class="s1">        with the `--batch-logdir` option.&#39;&#39;&#39;</span>
+    <span class="p">)</span>
+    <span class="n">pparser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">&#39;--batch-logdir&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;./CHAP_logs&#39;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s1">&#39;logdir&#39;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;&#39;&#39;Destination directory for individual pipeline log</span>
+<span class="s1">        files when running multiple pipelines in batch mode.&#39;&#39;&#39;</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">pparser</span></div>
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.runner.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Main function.&quot;&quot;&quot;</span>
+    <span class="c1"># System modules</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">yaml</span><span class="w"> </span><span class="kn">import</span> <span class="n">safe_load</span>
+
+    <span class="c1"># Local modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">RunConfig</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Third party modules</span>
+        <span class="c1"># pylint: disable=c-extension-no-member</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
+
+        <span class="n">have_mpi</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">comm</span> <span class="o">=</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="n">have_mpi</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">comm</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="p">()</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="c1"># Read the input config file</span>
+    <span class="n">configfile</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">config</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">configfile</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">safe_load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+    <span class="c1">#RV Add to input_files in provenance data writer</span>
+
+    <span class="c1"># Check if executed as a worker spawned by another Processor</span>
+    <span class="n">run_config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;config&#39;</span><span class="p">),</span> <span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">have_mpi</span> <span class="ow">and</span> <span class="n">run_config</span><span class="o">.</span><span class="n">spawn</span><span class="p">:</span>
+        <span class="c1"># pylint: disable=c-extension-no-member</span>
+        <span class="n">sub_comm</span> <span class="o">=</span> <span class="n">MPI</span><span class="o">.</span><span class="n">Comm</span><span class="o">.</span><span class="n">Get_parent</span><span class="p">()</span>
+        <span class="n">common_comm</span> <span class="o">=</span> <span class="n">sub_comm</span><span class="o">.</span><span class="n">Merge</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Read worker specific input config file</span>
+        <span class="k">if</span> <span class="n">run_config</span><span class="o">.</span><span class="n">spawn</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">configfile</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">common_comm</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+                    <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">config</span> <span class="o">=</span> <span class="n">safe_load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+                <span class="n">run_config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+                    <span class="o">**</span><span class="n">config</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;config&#39;</span><span class="p">),</span> <span class="n">comm</span><span class="o">=</span><span class="n">common_comm</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">configfile</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">sub_comm</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+                    <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">config</span> <span class="o">=</span> <span class="n">safe_load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+                <span class="n">run_config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;config&#39;</span><span class="p">),</span> <span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">common_comm</span> <span class="o">=</span> <span class="n">comm</span>
+
+    <span class="c1"># Get the pipeline configurations</span>
+    <span class="n">sub_pipelines</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">pipeline</span>
+    <span class="n">pipeline_config</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">batch_pipelines</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">sub_pipelines</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">sub_pipeline</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">pipeline_config</span> <span class="o">+=</span> <span class="n">sub_pipeline</span>
+            <span class="n">batch_pipelines</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">sub_pipeline</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">sub_pipeline</span> <span class="ow">in</span> <span class="n">sub_pipelines</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">sub_pipeline</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
+                <span class="n">pipeline_config</span> <span class="o">+=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sub_pipeline</span><span class="p">)</span>
+                <span class="n">batch_pipelines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">sub_pipeline</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sub_pipeline</span><span class="p">))</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">regex_function</span><span class="p">:</span>
+                <span class="n">match_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">re</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">regex_function</span><span class="p">)</span>
+                <span class="n">pipeline_matches</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">config</span> <span class="k">if</span> <span class="n">match_func</span><span class="p">(</span><span class="n">sub_pipeline</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+                <span class="p">]</span>
+                <span class="k">if</span> <span class="n">pipeline_matches</span><span class="p">:</span>
+                    <span class="n">pipeline_config</span> <span class="o">+=</span> <span class="p">[</span>
+                        <span class="n">item</span>
+                        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pipeline_matches</span>
+                        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+                    <span class="p">]</span>
+                    <span class="n">batch_pipelines</span> <span class="o">+=</span> <span class="p">[</span>
+                        <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p</span><span class="p">))</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pipeline_matches</span>
+                    <span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;No pipelines matching &quot;</span><span class="si">{</span><span class="n">sub_pipeline</span><span class="si">}</span><span class="s1">&quot; found in the &#39;</span>
+                        <span class="sa">f</span><span class="s1">&#39;pipeline configuration (</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s1">)&#39;</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;Invalid pipeline option: </span><span class="se">\&#39;</span><span class="si">{</span><span class="n">sub_pipeline</span><span class="si">}</span><span class="se">\&#39;</span><span class="s1"> missing in &#39;</span>
+                    <span class="sa">f</span><span class="s1">&#39;the pipeline configuration (</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s1">)&#39;</span>
+                <span class="p">)</span>
+
+    <span class="c1"># Run the pipeline with or without profiling</span>
+    <span class="k">if</span> <span class="n">run_config</span><span class="o">.</span><span class="n">profile</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">batch</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s1">&#39;Cannot use --batch mode when profile is True.&#39;</span>
+            <span class="p">)</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">cProfile</span><span class="w"> </span><span class="kn">import</span> <span class="n">runctx</span>  <span class="c1"># python profiler</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">pstats</span><span class="w"> </span><span class="kn">import</span> <span class="n">Stats</span>     <span class="c1"># profiler statistics</span>
+
+        <span class="n">cmd</span> <span class="o">=</span> <span class="s1">&#39;runner(run_config, pipeline_config, common_comm)&#39;</span>
+        <span class="n">runctx</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="nb">globals</span><span class="p">(),</span> <span class="nb">locals</span><span class="p">(),</span> <span class="s1">&#39;profile.dat&#39;</span><span class="p">)</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="n">Stats</span><span class="p">(</span><span class="s1">&#39;profile.dat&#39;</span><span class="p">)</span>
+        <span class="n">info</span><span class="o">.</span><span class="n">sort_stats</span><span class="p">(</span><span class="s1">&#39;cumulative&#39;</span><span class="p">)</span>
+        <span class="n">info</span><span class="o">.</span><span class="n">print_stats</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">batch</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mp</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="kn">import</span> <span class="n">time</span>
+
+            <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Running </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">batch_pipelines</span><span class="p">)</span><span class="si">}</span><span class="s1"> pipelines in batch mode...&#39;</span><span class="p">)</span>
+
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">logdir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="n">procs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_pipeline</span> <span class="ow">in</span> <span class="n">batch_pipelines</span><span class="p">:</span>
+                <span class="n">log_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">logdir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">.log&#39;</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span>
+                    <span class="n">target</span><span class="o">=</span><span class="n">batch_runner</span><span class="p">,</span>
+                    <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">run_config</span><span class="p">,</span> <span class="n">_pipeline</span><span class="p">,</span> <span class="n">log_file</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+                <span class="n">procs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">procs</span><span class="p">:</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Done in </span><span class="si">{</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">t0</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> seconds.&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">runner</span><span class="p">(</span><span class="n">run_config</span><span class="p">,</span> <span class="n">pipeline_config</span><span class="p">,</span> <span class="n">common_comm</span><span class="p">)</span>
+
+    <span class="c1"># Disconnect the spawned worker</span>
+    <span class="k">if</span> <span class="n">have_mpi</span> <span class="ow">and</span> <span class="n">run_config</span><span class="o">.</span><span class="n">spawn</span><span class="p">:</span>
+        <span class="n">common_comm</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
+        <span class="n">sub_comm</span><span class="o">.</span><span class="n">Disconnect</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="runner">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.runner.runner">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">runner</span><span class="p">(</span><span class="n">run_config</span><span class="p">,</span> <span class="n">pipeline_config</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Main runner funtion.</span>
+
+<span class="sd">    :param run_config: CHAP run configuration.</span>
+<span class="sd">    :type run_config: RunConfig</span>
+<span class="sd">    :param pipeline_config: CHAP Pipeline configuration.</span>
+<span class="sd">    :type pipeline_config: dict</span>
+<span class="sd">    :param comm: MPI communicator.</span>
+<span class="sd">    :type comm: mpi4py.MPI.Comm, optional</span>
+<span class="sd">    :return: Pipeline&#39;s returned data field.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># System modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="kn">import</span> <span class="n">time</span>
+
+    <span class="c1"># Logging setup</span>
+    <span class="n">logger</span><span class="p">,</span> <span class="n">log_handler</span> <span class="o">=</span> <span class="n">set_logger</span><span class="p">(</span><span class="n">run_config</span><span class="o">.</span><span class="n">log_level</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Input pipeline configuration: </span><span class="si">{</span><span class="n">pipeline_config</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Run the pipeline</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="n">run_config</span><span class="p">,</span> <span class="n">pipeline_config</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">log_handler</span><span class="p">,</span> <span class="n">comm</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Executed &quot;run&quot; in </span><span class="si">{</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">t0</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> seconds&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="set_logger">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.runner.set_logger">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_logger</span><span class="p">(</span><span class="n">log_level</span><span class="o">=</span><span class="s1">&#39;INFO&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper function to set the CHAP logger.</span>
+
+<span class="sd">    :param log_level: Logger level, defaults to `&quot;INFO&quot;`.</span>
+<span class="sd">    :type log_level: str</span>
+<span class="sd">    :return: Logger and logging handler.</span>
+<span class="sd">    :rtype: logging.Logger, logging.StreamHandler</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># System modules</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+    <span class="n">log_level</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">log_level</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">log_level</span><span class="p">)</span>
+    <span class="n">log_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
+    <span class="n">log_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span>
+        <span class="s1">&#39;</span><span class="si">{asctime}</span><span class="s1">: </span><span class="si">{name:20}</span><span class="s1">: </span><span class="si">{levelname}</span><span class="s1">: </span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span>
+        <span class="n">datefmt</span><span class="o">=</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;{&#39;</span><span class="p">))</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">log_handler</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">logger</span><span class="p">,</span> <span class="n">log_handler</span></div>
+
+
+<div class="viewcode-block" id="run">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.runner.run">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
+        <span class="n">run_config</span><span class="p">,</span> <span class="n">pipeline_config</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">log_handler</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run a given pipeline_config.</span>
+
+<span class="sd">    :param run_config: CHAP run configuration.</span>
+<span class="sd">    :type run_config: RunConfig</span>
+<span class="sd">    :param pipeline_config: CHAP Pipeline configuration.</span>
+<span class="sd">    :type pipeline_config: dict</span>
+<span class="sd">    :param logger: Logger.</span>
+<span class="sd">    :type logger: logging.Logger, optional</span>
+<span class="sd">    :param log_handler: Logging handler.</span>
+<span class="sd">    :type log_handler: logging.StreamHandler, optional</span>
+<span class="sd">    :param comm: MPI communicator.</span>
+<span class="sd">    :type comm: mpi4py.MPI.Comm, optional</span>
+<span class="sd">    :return: `data` field of the first item in the returned</span>
+<span class="sd">        list of pipeline items.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># System modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">getLogger</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">tempfile</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTemporaryFile</span>
+
+    <span class="c1"># Local modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
+
+    <span class="c1"># Make sure os.makedirs is only called from the root node</span>
+    <span class="k">if</span> <span class="n">comm</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">rank</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rank</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span>
+
+    <span class="n">pipeline_args</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">pipeline_mmcs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1">#from time import time</span>
+    <span class="c1">#t0 = time()</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">pipeline_config</span><span class="p">:</span>
+
+        <span class="c1"># Load individual object with given name from its module</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">run_config</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">item_args</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">item_args</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">item_args</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="c1"># Picking &quot;inputdir&quot; and &quot;outputdir&quot; from the item or from</span>
+            <span class="c1"># the default run configuration, giving precedence to the</span>
+            <span class="c1"># former</span>
+            <span class="k">if</span> <span class="s1">&#39;inputdir&#39;</span> <span class="ow">in</span> <span class="n">item_args</span><span class="p">:</span>
+                <span class="n">inputdir</span> <span class="o">=</span> <span class="n">item_args</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;inputdir&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">inputdir</span><span class="p">):</span>
+                    <span class="n">inputdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span>
+                        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">run_config</span><span class="o">.</span><span class="n">inputdir</span><span class="p">,</span> <span class="n">inputdir</span><span class="p">)))</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">inputdir</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;input directory does not exist (</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">access</span><span class="p">(</span><span class="n">inputdir</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">R_OK</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="s1">&#39;input directory is not accessible for &#39;</span>
+                                  <span class="sa">f</span><span class="s1">&#39;reading (</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+                <span class="n">config</span><span class="p">[</span><span class="s1">&#39;inputdir&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">inputdir</span>
+            <span class="k">if</span> <span class="s1">&#39;outputdir&#39;</span> <span class="ow">in</span> <span class="n">item_args</span><span class="p">:</span>
+                <span class="n">outputdir</span> <span class="o">=</span> <span class="n">item_args</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;outputdir&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">outputdir</span><span class="p">):</span>
+                    <span class="n">outputdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span>
+                        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">run_config</span><span class="o">.</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">outputdir</span><span class="p">)))</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">rank</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">outputdir</span><span class="p">):</span>
+                        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">outputdir</span><span class="p">)</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="n">outputdir</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span>
+                            <span class="s1">&#39;output directory is not accessible for &#39;</span>
+                            <span class="sa">f</span><span class="s1">&#39;writing (</span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+                <span class="n">config</span><span class="p">[</span><span class="s1">&#39;outputdir&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">outputdir</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">item</span>
+        <span class="n">split_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+        <span class="n">cls_name</span> <span class="o">=</span> <span class="n">split_name</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">mod_name</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">split_name</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="c1"># Initialize the object&#39;s identifiers</span>
+        <span class="k">if</span> <span class="s1">&#39;users&#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+            <span class="c1"># Load users module. This is required in CHAPaaS which can</span>
+            <span class="c1"># have common area for users module. Otherwise, we will be</span>
+            <span class="c1"># required to have invidual user&#39;s PYTHONPATHs to load user</span>
+            <span class="c1"># processors.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Third party modules</span>
+                <span class="c1"># pylint: disable=unused-import</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">users</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unable to load </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">module_name</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">fromlist</span><span class="o">=</span><span class="p">[</span><span class="n">cls_name</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">module_name</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;CHAP.</span><span class="si">{</span><span class="n">mod_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">fromlist</span><span class="o">=</span><span class="p">[</span><span class="n">cls_name</span><span class="p">])</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">module</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module_name</span><span class="p">,</span> <span class="n">cls_name</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">((</span><span class="n">cls_name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;Processor&#39;</span><span class="p">)</span>
+                        <span class="ow">or</span> <span class="n">cls_name</span> <span class="o">==</span> <span class="s1">&#39;TomoCHESSMapConverter&#39;</span><span class="p">)</span>
+                    <span class="ow">and</span> <span class="n">split_name</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;processor&#39;</span><span class="p">):</span>
+                <span class="n">mod_name</span> <span class="o">+=</span> <span class="s1">&#39;.processor&#39;</span>
+            <span class="k">if</span> <span class="n">cls_name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;Reader&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">split_name</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;reader&#39;</span><span class="p">:</span>
+                <span class="n">mod_name</span> <span class="o">+=</span> <span class="s1">&#39;.reader&#39;</span>
+            <span class="k">if</span> <span class="n">cls_name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;Writer&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">split_name</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;writer&#39;</span><span class="p">:</span>
+                <span class="n">mod_name</span> <span class="o">+=</span> <span class="s1">&#39;.writer&#39;</span>
+            <span class="k">if</span> <span class="s1">&#39;users&#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+                <span class="n">module_name</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">fromlist</span><span class="o">=</span><span class="p">[</span><span class="n">cls_name</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">module_name</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;CHAP.</span><span class="si">{</span><span class="n">mod_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">fromlist</span><span class="o">=</span><span class="p">[</span><span class="n">cls_name</span><span class="p">])</span>
+            <span class="n">module</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module_name</span><span class="p">,</span> <span class="n">cls_name</span><span class="p">)</span>
+        <span class="n">pipeline_mmcs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+
+        <span class="c1"># Initialize the object&#39;s runtime arguments</span>
+        <span class="n">item_args</span><span class="p">[</span><span class="s1">&#39;comm&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">comm</span>  <span class="c1">#FIX make comm a field in RunConfig?</span>
+        <span class="k">if</span> <span class="s1">&#39;name&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">item_args</span><span class="p">:</span>
+            <span class="n">item_args</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cls_name</span>
+        <span class="n">item_args</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">item_logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">log_handler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">item_logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">log_handler</span><span class="p">)</span>
+        <span class="n">item_args</span><span class="p">[</span><span class="s1">&#39;logger&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">item_logger</span>
+        <span class="k">if</span> <span class="n">logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Initialized input fields for an instance of </span><span class="si">{</span><span class="n">cls_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">pipeline_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item_args</span><span class="p">)</span>
+    <span class="c1">#t1 = time()</span>
+    <span class="n">pipeline</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">(</span><span class="n">mmcs</span><span class="o">=</span><span class="n">pipeline_mmcs</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">pipeline_args</span><span class="p">)</span>
+    <span class="c1">#t2 = time()</span>
+    <span class="c1">#print(f&#39;\nInitialize pipeline done in {t1-t0:.3f} seconds.&#39;)</span>
+    <span class="c1">#print(f&#39;Instantiate Pipeline done in {t2-t1:.3f} seconds.&#39;)</span>
+    <span class="c1">#exit(&#39;Done&#39;)</span>
+    <span class="n">pipeline</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">run_config</span><span class="o">.</span><span class="n">log_level</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">log_handler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pipeline</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">log_handler</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Loaded </span><span class="si">{</span><span class="n">pipeline</span><span class="si">}</span><span class="s1"> with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pipeline_mmcs</span><span class="p">)</span><span class="si">}</span><span class="s1"> items</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Make sure os.makedirs completes before continuing all nodes</span>
+    <span class="k">if</span> <span class="n">comm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">comm</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
+
+    <span class="c1"># Execute the pipeline</span>
+    <span class="k">if</span> <span class="n">logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Calling &quot;execute&quot; on </span><span class="si">{</span><span class="n">pipeline</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+
+<div class="viewcode-block" id="batch_runner">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.runner.batch_runner">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">batch_runner</span><span class="p">(</span><span class="n">run_config</span><span class="p">,</span> <span class="n">pipeline_config</span><span class="p">,</span> <span class="n">log_file</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Function for running a pipeline in batch mode with logging to</span>
+<span class="sd">    file. Essentially a wrapper for the :meth:`~CHAP.runner.runner`</span>
+<span class="sd">    function.</span>
+
+<span class="sd">    :param run_config: CHAP run configuration.</span>
+<span class="sd">    :type run_config: RunConfig</span>
+<span class="sd">    :param pipeline_config: CHAP Pipeline configuration.</span>
+<span class="sd">    :type pipeline_config: dict</span>
+<span class="sd">    :param log file: Name of file for logging.</span>
+<span class="sd">    :type log_file: str</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># System modules</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Logging to </span><span class="si">{</span><span class="n">log_file</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">log_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">f</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="n">f</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">runner</span><span class="p">(</span><span class="n">run_config</span><span class="p">,</span> <span class="n">pipeline_config</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

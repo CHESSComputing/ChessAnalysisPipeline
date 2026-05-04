@@ -1,0 +1,1223 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.edd.reader &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.edd.reader</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.edd.reader</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Module for Readers unique to the EDD workflow.&quot;&quot;&quot;</span>
+
+<span class="c1"># System modules</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="c1"># Third party modules</span>
+<span class="c1"># pylint: disable=import-error</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">chess_scanparsers</span><span class="w"> </span><span class="kn">import</span> <span class="n">SMBMCAScanParser</span> <span class="k">as</span> <span class="n">ScanParser</span>
+<span class="c1"># pylint: enable=import-error</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">conint</span><span class="p">,</span>
+    <span class="n">conlist</span><span class="p">,</span>
+    <span class="n">constr</span><span class="p">,</span>
+    <span class="n">field_validator</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="n">DetectorConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">Reader</span>
+
+
+<div class="viewcode-block" id="EddMapReader">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.EddMapReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EddMapReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for taking an EDD-style par file and returning a</span>
+<span class="sd">    :class:`~CHAP.common.models.map.MapConfig` object representing one</span>
+<span class="sd">    of the datasets in the file. Independent dimensions are determined</span>
+<span class="sd">    automatically, and a specific set of items to use for extra scalar</span>
+<span class="sd">    datasets to include are hard-coded in. The raw data is read if</span>
+<span class="sd">    detector ID&#39;s are specified.</span>
+
+<span class="sd">    :ivar scan_numbers: List of scan numbers to use.</span>
+<span class="sd">    :vartype scan_numbers: int or list[int] or str, optional</span>
+<span class="sd">    :ivar dataset_id: Dataset ID value in the par file to return as a</span>
+<span class="sd">        map, defaults to `1`.</span>
+<span class="sd">    :vartype dataset_id: int, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">scan_numbers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">dataset_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">1</span>
+
+<div class="viewcode-block" id="EddMapReader.validate_scan_numbers">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.EddMapReader.validate_scan_numbers">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;scan_numbers&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_scan_numbers</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">scan_numbers</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the specified list of scan numbers.</span>
+
+<span class="sd">        :param scan_numbers: Scan numbers.</span>
+<span class="sd">        :type scan_numbers: int or list[int] or str</span>
+<span class="sd">        :raises ValueError: If a specified scan number is not found in</span>
+<span class="sd">            the SPEC file.</span>
+<span class="sd">        :return: Scan numbers.</span>
+<span class="sd">        :rtype: list[int]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scan_numbers</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">scan_numbers</span> <span class="o">=</span> <span class="p">[</span><span class="n">scan_numbers</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scan_numbers</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="c1"># Local modules</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">string_to_list</span>
+
+            <span class="n">scan_numbers</span> <span class="o">=</span> <span class="n">string_to_list</span><span class="p">(</span><span class="n">scan_numbers</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">scan_numbers</span></div>
+
+
+<div class="viewcode-block" id="EddMapReader.read">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.EddMapReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a validated serialized</span>
+<span class="sd">        :class:`~CHAP.common.models.map.MapConfig` object representing</span>
+<span class="sd">        an EDD dataset.</span>
+
+<span class="sd">        :returns: Map configuration.</span>
+<span class="sd">        :rtype: dict </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="n">MapConfig</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">list_to_string</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.parfile</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParFile</span>
+
+        <span class="n">parfile</span> <span class="o">=</span> <span class="n">ParFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">scan_numbers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;spec_file: </span><span class="si">{</span><span class="n">parfile</span><span class="o">.</span><span class="n">spec_file</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="n">attrs</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># Get list of scan numbers for the dataset</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">dataset_ids</span> <span class="o">=</span> <span class="n">parfile</span><span class="o">.</span><span class="n">get_values</span><span class="p">(</span><span class="s1">&#39;dataset_id&#39;</span><span class="p">)</span>
+            <span class="n">dataset_rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dataset_ids</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset_id</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">dataset_rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">parfile</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">))</span>
+            <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;dataset_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">scan_nos</span> <span class="o">=</span> <span class="p">[</span><span class="n">parfile</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">parfile</span><span class="o">.</span><span class="n">scann_i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">dataset_rows</span>
+                    <span class="k">if</span> <span class="n">parfile</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">parfile</span><span class="o">.</span><span class="n">scann_i</span><span class="p">]</span> <span class="ow">in</span>
+                        <span class="n">parfile</span><span class="o">.</span><span class="n">good_scan_numbers</span><span class="p">()]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">scan_nos</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Unable to find scans with dataset_id &#39;</span>
+                               <span class="sa">f</span><span class="s1">&#39;matching </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Scan numbers: </span><span class="si">{</span><span class="n">list_to_string</span><span class="p">(</span><span class="n">scan_nos</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">spec_scans</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;spec_file&#39;</span><span class="p">:</span> <span class="n">parfile</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span> <span class="s1">&#39;scan_numbers&#39;</span><span class="p">:</span> <span class="n">scan_nos</span><span class="p">}]</span>
+
+        <span class="c1"># Get scan type for this dataset</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">scan_types</span> <span class="o">=</span> <span class="n">parfile</span><span class="o">.</span><span class="n">get_values</span><span class="p">(</span><span class="s1">&#39;scan_type&#39;</span><span class="p">,</span> <span class="n">scan_numbers</span><span class="o">=</span><span class="n">scan_nos</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">st</span> <span class="o">!=</span> <span class="n">scan_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">scan_types</span><span class="p">]):</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s1">&#39;Only one scan type per dataset is suported.&#39;</span><span class="p">)</span>
+            <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Third party modules</span>
+            <span class="c1"># pylint: disable=import-error</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">chess_scanparsers</span><span class="w"> </span><span class="kn">import</span> <span class="n">SMBScanParser</span>
+
+            <span class="n">scanparser</span> <span class="o">=</span> <span class="n">SMBScanParser</span><span class="p">(</span><span class="n">parfile</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span> <span class="n">scan_nos</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_macro</span> <span class="o">==</span> <span class="s1">&#39;tseries&#39;</span><span class="p">:</span>
+                <span class="n">scan_type</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Old style par files not supported for &#39;</span>
+                                   <span class="s1">&#39;spec_macro != tseries&#39;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+            <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;scan_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scan_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Scan type: </span><span class="si">{</span><span class="n">scan_type</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Based on scan type, get independent_dimensions for the map</span>
+        <span class="c1"># Start by adding labx, laby, labz, and omega. Any &quot;extra&quot;</span>
+        <span class="c1"># dimensions will be sqeezed out of the map later.</span>
+        <span class="n">independent_dimensions</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;labx&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;labx&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;laby&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;laby&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;labz&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;labz&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;degrees&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">},</span>
+        <span class="p">]</span>
+        <span class="n">scalar_data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">scan_type</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s1">&#39;Assuming all fly axes parameters are identical for all scans&#39;</span><span class="p">)</span>
+            <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;fly_axis_labels&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">axes_labels</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="mi">1</span><span class="p">:</span> <span class="s1">&#39;fly_labx&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s1">&#39;fly_laby&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="s1">&#39;fly_labz&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="s1">&#39;fly_ometotal&#39;</span><span class="p">}</span>
+            <span class="n">axes_units</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="s1">&#39;degrees&#39;</span><span class="p">}</span>
+            <span class="n">axes_added</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">scanparser</span> <span class="o">=</span> <span class="n">ScanParser</span><span class="p">(</span><span class="n">parfile</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span> <span class="n">scan_nos</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">add_fly_axis</span><span class="p">(</span><span class="n">fly_axis_index</span><span class="p">):</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Add the fly axis info.&quot;&quot;&quot;</span>
+                <span class="k">if</span> <span class="n">fly_axis_index</span> <span class="ow">in</span> <span class="n">axes_added</span><span class="p">:</span>
+                    <span class="k">return</span>
+                <span class="n">fly_axis_key</span> <span class="o">=</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;fly_axis</span><span class="si">{</span><span class="n">fly_axis_index</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span>
+                <span class="n">independent_dimensions</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">axes_labels</span><span class="p">[</span><span class="n">fly_axis_key</span><span class="p">],</span>
+                    <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;spec_motor&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="n">axes_units</span><span class="p">[</span><span class="n">fly_axis_key</span><span class="p">],</span>
+                    <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_motor_mnes</span><span class="p">[</span><span class="n">fly_axis_index</span><span class="p">],</span>
+                <span class="p">})</span>
+                <span class="n">axes_added</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fly_axis_index</span><span class="p">)</span>
+                <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;fly_axis_labels&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">axes_labels</span><span class="p">[</span><span class="n">fly_axis_key</span><span class="p">])</span>
+            <span class="n">add_fly_axis</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">scan_type</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+                <span class="n">add_fly_axis</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">scan_type</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+                <span class="n">scalar_data</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;bin_axis&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;n/a&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;bin_axis&#39;</span><span class="p">,</span>
+                <span class="p">})</span>
+                <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;bin_axis_label&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">axes_labels</span><span class="p">[</span>
+                    <span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="p">[</span><span class="s1">&#39;bin_axis&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;fly_&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Add in the usual extra scalar data maps for EDD</span>
+        <span class="n">scalar_data</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+            <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;SCAN_N&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;n/a&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;SCAN_N&#39;</span><span class="p">,</span>
+        <span class="p">})</span>
+        <span class="k">if</span> <span class="s1">&#39;rsgap_size&#39;</span> <span class="ow">in</span> <span class="n">parfile</span><span class="o">.</span><span class="n">column_names</span><span class="p">:</span>
+            <span class="n">scalar_data</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;rsgap_size&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;rsgap_size&#39;</span><span class="p">,</span>
+            <span class="p">})</span>
+        <span class="k">if</span> <span class="s1">&#39;x_effective&#39;</span> <span class="ow">in</span> <span class="n">parfile</span><span class="o">.</span><span class="n">column_names</span><span class="p">:</span>
+            <span class="n">scalar_data</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;x_effective&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;x_effective&#39;</span><span class="p">,</span>
+            <span class="p">})</span>
+        <span class="k">if</span> <span class="s1">&#39;z_effective&#39;</span> <span class="ow">in</span> <span class="n">parfile</span><span class="o">.</span><span class="n">column_names</span><span class="p">:</span>
+            <span class="n">scalar_data</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;z_effective&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;z_effective&#39;</span><span class="p">,</span>
+            <span class="p">})</span>
+
+        <span class="c1"># Construct and validate the initial map config dictionary</span>
+        <span class="n">scanparser</span> <span class="o">=</span> <span class="n">ScanParser</span><span class="p">(</span><span class="n">parfile</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span> <span class="n">scan_nos</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">map_config_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;title&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">scanparser</span><span class="o">.</span><span class="n">scan_name</span><span class="si">}</span><span class="s1">_dataset</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;station&#39;</span><span class="p">:</span> <span class="s1">&#39;id1a3&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;experiment_type&#39;</span><span class="p">:</span> <span class="s1">&#39;EDD&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;sample&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">scan_name</span><span class="p">},</span>
+            <span class="s1">&#39;spec_scans&#39;</span><span class="p">:</span> <span class="n">spec_scans</span><span class="p">,</span>
+            <span class="s1">&#39;independent_dimensions&#39;</span><span class="p">:</span> <span class="n">independent_dimensions</span><span class="p">,</span>
+            <span class="s1">&#39;scalar_data&#39;</span><span class="p">:</span> <span class="n">scalar_data</span><span class="p">,</span>
+            <span class="s1">&#39;presample_intensity&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;a3ic1&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">},</span>
+            <span class="s1">&#39;postsample_intensity&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;diode&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">},</span>
+            <span class="s1">&#39;dwell_time_actual&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;sec&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">},</span>
+            <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="n">attrs</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">map_config_dict</span> <span class="o">=</span> <span class="n">MapConfig</span><span class="p">(</span><span class="o">**</span><span class="n">map_config_dict</span><span class="p">)</span>
+
+        <span class="c1"># Add lab coordinates to the map&#39;s scalar_data only if they</span>
+        <span class="c1"># are NOT already one of the sqeezed map&#39;s</span>
+        <span class="c1"># independent_dimensions.</span>
+        <span class="n">lab_dims</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;labx&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;labx&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;laby&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;laby&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;labz&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;labz&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;degrees&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">},</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">lab_dims</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">independent_dimensions</span><span class="p">:</span>
+                <span class="n">scalar_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+
+        <span class="c1"># Convert list of scan_numbers to string notation</span>
+        <span class="n">scan_numbers</span> <span class="o">=</span> <span class="n">map_config_dict</span><span class="o">.</span><span class="n">spec_scans</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scan_numbers</span>
+        <span class="n">map_config_dict</span><span class="o">.</span><span class="n">spec_scans</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scan_numbers</span> <span class="o">=</span> <span class="n">list_to_string</span><span class="p">(</span>
+            <span class="n">scan_numbers</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">map_config_dict</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="EddMPIMapReader">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EddMPIMapReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for taking an EDD-style par file and returning a</span>
+<span class="sd">    :class:`~CHAP.common.models.map.MapConfig` object representing one</span>
+<span class="sd">    of the datasets in the file. Independent dimensions are determined</span>
+<span class="sd">    automatically, and a specific set of items to use for extra scalar</span>
+<span class="sd">    datasets to include are hard-coded in. The raw data is read if</span>
+<span class="sd">    detector ID&#39;s are specified.</span>
+
+<span class="sd">    :ivar dataset_id: Dataset ID value in the par file to return as a</span>
+<span class="sd">        map, defaults to `1`.</span>
+<span class="sd">    :vartype dataset_id: int, optional</span>
+<span class="sd">    :ivar detector_ids: Detector IDs for the raw data.</span>
+<span class="sd">    :vartype detector_ids: int or list[int] or str</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">dataset_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">detector_ids</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<div class="viewcode-block" id="EddMPIMapReader.validate_detector_ids">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader.validate_detector_ids">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;detector_ids&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_detector_ids</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">detector_ids</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the specified list of detector IDs.</span>
+
+<span class="sd">        :param detector_ids: Detector IDs.</span>
+<span class="sd">        :type detector_ids: int or list[int] or str</span>
+<span class="sd">        :return: List of Detector IDs.</span>
+<span class="sd">        :rtype: list[int]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">detector_ids</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">detector_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">detector_ids</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">detector_ids</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="c1"># Local modules</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">string_to_list</span>
+
+            <span class="n">detector_ids</span> <span class="o">=</span> <span class="n">string_to_list</span><span class="p">(</span><span class="n">detector_ids</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">detector_ids</span></div>
+
+
+<div class="viewcode-block" id="EddMPIMapReader.read">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a validated serialized</span>
+<span class="sd">        :class:`~CHAP.common.models.map.MapConfig` object representing</span>
+<span class="sd">        an EDD dataset.</span>
+
+<span class="sd">        :returns: Map configuration.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="c1"># pylint: disable=no-name-in-module</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">NXcollection</span><span class="p">,</span>
+            <span class="n">NXdata</span><span class="p">,</span>
+            <span class="n">NXentry</span><span class="p">,</span>
+            <span class="n">NXfield</span><span class="p">,</span>
+            <span class="n">NXsample</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># pylint: enable=no-name-in-module</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="n">MapConfig</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.parfile</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParFile</span>
+
+        <span class="n">parfile</span> <span class="o">=</span> <span class="n">ParFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;spec_file: </span><span class="si">{</span><span class="n">parfile</span><span class="o">.</span><span class="n">spec_file</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Get list of scan numbers for the dataset</span>
+        <span class="n">dataset_ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">parfile</span><span class="o">.</span><span class="n">get_values</span><span class="p">(</span><span class="s1">&#39;dataset_id&#39;</span><span class="p">))</span>
+        <span class="n">dataset_rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dataset_ids</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset_id</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">scan_nos</span> <span class="o">=</span> <span class="p">[</span><span class="n">parfile</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">parfile</span><span class="o">.</span><span class="n">scann_i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">dataset_rows</span>
+                    <span class="k">if</span> <span class="n">parfile</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">parfile</span><span class="o">.</span><span class="n">scann_i</span><span class="p">]</span> <span class="ow">in</span>
+                        <span class="n">parfile</span><span class="o">.</span><span class="n">good_scan_numbers</span><span class="p">()]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Scan numbers: </span><span class="si">{</span><span class="n">scan_nos</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">spec_scans</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;spec_file&#39;</span><span class="p">:</span> <span class="n">parfile</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span> <span class="s1">&#39;scan_numbers&#39;</span><span class="p">:</span> <span class="n">scan_nos</span><span class="p">}]</span>
+
+        <span class="c1"># Get scan type for this dataset</span>
+        <span class="n">scan_types</span> <span class="o">=</span> <span class="n">parfile</span><span class="o">.</span><span class="n">get_values</span><span class="p">(</span><span class="s1">&#39;scan_type&#39;</span><span class="p">,</span> <span class="n">scan_numbers</span><span class="o">=</span><span class="n">scan_nos</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">st</span> <span class="o">!=</span> <span class="n">scan_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">scan_types</span><span class="p">]):</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Only one scan type per dataset is suported.&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Scan type: </span><span class="si">{</span><span class="n">scan_type</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Based on scan type, get independent_dimensions for the map</span>
+        <span class="c1"># Start by adding labx, laby, labz, and omega. Any &quot;extra&quot;</span>
+        <span class="c1"># dimensions will be sqeezed out of the map later.</span>
+        <span class="n">independent_dimensions</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;labx&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;labx&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;laby&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;laby&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;labz&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;labz&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;degrees&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">},</span>
+        <span class="p">]</span>
+        <span class="n">scalar_data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">attrs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">scan_type</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s1">&#39;Assuming all fly axes parameters are identical for all scans&#39;</span><span class="p">)</span>
+            <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;fly_axis_labels&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">axes_labels</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="mi">1</span><span class="p">:</span> <span class="s1">&#39;fly_labx&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s1">&#39;fly_laby&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="s1">&#39;fly_labz&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="s1">&#39;fly_ometotal&#39;</span><span class="p">}</span>
+            <span class="n">axes_units</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="s1">&#39;degrees&#39;</span><span class="p">}</span>
+            <span class="n">axes_added</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">scanparser</span> <span class="o">=</span> <span class="n">ScanParser</span><span class="p">(</span><span class="n">parfile</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span> <span class="n">scan_nos</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">add_fly_axis</span><span class="p">(</span><span class="n">fly_axis_index</span><span class="p">):</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Add the fly axis info.&quot;&quot;&quot;</span>
+                <span class="k">if</span> <span class="n">fly_axis_index</span> <span class="ow">in</span> <span class="n">axes_added</span><span class="p">:</span>
+                    <span class="k">return</span>
+                <span class="n">fly_axis_key</span> <span class="o">=</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;fly_axis</span><span class="si">{</span><span class="n">fly_axis_index</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span>
+                <span class="n">independent_dimensions</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">axes_labels</span><span class="p">[</span><span class="n">fly_axis_key</span><span class="p">],</span>
+                    <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;spec_motor&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="n">axes_units</span><span class="p">[</span><span class="n">fly_axis_key</span><span class="p">],</span>
+                    <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_motor_mnes</span><span class="p">[</span><span class="n">fly_axis_index</span><span class="p">],</span>
+                <span class="p">})</span>
+                <span class="n">axes_added</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fly_axis_index</span><span class="p">)</span>
+                <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;fly_axis_labels&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">axes_labels</span><span class="p">[</span><span class="n">fly_axis_key</span><span class="p">])</span>
+            <span class="n">add_fly_axis</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">scan_type</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+                <span class="n">add_fly_axis</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">scan_type</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+                <span class="n">scalar_data</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;bin_axis&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;n/a&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;bin_axis&#39;</span><span class="p">,</span>
+                <span class="p">})</span>
+                <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;bin_axis_label&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">axes_labels</span><span class="p">[</span>
+                    <span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="p">[</span><span class="s1">&#39;bin_axis&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;fly_&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Add in the usual extra scalar data maps for EDD</span>
+        <span class="n">scalar_data</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;SCAN_N&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;n/a&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;SCAN_N&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;rsgap_size&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;rsgap_size&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;x_effective&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;x_effective&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;z_effective&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;z_effective&#39;</span><span class="p">},</span>
+        <span class="p">])</span>
+
+        <span class="c1"># Construct and validate the initial map config dictionary</span>
+        <span class="n">scanparser</span> <span class="o">=</span> <span class="n">ScanParser</span><span class="p">(</span><span class="n">parfile</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span> <span class="n">scan_nos</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">map_config_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;title&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">scanparser</span><span class="o">.</span><span class="n">scan_name</span><span class="si">}</span><span class="s1">_dataset</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset_id</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;station&#39;</span><span class="p">:</span> <span class="s1">&#39;id1a3&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;experiment_type&#39;</span><span class="p">:</span> <span class="s1">&#39;EDD&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;sample&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">scan_name</span><span class="p">},</span>
+            <span class="s1">&#39;spec_scans&#39;</span><span class="p">:</span> <span class="n">spec_scans</span><span class="p">,</span>
+            <span class="s1">&#39;independent_dimensions&#39;</span><span class="p">:</span> <span class="n">independent_dimensions</span><span class="p">,</span>
+            <span class="s1">&#39;scalar_data&#39;</span><span class="p">:</span> <span class="n">scalar_data</span><span class="p">,</span>
+            <span class="s1">&#39;presample_intensity&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;a3ic1&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">},</span>
+            <span class="s1">&#39;postsample_intensity&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;diode&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">},</span>
+            <span class="s1">&#39;dwell_time_actual&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;sec&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">},</span>
+            <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="n">attrs</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">map_config</span> <span class="o">=</span> <span class="n">MapConfig</span><span class="p">(</span><span class="o">**</span><span class="n">map_config_dict</span><span class="p">)</span>
+
+        <span class="c1"># Squeeze out extraneous independent dimensions (dimensions</span>
+        <span class="c1"># along which data were taken at only one unique coordinate</span>
+        <span class="c1"># value)</span>
+        <span class="k">while</span> <span class="mi">1</span> <span class="ow">in</span> <span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="n">remove_dim_index</span> <span class="o">=</span> <span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s1">&#39;Map dimensions: &#39;</span>
+                <span class="o">+</span> <span class="nb">str</span><span class="p">([</span><span class="n">dim</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">independent_dimensions</span><span class="p">]))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Map shape: </span><span class="si">{</span><span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s1">&#39;Sqeezing out independent dimension &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">independent_dimensions</span><span class="p">[</span><span class="n">remove_dim_index</span><span class="p">][</span><span class="s2">&quot;label&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">independent_dimensions</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">remove_dim_index</span><span class="p">)</span>
+            <span class="n">map_config</span> <span class="o">=</span> <span class="n">MapConfig</span><span class="p">(</span><span class="o">**</span><span class="n">map_config_dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="s1">&#39;Map dimensions: &#39;</span>
+            <span class="o">+</span> <span class="nb">str</span><span class="p">([</span><span class="n">dim</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">independent_dimensions</span><span class="p">]))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Map shape: </span><span class="si">{</span><span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Add lab coordinates to the map&#39;s scalar_data only if they</span>
+        <span class="c1"># are NOT already one of the sqeezed map&#39;s</span>
+        <span class="c1"># independent_dimensions.</span>
+        <span class="n">lab_dims</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;labx&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;labx&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;laby&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;laby&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;labz&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;labz&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;degrees&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">},</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">lab_dims</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">independent_dimensions</span><span class="p">:</span>
+                <span class="n">scalar_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+
+        <span class="c1"># Set up NXentry and add misc. CHESS-specific metadata</span>
+        <span class="n">nxentry</span> <span class="o">=</span> <span class="n">NXentry</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">map_config</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;station&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">map_config</span><span class="o">.</span><span class="n">station</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">map_config</span> <span class="o">=</span> <span class="n">map_config</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">spec_scans</span> <span class="o">=</span> <span class="n">NXcollection</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">scans</span> <span class="ow">in</span> <span class="n">map_config</span><span class="o">.</span><span class="n">spec_scans</span><span class="p">:</span>
+            <span class="n">nxentry</span><span class="o">.</span><span class="n">spec_scans</span><span class="p">[</span><span class="n">scans</span><span class="o">.</span><span class="n">scanparsers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scan_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">scans</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">,</span>
+                <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;spec_file&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">scans</span><span class="o">.</span><span class="n">spec_file</span><span class="p">)})</span>
+
+        <span class="c1"># Add sample metadata</span>
+        <span class="n">nxentry</span><span class="p">[</span><span class="n">map_config</span><span class="o">.</span><span class="n">sample</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">NXsample</span><span class="p">(</span>
+            <span class="o">**</span><span class="n">map_config</span><span class="o">.</span><span class="n">sample</span><span class="o">.</span><span class="n">model_dump</span><span class="p">())</span>
+
+        <span class="c1"># Set up default data group</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">()</span>
+        <span class="n">independent_dimensions</span> <span class="o">=</span> <span class="n">map_config</span><span class="o">.</span><span class="n">independent_dimensions</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">independent_dimensions</span><span class="p">:</span>
+            <span class="n">nxentry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">dim</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span>
+                <span class="n">units</span><span class="o">=</span><span class="n">dim</span><span class="o">.</span><span class="n">units</span><span class="p">,</span>
+                <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;long_name&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">dim</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="n">dim</span><span class="o">.</span><span class="n">units</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="n">dim</span><span class="o">.</span><span class="n">data_type</span><span class="p">,</span>
+                       <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="n">dim</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
+
+        <span class="c1"># Read the raw data and independent dimensions</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">detector_ids</span><span class="p">]</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">independent_dimensions</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">scans</span> <span class="ow">in</span> <span class="n">map_config</span><span class="o">.</span><span class="n">spec_scans</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">scan_number</span> <span class="ow">in</span> <span class="n">scans</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">:</span>
+                <span class="n">scanparser</span> <span class="o">=</span> <span class="n">scans</span><span class="o">.</span><span class="n">get_scanparser</span><span class="p">(</span><span class="n">scan_number</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">detector_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detector_ids</span><span class="p">):</span>
+                    <span class="n">ddata</span> <span class="o">=</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span><span class="n">detector_id</span><span class="p">)</span>
+                    <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ddata</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">independent_dimensions</span><span class="p">):</span>
+                    <span class="n">dims</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dim</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span>
+                        <span class="n">scans</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">,</span> <span class="n">scan_step_index</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">relative</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">map_config_dict</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ScanToMapReader">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.ScanToMapReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ScanToMapReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for turning a single SPEC scan into a</span>
+<span class="sd">    :class:`~CHAP.common.models.map.MapConfig` object.</span>
+<span class="sd"> </span>
+<span class="sd">    :ivar scan_number: SPEC scan number.</span>
+<span class="sd">    :vartype scan_number: int</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">scan_number</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ScanToMapReader.read">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.ScanToMapReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a validated serialized</span>
+<span class="sd">        :class:`~CHAP.common.models.map.MapConfig` object representing</span>
+<span class="sd">        an EDD dataset.</span>
+
+<span class="sd">        :returns: Map configuration.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">scanparser</span> <span class="o">=</span> <span class="n">ScanParser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">scanparser</span><span class="o">.</span><span class="n">spec_macro</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;tseries&#39;</span><span class="p">,</span> <span class="s1">&#39;loopscan&#39;</span><span class="p">)</span> <span class="ow">or</span>
+               <span class="p">(</span><span class="n">scanparser</span><span class="o">.</span><span class="n">spec_macro</span> <span class="o">==</span> <span class="s1">&#39;flyscan&#39;</span> <span class="ow">and</span>
+                <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">scanparser</span><span class="o">.</span><span class="n">spec_args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">)):</span>
+            <span class="n">independent_dimensions</span> <span class="o">=</span> <span class="p">[{</span>
+                <span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;Time&#39;</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;seconds&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;Time&#39;</span><span class="p">,</span>
+            <span class="p">}]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">independent_dimensions</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">mne</span><span class="p">,</span> <span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;unknown units&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;spec_motor&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">mne</span><span class="p">}</span>
+                <span class="k">for</span> <span class="n">mne</span> <span class="ow">in</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_motor_mnes</span><span class="p">]</span>
+
+        <span class="n">map_config_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;title&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">scanparser</span><span class="o">.</span><span class="n">scan_name</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="si">:</span><span class="s1">03d</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;station&#39;</span><span class="p">:</span> <span class="s1">&#39;id1a3&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;experiment_type&#39;</span><span class="p">:</span> <span class="s1">&#39;EDD&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;sample&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">scan_name</span><span class="p">},</span>
+            <span class="s1">&#39;spec_scans&#39;</span><span class="p">:</span> <span class="p">[{</span>
+                <span class="s1">&#39;spec_file&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+                <span class="s1">&#39;scan_numbers&#39;</span><span class="p">:</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">]}],</span>
+            <span class="s1">&#39;independent_dimensions&#39;</span><span class="p">:</span> <span class="n">independent_dimensions</span><span class="p">,</span>
+            <span class="s1">&#39;presample_intensity&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;a3ic1&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">},</span>
+            <span class="s1">&#39;postsample_intensity&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;diode&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">},</span>
+            <span class="s1">&#39;dwell_time_actual&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;sec&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">},</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">map_config_dict</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SetupNXdataReader">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SetupNXdataReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for converting the SPEC input txt file for EDD dataset</span>
+<span class="sd">    collection to an approporiate input argument for</span>
+<span class="sd">    :class:`~CHAP.common.processor.SetupNXdataProcessor`.</span>
+
+<span class="sd">    :ivar dataset_id: Dataset ID value in the txt file to return </span>
+<span class="sd">        :meth:`~CHAP.common.SetupNXdataProcessor.process` arguments</span>
+<span class="sd">        for.</span>
+<span class="sd">    :vartype dataset_id: int</span>
+<span class="sd">    :ivar detectors: Detector list.</span>
+<span class="sd">    :vartype detectors: DetectorConfig</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">dataset_id</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">detectors</span><span class="p">:</span> <span class="n">DetectorConfig</span>
+
+<div class="viewcode-block" id="SetupNXdataReader.validate_detectors">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.validate_detectors">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;detectors&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_detectors</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">detectors</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the specified list of detectors.</span>
+
+<span class="sd">        :param detectors: Detectors list.</span>
+<span class="sd">        :type detectors: list[CHAP.common.models.map.Detector]</span>
+<span class="sd">        :return: Detectors list.</span>
+<span class="sd">        :rtype: list[CHAP.common.models.map.Detector]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">detectors</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">detectors</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="n">i</span><span class="p">}</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">23</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">DetectorConfig</span><span class="p">(</span><span class="n">detectors</span><span class="o">=</span><span class="n">detectors</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SetupNXdataReader.read">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a dictionary containing the `coords`, `signals`, and</span>
+<span class="sd">        `attrs` arguments appropriate for use with</span>
+<span class="sd">        :meth:`~CHAP.common.processor.SetupNXdataProcessor.process` to</span>
+<span class="sd">        set up an initial NeXus style</span>
+<span class="sd">        `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__</span>
+<span class="sd">        object representing a complete and organized structured EDD</span>
+<span class="sd">        dataset.</span>
+
+<span class="sd">        :returns: Dataset&#39;s coordinate names, values, attributes,</span>
+<span class="sd">            and signal names, shapes, and attributes.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Columns in input txt file:</span>
+        <span class="c1"># 0: scan number</span>
+        <span class="c1"># 1: dataset index</span>
+        <span class="c1"># 2: configuration descriptor</span>
+        <span class="c1"># 3: labx</span>
+        <span class="c1"># 4: laby</span>
+        <span class="c1"># 5: labz</span>
+        <span class="c1"># 6: omega (reference)</span>
+        <span class="c1"># 7: omega (offset)</span>
+        <span class="c1"># 8: dwell time</span>
+        <span class="c1"># 9: beam width</span>
+        <span class="c1"># 10: beam height</span>
+        <span class="c1"># 11: detector slit gap width</span>
+        <span class="c1"># 12: scan type</span>
+
+        <span class="c1"># Following columns used only for scan types 1 and up and</span>
+        <span class="c1"># specify flyscan/flymesh parameters.</span>
+        <span class="c1"># 13 + 4n: scan direction axis index</span>
+        <span class="c1"># 14 + 4n: lower bound</span>
+        <span class="c1"># 15 + 4n: upper bound</span>
+        <span class="c1"># 16 + 4n: no. points</span>
+        <span class="c1"># (For scan types 1, 4: n = 0)</span>
+        <span class="c1"># (For scan types 2, 3, 5: n = 0 or 1)</span>
+
+        <span class="c1"># For scan type 5 only:</span>
+        <span class="c1"># 21: bin axis</span>
+
+        <span class="c1"># Parse dataset from the input txt file.</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">file_lines</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+        <span class="n">dataset_lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">file_lines</span><span class="p">:</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="n">l</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">vals</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                        <span class="k">pass</span>
+            <span class="k">if</span> <span class="n">vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset_id</span><span class="p">:</span>
+                <span class="n">dataset_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+
+        <span class="c1"># Start inferring coords and signals lists for EDD experiments</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s1">&#39;Assuming the following parameters are identical across the &#39;</span>
+            <span class="s1">&#39;entire dataset: scan type, configuration descriptor&#39;</span><span class="p">)</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">12</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;scan_type = </span><span class="si">{</span><span class="n">scan_type</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="c1"># Set up even the potential &quot;coordinates&quot; (labx, laby, labz,</span>
+        <span class="c1"># ometotal) as &quot;signals&quot; because we want to force</span>
+        <span class="c1"># common.SetupNXdataProcessor to set up all EDD datasets as</span>
+        <span class="c1"># UNstructured with a single actual coordinate</span>
+        <span class="c1"># (dataset_pont_index).</span>
+        <span class="n">signals</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;labx&#39;</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;float64&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="s1">&#39;labx&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">}},</span>
+            <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;laby&#39;</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;float64&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="s1">&#39;laby&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">}},</span>
+            <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;labz&#39;</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;float64&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="s1">&#39;labz&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">}},</span>
+            <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;float64&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;degrees&#39;</span><span class="p">,</span> <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">}},</span>
+            <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;presample_intensity&#39;</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;uint64&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;counts&#39;</span><span class="p">,</span> <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="s1">&#39;a3ic1&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">}},</span>
+            <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;postsample_intensity&#39;</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;uint64&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;counts&#39;</span><span class="p">,</span> <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="s1">&#39;diode&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">}},</span>
+            <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;dwell_time_actual&#39;</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;float64&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;seconds&#39;</span><span class="p">,</span> <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="s1">&#39;sec&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">}},</span>
+            <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;SCAN_N&#39;</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;uint8&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;n/a&#39;</span><span class="p">,</span> <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="s1">&#39;SCAN_N&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">}},</span>
+            <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;rsgap_size&#39;</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;float64&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="s1">&#39;rsgap_size&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">}},</span>
+            <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;x_effective&#39;</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;float64&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="s1">&#39;x_effective&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">}},</span>
+            <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;z_effective&#39;</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;float64&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="s1">&#39;z_effective&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">}},</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Add each MCA channel to the list of signals</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">detectors</span><span class="p">:</span>
+            <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">d</span><span class="o">.</span><span class="n">get_id</span><span class="p">(),</span> <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="n">d</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;uint64&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="n">d</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;shape&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">4096</span><span class="p">,))})</span>
+
+        <span class="c1"># Attributes to attach for use by edd.StrainAnalysisProcessor:</span>
+        <span class="n">attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;dataset_id&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset_id</span><span class="p">,</span>
+                 <span class="s1">&#39;config_id&#39;</span><span class="p">:</span> <span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span>
+                 <span class="s1">&#39;scan_type&#39;</span><span class="p">:</span> <span class="n">scan_type</span><span class="p">,</span>
+                 <span class="s1">&#39;unstructured_axes&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;labx&#39;</span><span class="p">,</span> <span class="s1">&#39;laby&#39;</span><span class="p">,</span> <span class="s1">&#39;labz&#39;</span><span class="p">,</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">]}</span>
+
+        <span class="c1"># Append additional fly_* signals depending on the scan type</span>
+        <span class="c1"># of the dataset. Also find the number of points / scan.</span>
+        <span class="k">if</span> <span class="n">scan_type</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">scan_npts</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">fly_axis_values</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s1">&#39;Assuming scan parameters are identical for all scans.&#39;</span><span class="p">)</span>
+            <span class="n">axes_labels</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="s1">&#39;fly_labx&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s1">&#39;fly_laby&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="s1">&#39;fly_labz&#39;</span><span class="p">,</span>
+                           <span class="mi">4</span><span class="p">:</span> <span class="s1">&#39;fly_ometotal&#39;</span><span class="p">}</span>
+            <span class="n">axes_units</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="s1">&#39;mm&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="s1">&#39;degrees&#39;</span><span class="p">}</span>
+            <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">axes_labels</span><span class="p">[</span><span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">13</span><span class="p">]],</span>
+                <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="n">axes_units</span><span class="p">[</span><span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">13</span><span class="p">]],</span>
+                          <span class="s1">&#39;relative&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+                <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;float64&#39;</span>
+            <span class="p">})</span>
+            <span class="n">scan_npts</span> <span class="o">=</span> <span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">16</span><span class="p">]</span>
+            <span class="n">fly_axis_labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">axes_labels</span><span class="p">[</span><span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">13</span><span class="p">]]]</span>
+            <span class="n">fly_axis_values</span> <span class="o">=</span> <span class="p">{</span><span class="n">fly_axis_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                               <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                                   <span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">14</span><span class="p">],</span> <span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">15</span><span class="p">],</span>
+                                   <span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">16</span><span class="p">]),</span> <span class="mi">3</span><span class="p">)}</span>
+            <span class="n">scan_shape</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fly_axis_values</span><span class="p">[</span><span class="n">fly_axis_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),)</span>
+            <span class="k">if</span> <span class="n">scan_type</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+                <span class="n">signals</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">axes_labels</span><span class="p">[</span><span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">17</span><span class="p">]],</span>
+                    <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="n">axes_units</span><span class="p">[</span><span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">17</span><span class="p">]],</span>
+                              <span class="s1">&#39;relative&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+                    <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;dtype&#39;</span><span class="p">:</span> <span class="s1">&#39;float64&#39;</span>
+                <span class="p">})</span>
+                <span class="n">scan_npts</span> <span class="o">*=</span> <span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">20</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">scan_type</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+                    <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;bin_axis&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">axes_labels</span><span class="p">[</span><span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">21</span><span class="p">]]</span>
+                <span class="n">fly_axis_labels</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">axes_labels</span><span class="p">[</span><span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">17</span><span class="p">]])</span>
+                <span class="n">fly_axis_values</span><span class="p">[</span><span class="n">fly_axis_labels</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">18</span><span class="p">],</span> <span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">19</span><span class="p">],</span>
+                                <span class="n">dataset_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">20</span><span class="p">]),</span> <span class="mi">3</span><span class="p">)</span>
+                <span class="n">scan_shape</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">scan_shape</span><span class="p">,</span>
+                              <span class="nb">len</span><span class="p">(</span><span class="n">fly_axis_values</span><span class="p">[</span><span class="n">fly_axis_labels</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]))</span>
+            <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;fly_axis_labels&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fly_axis_labels</span>
+            <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;unstructured_axes&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">fly_axis_labels</span><span class="p">)</span>
+
+        <span class="c1"># Set up the single unstructured dataset coordinate</span>
+        <span class="n">dataset_npts</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">dataset_lines</span><span class="p">)</span> <span class="o">*</span> <span class="n">scan_npts</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;dataset_point_index&#39;</span><span class="p">,</span>
+                   <span class="s1">&#39;values&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">dataset_npts</span><span class="p">)),</span>
+                   <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;n/a&#39;</span><span class="p">}}]</span>
+
+        <span class="c1"># Set up the list of data_points to fill out the known values</span>
+        <span class="c1"># of the physical &quot;coordinates&quot;</span>
+        <span class="n">data_points</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dataset_npts</span><span class="p">):</span>
+            <span class="n">l</span> <span class="o">=</span> <span class="n">dataset_lines</span><span class="p">[</span><span class="n">i</span> <span class="o">//</span> <span class="n">scan_npts</span><span class="p">]</span>
+            <span class="n">data_point</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;dataset_point_index&#39;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span>
+                <span class="s1">&#39;labx&#39;</span><span class="p">:</span> <span class="n">l</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="s1">&#39;laby&#39;</span><span class="p">:</span> <span class="n">l</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s1">&#39;labz&#39;</span><span class="p">:</span> <span class="n">l</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+                <span class="s1">&#39;ometotal&#39;</span><span class="p">:</span> <span class="n">l</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span> <span class="o">+</span> <span class="n">l</span><span class="p">[</span><span class="mi">7</span><span class="p">]}</span>
+            <span class="k">if</span> <span class="n">fly_axis_values</span><span class="p">:</span>
+                <span class="n">scan_step_index</span> <span class="o">=</span> <span class="n">i</span> <span class="o">%</span> <span class="n">scan_npts</span>
+                <span class="n">scan_steps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">scan_shape</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">ii</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">while</span> <span class="n">ii</span> <span class="o">&lt;=</span> <span class="n">scan_step_index</span><span class="p">:</span>
+                    <span class="n">scan_step</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">scan_steps</span><span class="p">)</span>
+                    <span class="n">ii</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">scan_step_indices</span> <span class="o">=</span> <span class="n">scan_step</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">iii</span><span class="p">,</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fly_axis_values</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+                    <span class="n">data_point</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="n">scan_step_indices</span><span class="p">[</span><span class="n">iii</span><span class="p">]]</span>
+            <span class="n">data_points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_point</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;coords&#39;</span><span class="p">:</span> <span class="n">coords</span><span class="p">,</span> <span class="s1">&#39;signals&#39;</span><span class="p">:</span> <span class="n">signals</span><span class="p">,</span>
+                <span class="s1">&#39;attrs&#39;</span><span class="p">:</span> <span class="n">attrs</span><span class="p">,</span> <span class="s1">&#39;data_points&#39;</span><span class="p">:</span> <span class="n">data_points</span><span class="p">}</span></div>
+</div>
+
+
+<div class="viewcode-block" id="SliceNXdataReader">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SliceNXdataReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A reader class to load and slice a NeXus style</span>
+<span class="sd">    `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__</span>
+<span class="sd">    field from a NeXus file. This class reads EDD data from a `NXdata`</span>
+<span class="sd">    object and slices all fields according to the provided slicing</span>
+<span class="sd">    parameters.</span>
+<span class="sd"> </span>
+<span class="sd">    :ivar scan_number: SPEC scan number.</span>
+<span class="sd">    :vartype scan_number: int</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">scan_number</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SliceNXdataReader.read">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reads a NeXus style</span>
+<span class="sd">        `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__</span>
+<span class="sd">        object from a NeXus file and slices the fields within it based</span>
+<span class="sd">        on the provided scan number.</span>
+
+<span class="sd">        :raises ValueError: If no `NXdata` object is found in the file.</span>
+<span class="sd">        :return: Root object of the NeXus file with sliced `NXdata`</span>
+<span class="sd">            fields.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXroot</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">NXentry</span><span class="p">,</span> <span class="n">NXfield</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">NexusReader</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">nxcopy</span>
+
+        <span class="n">reader</span> <span class="o">=</span> <span class="n">NexusReader</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">model_dump</span><span class="p">())</span>
+        <span class="n">nxroot</span> <span class="o">=</span> <span class="n">nxcopy</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+        <span class="n">nxdata</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">nxname</span><span class="p">,</span> <span class="n">nxobject</span> <span class="ow">in</span> <span class="n">nxroot</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxobject</span><span class="p">,</span> <span class="n">NXentry</span><span class="p">):</span>
+                <span class="n">nxdata</span> <span class="o">=</span> <span class="n">nxobject</span><span class="o">.</span><span class="n">data</span>
+        <span class="k">if</span> <span class="n">nxdata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Could not find NXdata group&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span>
+            <span class="n">nxdata</span><span class="o">.</span><span class="n">SCAN_N</span><span class="o">.</span><span class="n">nxdata</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">nxname</span><span class="p">,</span> <span class="n">nxobject</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxobject</span><span class="p">,</span> <span class="n">NXfield</span><span class="p">):</span>
+                <span class="n">nxdata</span><span class="p">[</span><span class="n">nxname</span><span class="p">]</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">nxobject</span><span class="o">.</span><span class="n">nxdata</span><span class="p">[</span><span class="n">indices</span><span class="p">],</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">nxdata</span><span class="p">[</span><span class="n">nxname</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+                    <span class="n">attrs</span><span class="o">=</span><span class="n">nxdata</span><span class="p">[</span><span class="n">nxname</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">nxroot</span></div>
+</div>
+
+
+<div class="viewcode-block" id="UpdateNXdataReader">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UpdateNXdataReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Companion to :class:`~CHAP.edd.reader.SetupNXdataReader` and</span>
+<span class="sd">    :class:`~CHAP.common.processor.UpdateNXDataProcessor`. Constructs</span>
+<span class="sd">    a list of data points to pass as pipeline data to</span>
+<span class="sd">    `UpdateNXDataProcessor` so that a NeXus style</span>
+<span class="sd">    `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html&gt;`__</span>
+<span class="sd">    constructed by `SetupNXdataReader` and `UpdateNXDataProcessor` can</span>
+<span class="sd">    be updated live as individual scans in an EDD dataset are</span>
+<span class="sd">    completed.</span>
+<span class="sd"> </span>
+<span class="sd">    :ivar detector_ids: Detector IDs.</span>
+<span class="sd">    :vartype detector_ids: int or list[int] or str, optional</span>
+<span class="sd">    :ivar scan_number: SPEC scan number.</span>
+<span class="sd">    :vartype scan_number: int</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">detector_ids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">scan_number</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="UpdateNXdataReader.read">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a list of data points containing raw data values for</span>
+<span class="sd">        a single EDD spec scan. The returned values can be passed</span>
+<span class="sd">        along to :class:`~CHAP.common.processor.UpdateNXdataProcessor`</span>
+<span class="sd">        to fill in an existing NeXus Style</span>
+<span class="sd">        `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html&gt;`__</span>
+<span class="sd">        object up with</span>
+<span class="sd">        :class:`~CHAP.common.processor.SetupNXdataProcessor`.</span>
+
+<span class="sd">        :returs: Data points appropriate for input to</span>
+<span class="sd">            `UpdateNXdataProcessor`.</span>
+<span class="sd">        :rtype: list[dict[str, Any]]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.parfile</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParFile</span>
+
+        <span class="n">scanparser</span> <span class="o">=</span> <span class="n">ScanParser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Parsed scan&#39;</span><span class="p">)</span>
+
+        <span class="c1"># A label / counter mne dict for convenience</span>
+        <span class="n">counters</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;presample_intensity&#39;</span><span class="p">:</span> <span class="s1">&#39;a3ic0&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;postsample_intensity&#39;</span><span class="p">:</span> <span class="s1">&#39;diode&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;dwell_time_actual&#39;</span><span class="p">:</span> <span class="s1">&#39;sec&#39;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="c1"># Determine the scan&#39;s own coordinate axes based on scan type</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="p">[</span><span class="s1">&#39;scan_type&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;scan_type = </span><span class="si">{</span><span class="n">scan_type</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scan_type</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">scan_axes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">axes_labels</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="s1">&#39;fly_labx&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s1">&#39;fly_laby&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="s1">&#39;fly_labz&#39;</span><span class="p">,</span>
+                           <span class="mi">4</span><span class="p">:</span> <span class="s1">&#39;fly_ometotal&#39;</span><span class="p">}</span>
+            <span class="n">scan_axes</span> <span class="o">=</span> <span class="p">[</span><span class="n">axes_labels</span><span class="p">[</span><span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="p">[</span><span class="s1">&#39;fly_axis0&#39;</span><span class="p">]]]</span>
+            <span class="k">if</span> <span class="n">scan_type</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+                <span class="n">scan_axes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">axes_labels</span><span class="p">[</span><span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="p">[</span><span class="s1">&#39;fly_axis1&#39;</span><span class="p">]])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Determined scan axes: </span><span class="si">{</span><span class="n">scan_axes</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Par file values will be the same for all points in any scan</span>
+        <span class="n">smb_par_values</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">smb_par</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;labx&#39;</span><span class="p">,</span> <span class="s1">&#39;laby&#39;</span><span class="p">,</span> <span class="s1">&#39;labz&#39;</span><span class="p">,</span> <span class="s1">&#39;ometotal&#39;</span><span class="p">,</span> <span class="s1">&#39;SCAN_N&#39;</span><span class="p">,</span>
+                        <span class="s1">&#39;rsgap_size&#39;</span><span class="p">,</span> <span class="s1">&#39;x_effective&#39;</span><span class="p">,</span> <span class="s1">&#39;z_effective&#39;</span><span class="p">):</span>
+            <span class="n">smb_par_values</span><span class="p">[</span><span class="n">smb_par</span><span class="p">]</span> <span class="o">=</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="p">[</span><span class="n">smb_par</span><span class="p">]</span>
+
+        <span class="c1"># Get offset for the starting index of this scan&#39;s points in</span>
+        <span class="c1"># the entire dataset.</span>
+        <span class="n">dataset_id</span> <span class="o">=</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="p">[</span><span class="s1">&#39;dataset_id&#39;</span><span class="p">]</span>
+        <span class="n">parfile</span> <span class="o">=</span> <span class="n">ParFile</span><span class="p">(</span><span class="n">scanparser</span><span class="o">.</span><span class="n">par_file</span><span class="p">)</span>
+        <span class="n">good_scans</span> <span class="o">=</span> <span class="n">parfile</span><span class="o">.</span><span class="n">good_scan_numbers</span><span class="p">()</span>
+        <span class="n">n_prior_dataset_scans</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="p">[</span><span class="mi">1</span> <span class="k">if</span> <span class="n">did</span> <span class="o">==</span> <span class="n">dataset_id</span> <span class="ow">and</span> <span class="n">scan_n</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span> <span class="k">else</span> <span class="mi">0</span>
+             <span class="k">for</span> <span class="n">did</span><span class="p">,</span> <span class="n">scan_n</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                     <span class="n">parfile</span><span class="o">.</span><span class="n">get_values</span><span class="p">(</span><span class="s1">&#39;dataset_id&#39;</span><span class="p">,</span> <span class="n">scan_numbers</span><span class="o">=</span><span class="n">good_scans</span><span class="p">),</span>
+                     <span class="n">good_scans</span><span class="p">)])</span>
+        <span class="n">dataset_point_index_offset</span> <span class="o">=</span> \
+            <span class="n">n_prior_dataset_scans</span> <span class="o">*</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_npts</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;dataset_point_index_offset = </span><span class="si">{</span><span class="n">dataset_point_index_offset</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Get full data point for every point in the scan</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">detector_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">detector_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">23</span><span class="p">))</span>
+        <span class="n">detector_data</span> <span class="o">=</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detector_ids</span><span class="p">)</span>
+        <span class="n">detector_data</span> <span class="o">=</span> <span class="p">{</span><span class="n">id_</span><span class="p">:</span> <span class="n">detector_data</span><span class="p">[:,</span><span class="n">i</span><span class="p">,:]</span>
+                         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">id_</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detector_ids</span><span class="p">)}</span>
+        <span class="n">spec_scan_data</span> <span class="o">=</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Getting </span><span class="si">{</span><span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_npts</span><span class="si">}</span><span class="s1"> data points&#39;</span><span class="p">)</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">dataset_point_index_offset</span><span class="p">,</span>
+                    <span class="n">dataset_point_index_offset</span> <span class="o">+</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_npts</span><span class="p">)</span>
+        <span class="n">data_points</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;nxpath&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;entry/data/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">*</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_npts</span><span class="p">,</span>
+             <span class="s1">&#39;index&#39;</span><span class="p">:</span> <span class="n">idx</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">smb_par_values</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+        <span class="n">data_points</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span>
+            <span class="p">{</span><span class="s1">&#39;nxpath&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;entry/data/</span><span class="si">{</span><span class="n">id_</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">data</span><span class="p">,</span>
+             <span class="s1">&#39;index&#39;</span><span class="p">:</span> <span class="n">idx</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">id_</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">detector_data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">])</span>
+        <span class="n">data_points</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span>
+            <span class="p">{</span><span class="s1">&#39;nxpath&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;entry/data/</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">spec_scan_data</span><span class="p">[</span><span class="n">counters</span><span class="p">[</span><span class="n">c</span><span class="p">]],</span>
+             <span class="s1">&#39;index&#39;</span><span class="p">:</span> <span class="n">idx</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">counters</span>
+        <span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">data_points</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NXdataSliceReader">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NXdataSliceReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for returning a sliced verson of a NeXus style</span>
+<span class="sd">    `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html&gt;`__</span>
+<span class="sd">    object (which represents a full EDD dataset) that contains data</span>
+<span class="sd">    from just a single SPEC scan.</span>
+<span class="sd"> </span>
+<span class="sd">    :ivar nxpath: Path to the existing full EDD dataset&#39;s `NXdata`</span>
+<span class="sd">        object in `filename`.</span>
+<span class="sd">    :vartype nxpath: str</span>
+<span class="sd">    :ivar scan_number: SPEC scan number.</span>
+<span class="sd">    :vartype scan_number: int</span>
+<span class="sd">    :ivar spec_file: Name of the spec file whose data will be the only</span>
+<span class="sd">        contents of the returned `NXdata`.</span>
+<span class="sd">    :vartype spec_file: str</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">nxpath</span><span class="p">:</span> <span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">scan_number</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">spec_file</span><span class="p">:</span> <span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NXdataSliceReader.read">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a &quot;slice&quot; of an EDD dataset&#39;s NeXus style</span>
+<span class="sd">        `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html&gt;`__</span>
+<span class="sd">        object that represents just the data from one scan in the</span>
+<span class="sd">        dataset.</span>
+
+<span class="sd">        :returns: `NXdata` object similar to the one at `nxpath` in</span>
+<span class="sd">            `filename`, but containing only the data collected by the</span>
+<span class="sd">            specified spec scan.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXdata</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">nxload</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">NXdataReader</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.parfile</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParFile</span>
+
+        <span class="c1"># Parse existing NXdata</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">nxload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+        <span class="n">nxdata</span> <span class="o">=</span> <span class="n">root</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">nxpath</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">nxclass</span> <span class="o">!=</span> <span class="s1">&#39;NXdata&#39;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Object at </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nxpath</span><span class="si">}</span><span class="s1"> in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1"> is not an NXdata&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Loaded existing NXdata&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Parse scan</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spec_file</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spec_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inputdir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spec_file</span><span class="p">)</span>
+        <span class="n">scanparser</span> <span class="o">=</span> <span class="n">ScanParser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Parsed scan&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Assemble arguments for NXdataReader</span>
+        <span class="n">axes_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">nxname</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">nxaxes</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">nxsignal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">signal_name</span> <span class="o">=</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">nxname</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">signal_name</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">nxdata</span><span class="o">.</span><span class="n">entries</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">attrs</span> <span class="o">=</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span>
+        <span class="n">nxfield_params</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="s1">&#39;dataset_point_index&#39;</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="p">:</span>
+            <span class="c1"># Get offset for the starting index of this scan&#39;s points in</span>
+            <span class="c1"># the entire dataset.</span>
+            <span class="n">dataset_id</span> <span class="o">=</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="p">[</span><span class="s1">&#39;dataset_id&#39;</span><span class="p">]</span>
+            <span class="n">parfile</span> <span class="o">=</span> <span class="n">ParFile</span><span class="p">(</span><span class="n">scanparser</span><span class="o">.</span><span class="n">par_file</span><span class="p">)</span>
+            <span class="n">good_scans</span> <span class="o">=</span> <span class="n">parfile</span><span class="o">.</span><span class="n">good_scan_numbers</span><span class="p">()</span>
+            <span class="n">n_prior_dataset_scans</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+                <span class="p">[</span><span class="mi">1</span> <span class="k">if</span> <span class="n">did</span> <span class="o">==</span> <span class="n">dataset_id</span> <span class="ow">and</span> <span class="n">scan_n</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span> <span class="k">else</span> <span class="mi">0</span>
+                 <span class="k">for</span> <span class="n">did</span><span class="p">,</span> <span class="n">scan_n</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                         <span class="n">parfile</span><span class="o">.</span><span class="n">get_values</span><span class="p">(</span>
+                             <span class="s1">&#39;dataset_id&#39;</span><span class="p">,</span> <span class="n">scan_numbers</span><span class="o">=</span><span class="n">good_scans</span><span class="p">),</span>
+                         <span class="n">good_scans</span><span class="p">)])</span>
+            <span class="n">dataset_point_index_offset</span> <span class="o">=</span> \
+                <span class="n">n_prior_dataset_scans</span> <span class="o">*</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_npts</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;dataset_point_index_offset = </span><span class="si">{</span><span class="n">dataset_point_index_offset</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="c1"># FIX convert to using CHAPslice</span>
+            <span class="n">slice_params</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;start&#39;</span><span class="p">:</span> <span class="n">dataset_point_index_offset</span><span class="p">,</span>
+                <span class="s1">&#39;end&#39;</span><span class="p">:</span>
+                    <span class="n">dataset_point_index_offset</span> <span class="o">+</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_npts</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="n">nxfield_params</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;filename&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+                               <span class="s1">&#39;nxpath&#39;</span><span class="p">:</span> <span class="n">entry</span><span class="o">.</span><span class="n">nxpath</span><span class="p">,</span>
+                               <span class="s1">&#39;slice_params&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">slice_params</span><span class="p">]}</span>
+                              <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">signal_slice_params</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">nxaxes</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">nxname</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;fly_&#39;</span><span class="p">):</span>
+                    <span class="n">slice_params</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">nxname</span><span class="p">]</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">nxdata</span> <span class="o">==</span> <span class="n">value</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                        <span class="n">index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">nxdata</span> <span class="o">-</span> <span class="n">value</span><span class="p">))</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s1">&#39;Nearest match for coordinate value </span><span class="si">{</span><span class="n">a</span><span class="o">.</span><span class="n">nxname</span><span class="si">}</span><span class="s1">: &#39;</span>
+                            <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">a</span><span class="o">.</span><span class="n">nxdata</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="si">}</span><span class="s1"> (actual value: </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+                    <span class="c1"># FIX convert to using CHAPslice</span>
+                    <span class="n">slice_params</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;start&#39;</span><span class="p">:</span> <span class="n">index</span><span class="p">,</span> <span class="s1">&#39;end&#39;</span><span class="p">:</span> <span class="n">index</span><span class="o">+</span><span class="mi">1</span><span class="p">}</span>
+                <span class="n">signal_slice_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">slice_params</span><span class="p">)</span>
+                <span class="n">nxfield_params</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;filename&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+                    <span class="s1">&#39;nxpath&#39;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">nxdata</span><span class="o">.</span><span class="n">nxpath</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">nxname</span><span class="p">),</span>
+                    <span class="s1">&#39;slice_params&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">slice_params</span><span class="p">],</span>
+                <span class="p">})</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">entries</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">nxaxes</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">nxfield_params</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;filename&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+                    <span class="s1">&#39;nxpath&#39;</span><span class="p">:</span> <span class="n">entry</span><span class="o">.</span><span class="n">nxpath</span><span class="p">,</span>
+                    <span class="s1">&#39;slice_params&#39;</span><span class="p">:</span> <span class="n">signal_slice_params</span><span class="p">,</span>
+                <span class="p">})</span>
+
+        <span class="c1"># Return the &quot;sliced&quot; NXdata</span>
+        <span class="n">reader</span> <span class="o">=</span> <span class="n">NXdataReader</span><span class="p">()</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span>
+        <span class="k">return</span> <span class="n">reader</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">nxdata</span><span class="o">.</span><span class="n">nxname</span><span class="p">,</span> <span class="n">nxfield_params</span><span class="o">=</span><span class="n">nxfield_params</span><span class="p">,</span>
+                           <span class="n">signal_name</span><span class="o">=</span><span class="n">signal_name</span><span class="p">,</span> <span class="n">axes_names</span><span class="o">=</span><span class="n">axes_names</span><span class="p">,</span>
+                           <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c1"># Local modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">main</span>
+
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

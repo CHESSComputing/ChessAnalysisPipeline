@@ -1,0 +1,346 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.utils.converters &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.utils.converters</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.utils.converters</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Functions for converting between some commonly used data</span>
+<span class="sd">formats.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="convert_sparse_dense">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.converters.convert_sparse_dense">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">convert_sparse_dense</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Converts between dense and sparse representations for NumPy</span>
+<span class="sd">    arrays, xarray DataArrays, and xarray Datasets.</span>
+
+<span class="sd">    - If input is a NumPy array, converts to a SciPy sparse CSR matrix.</span>
+<span class="sd">    - If input is a `SciPy &lt;https://github.com/scipy/scipy&gt;`__  sparse</span>
+<span class="sd">      matrix, converts to a dense NumPy array.</span>
+<span class="sd">    - If input is an `xarray &lt;https://github.com/pydata/xarray&gt;`__</span>
+<span class="sd">      DataArray or Dataset containing sparse arrays, converts to dense.</span>
+<span class="sd">    - If input is an `xarray &lt;https://github.com/pydata/xarray&gt;`__</span>
+<span class="sd">      DataArray or Dataset containing dense arrays, converts to sparse.</span>
+
+<span class="sd">    :param data: Imput data.</span>
+<span class="sd">    :type data: numpy.ndarray or scipy.sparse.spmatrix or</span>
+<span class="sd">        xarray.DataArray, xarray.Dataset</span>
+<span class="sd">    :return: Converted object -- sparse if input is dense, dense if</span>
+<span class="sd">        input is sparse.</span>
+<span class="sd">    :rtype: numpy.ndarray or scipy.sparse.spmatrix or</span>
+<span class="sd">        xarray.DataArray, xarray.Dataset</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Third party modules</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+    <span class="c1"># pylint: disable=import-error</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+    <span class="c1"># pylint: enable=import-error</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>  <span class="c1"># Convert dense NumPy array to sparse</span>
+
+    <span class="k">if</span> <span class="n">sp</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>  <span class="c1"># Convert sparse matrix to dense NumPy array</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
+        <span class="c1"># Convert DataArray values while preserving metadata</span>
+        <span class="k">if</span> <span class="n">sp</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">data</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+                <span class="n">data</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">toarray</span><span class="p">(),</span> <span class="n">dims</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span>
+                <span class="n">coords</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+            <span class="n">sp</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">data</span><span class="p">),</span> <span class="n">dims</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span>
+            <span class="n">coords</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
+        <span class="c1"># Convert each variable in the Dataset</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">convert_var</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">sp</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">data</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">toarray</span><span class="p">(),</span> <span class="n">dims</span><span class="o">=</span><span class="n">var</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span>
+                                    <span class="n">coords</span><span class="o">=</span><span class="n">var</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="n">var</span><span class="o">.</span><span class="n">attrs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">data</span><span class="p">),</span> <span class="n">dims</span><span class="o">=</span><span class="n">var</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span>
+                                <span class="n">coords</span><span class="o">=</span><span class="n">var</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="n">var</span><span class="o">.</span><span class="n">attrs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">convert_var</span><span class="p">)</span>
+
+    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unsupported data type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="s1">. &#39;</span>
+                    <span class="s1">&#39;Input must be a NumPy array, SciPy sparse matrix, &#39;</span>
+                    <span class="s1">&#39;xarray DataArray, or xarray Dataset.&#39;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="convert_xarray_nexus">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.converters.convert_xarray_nexus">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">convert_xarray_nexus</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a `xarray &lt;https://github.com/pydata/xarray&gt;`__</span>
+<span class="sd">    DataArray or Dataset into a NeXus style</span>
+<span class="sd">    `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html&gt;`__</span>
+<span class="sd">    data object or vice versa.</span>
+
+<span class="sd">    :param data: Input data.</span>
+<span class="sd">    :type data: xarray.DataArray or xarray.Dataset or</span>
+<span class="sd">        nexusformat.nexus.NXdata</span>
+<span class="sd">    :return: Conveted data.</span>
+<span class="sd">    :rtype: xarray.DataArray or xarray.Dataset or</span>
+<span class="sd">        nexusformat.nexus.NXdata</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Third party modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">NXdata</span><span class="p">,</span>
+        <span class="n">NXfield</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># pylint: disable=import-error</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+    <span class="c1"># pylint: enable=import-error</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">NXdata</span><span class="p">(</span>
+            <span class="n">value</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">attrs</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
+            <span class="n">axes</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+                <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span>
+                    <span class="n">attrs</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">dims</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">NXdata</span><span class="p">(</span>
+            <span class="o">**</span><span class="p">{</span><span class="n">var</span><span class="p">:</span>
+               <span class="n">NXfield</span><span class="p">(</span>
+                   <span class="n">value</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                   <span class="n">name</span><span class="o">=</span><span class="n">var</span><span class="p">,</span>
+                   <span class="n">attrs</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">var</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
+               <span class="p">)</span>
+               <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">data_vars</span><span class="p">},</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">attrs</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
+            <span class="n">axes</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+                <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span>
+                    <span class="n">attrs</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">dims</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">NXdata</span><span class="p">):</span>
+        <span class="n">nxaxes</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">nxaxes</span>
+        <span class="k">if</span> <span class="n">nxaxes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;unstructured_axes&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+                <span class="n">nxaxes</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">unstructured_axes</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxaxes</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">nxaxes</span> <span class="o">=</span> <span class="p">[</span><span class="n">nxaxes</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span>
+            <span class="n">data_vars</span><span class="o">=</span><span class="p">{</span>
+                <span class="n">name</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+                    <span class="n">data</span><span class="o">=</span><span class="n">field</span><span class="o">.</span><span class="n">nxdata</span><span class="p">,</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">attrs</span><span class="o">=</span><span class="n">field</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="n">NXfield</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">nxaxes</span>
+            <span class="p">},</span>
+            <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
+                <span class="n">axis</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+                    <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span><span class="p">,</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span><span class="o">.</span><span class="n">nxname</span><span class="p">,</span>
+                    <span class="n">attrs</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="n">nxaxes</span>
+            <span class="p">},</span>
+            <span class="n">attrs</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unsupported data type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="s1">. &#39;</span>
+                    <span class="s1">&#39;Must be xarray.DataArray, xarray.Dataset, or NXdata.&#39;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="convert_structured_unstructured">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.converters.convert_structured_unstructured">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">convert_structured_unstructured</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a NeXus style</span>
+<span class="sd">    `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html&gt;`__</span>
+<span class="sd">    object from unstructured to structured data.</span>
+
+<span class="sd">    :param data: Input data.</span>
+<span class="sd">    :type data: nexusformat.nexus.NXdata</span>
+<span class="sd">    :return: Converted data.</span>
+<span class="sd">    :rtype: nexusformat.nexus.NXdata</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Third party modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">NXdata</span><span class="p">,</span>
+        <span class="n">NXfield</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">NXdata</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s1">&#39;unstructured_axes&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+            <span class="c1"># Convert unstructured to structured</span>
+            <span class="n">nxaxes</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;unstructured_axes&#39;</span><span class="p">]</span>
+            <span class="n">attrs</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">)</span>
+            <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;unstructured_axes&#39;</span><span class="p">]</span>
+            <span class="n">attrs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;unstructured_axes&#39;</span><span class="p">)</span>
+            <span class="n">signals</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                       <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">nxaxes</span><span class="p">]</span>
+            <span class="n">structured_axes</span> <span class="o">=</span> <span class="p">{</span><span class="n">a</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">a</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">nxaxes</span><span class="p">}</span>
+            <span class="n">dataset_shape</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">structured_axes</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+            <span class="n">structured_signals</span> <span class="o">=</span> <span class="p">{</span><span class="n">s</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+                <span class="p">(</span><span class="o">*</span><span class="n">dataset_shape</span><span class="p">,</span> <span class="o">*</span><span class="n">data</span><span class="p">[</span><span class="n">s</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]),</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">s</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+            <span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">signals</span><span class="p">}</span>
+            <span class="n">indices</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">a</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">structured_axes</span><span class="p">[</span><span class="n">a</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="n">a</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">nxaxes</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">structured_signals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">value</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">nxaxes</span><span class="p">)]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">s</span><span class="p">]</span>
+            <span class="n">structured_data</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span>
+                <span class="o">**</span><span class="p">{</span><span class="n">s</span><span class="p">:</span> <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">value</span><span class="o">=</span><span class="n">structured_signals</span><span class="p">[</span><span class="n">s</span><span class="p">],</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">s</span><span class="p">,</span>
+                    <span class="n">attrs</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">s</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
+                <span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">signals</span><span class="p">},</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">nxname</span><span class="p">,</span>
+                <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span>
+                <span class="n">axes</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span>
+                    <span class="n">NXfield</span><span class="p">(</span>
+                        <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+                        <span class="n">name</span><span class="o">=</span><span class="n">a</span><span class="p">,</span>
+                        <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="n">a</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                               <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span> <span class="o">==</span> <span class="s1">&#39;target&#39;</span><span class="p">},</span>
+                    <span class="p">)</span>
+                    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">structured_axes</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">structured_data</span>
+
+        <span class="k">if</span> <span class="s1">&#39;axes&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+            <span class="c1"># Convert structued to unstructured</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s1">&#39;Conversion from structured to unstructured not implemented.&#39;</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unsupported data type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

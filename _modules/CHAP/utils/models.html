@@ -1,0 +1,1027 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.utils.models &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.utils.models</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.utils.models</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Utils `Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__ model</span>
+<span class="sd">classes.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># System modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Literal</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Third party imports</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Field</span><span class="p">,</span>
+    <span class="n">PrivateAttr</span><span class="p">,</span>
+    <span class="n">StrictBool</span><span class="p">,</span>
+    <span class="n">conint</span><span class="p">,</span>
+    <span class="n">conlist</span><span class="p">,</span>
+    <span class="n">confloat</span><span class="p">,</span>
+    <span class="n">constr</span><span class="p">,</span>
+    <span class="n">field_validator</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Annotated</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">CHAPBaseModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">not_zero</span><span class="p">,</span> <span class="n">tiny</span>
+
+<span class="c1"># pylint: disable=no-member</span>
+<span class="n">tiny</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">resolution</span>
+<span class="c1"># pylint: enable=no-member</span>
+<span class="n">s2pi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+<span class="n">s2ln2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+
+<span class="c1">#def constant(x, c=0.5):</span>
+<div class="viewcode-block" id="constant">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.constant">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">constant</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Return a linear function.</span>
+
+<span class="sd">    :param c: Constant, defaults to `0`.</span>
+<span class="sd">    :type c: float, optional</span>
+<span class="sd">    :returns: The function evaluations.</span>
+<span class="sd">    :rtype: numpy.ndarray</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f(x; c) = c</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">c</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">))</span></div>
+
+
+
+<span class="c1">#def linear(x, slope=0.9, intercept=0.1):</span>
+<div class="viewcode-block" id="linear">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.linear">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">linear</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">slope</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">intercept</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Return a linear function.</span>
+
+<span class="sd">    :param slope: Slope, defaults to `0`.</span>
+<span class="sd">    :type slope: float, optional</span>
+<span class="sd">    :param intercept: Intercept, defaults to `0`.</span>
+<span class="sd">    :type intercept: float, optional</span>
+<span class="sd">    :returns: The function evaluations.</span>
+<span class="sd">    :rtype: numpy.ndarray</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f(x; m, b) = m x + b</span>
+
+<span class="sd">    with `slope` for :math:`m` and `intercept` for :math:`b`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">slope</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">intercept</span></div>
+
+
+
+<span class="c1">#def quadratic(x, a=0.5, b=0.4, c=0.1):</span>
+<div class="viewcode-block" id="quadratic">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.quadratic">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">quadratic</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Return a parabolic function.</span>
+
+<span class="sd">    :param a: Quadratic polynomial coefficient, defaults to an</span>
+<span class="sd">        initial value of `0`.</span>
+<span class="sd">    :type a: float, optional</span>
+<span class="sd">    :param b: Linear polynomial coefficient, defaults to an</span>
+<span class="sd">        initial value of `0`.</span>
+<span class="sd">    :type b: float, optional</span>
+<span class="sd">    :param c: Constant polynomial coefficient, defaults to an</span>
+<span class="sd">        initial value of `0`.</span>
+<span class="sd">    :type c: float, optional</span>
+<span class="sd">    :returns: The function evaluations.</span>
+<span class="sd">    :rtype: numpy.ndarray</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f(x; a, b, c) = a x^2 + b x + c</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">a</span><span class="o">*</span><span class="n">x</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">c</span></div>
+
+
+
+<span class="c1">#def exponential(x, amplitude=1.0, decay=0.3):</span>
+<div class="viewcode-block" id="exponential">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.exponential">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">exponential</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">decay</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Return an</span>
+<span class="sd">    `exponential function &lt;https://en.wikipedia.org/wiki/Exponential_decay&gt;`__.</span>
+
+<span class="sd">    :param amplitude: Amplitude, defaults to `1`.</span>
+<span class="sd">    :type amplitude: float, optional</span>
+<span class="sd">    :param decay: Exponential decay, defaults to `1`.</span>
+<span class="sd">    :type decay: float, optional</span>
+<span class="sd">    :returns: The function evaluations.</span>
+<span class="sd">    :rtype: numpy.ndarray</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f(x; A, \tau) = A exp(-x/\tau)</span>
+
+<span class="sd">    with `amplitude` for :math:`A` and `decay` for :math:`\tau`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">amplitude</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="o">/</span><span class="n">not_zero</span><span class="p">(</span><span class="n">decay</span><span class="p">))</span></div>
+
+
+
+<span class="c1">#def gaussian(x, amplitude=0.25, center=0.5, sigma=0.1):</span>
+<div class="viewcode-block" id="gaussian">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.gaussian">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gaussian</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Return a 1-dimensional</span>
+<span class="sd">    `Gaussian function &lt;https://en.wikipedia.org/wiki/Normal_distribution&gt;`__.</span>
+
+<span class="sd">    :param amplitude: amplitude, defaults to `1`.</span>
+<span class="sd">    :type amplitude: float, optional</span>
+<span class="sd">    :param center: Center, defaults to `0`.</span>
+<span class="sd">    :type center: float, optional</span>
+<span class="sd">    :param sigma: Standard deviation, defaults to `1`.</span>
+<span class="sd">    :type sigma: float, optional</span>
+<span class="sd">    :returns: The function evaluations.</span>
+<span class="sd">    :rtype: numpy.ndarray</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f(x; A, \mu, \sigma) = frac{A}{\sigma\sqrt{2\pi}}</span>
+<span class="sd">            e^{[{-{(x-\mu)^2}/{{2\sigma}^2}}]}</span>
+
+<span class="sd">    where the parameter `amplitude` corresponds to :math:`A`, `center`</span>
+<span class="sd">    to :math:`\mu`, and `sigma` to :math:`\sigma`. The full width at</span>
+<span class="sd">    half maximum is :math:`2\sigma\sqrt{2\ln{2}}`, approximately</span>
+<span class="sd">    :math:`2.3548\sigma`.where the parameter `amplitude` corresponds to</span>
+<span class="sd">    :math:`A`, `center` to :math:`\mu`, and `sigma` to :math:`\sigma`.</span>
+<span class="sd">    The full width at half maximum is :math:`2\sigma\sqrt{2\ln{2}}`,</span>
+<span class="sd">    and the peak height is :math:`A/(\sigma\sqrt{2\pi})`</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">((</span><span class="n">amplitude</span><span class="o">/</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">tiny</span><span class="p">,</span> <span class="n">s2pi</span><span class="o">*</span><span class="n">sigma</span><span class="p">)))</span>
+            <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">x</span><span class="o">-</span><span class="n">center</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">tiny</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">))))</span></div>
+
+
+
+<span class="c1">#def lorentzian(x, amplitude=0.3, center=0.5, sigma=0.1):</span>
+<div class="viewcode-block" id="lorentzian">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.lorentzian">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">lorentzian</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Return a 1-dimensional</span>
+<span class="sd">    `Lorentzian function &lt;https://en.wikipedia.org/wiki/Cauchy_distribution&gt;`__.</span>
+
+<span class="sd">    :param amplitude: amplitude, defaults to `1`.</span>
+<span class="sd">    :type amplitude: float, optional</span>
+<span class="sd">    :param center: Center, defaults to `0`.</span>
+<span class="sd">    :type center: float, optional</span>
+<span class="sd">    :param sigma: Standard deviation, defaults to `1`.</span>
+<span class="sd">    :type sigma: float, optional</span>
+<span class="sd">    :returns: The function evaluations.</span>
+<span class="sd">    :rtype: numpy.ndarray</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f(x; A, \mu, \sigma) = \frac{A}{\pi} \big[</span>
+<span class="sd">            \frac{\sigma}{(x - \mu)^2 + \sigma^2} \big]</span>
+
+<span class="sd">    where the parameter `amplitude` corresponds to :math:`A`, `center`</span>
+<span class="sd">    to :math:`\mu`, and `sigma` to :math:`\sigma`. The full width at</span>
+<span class="sd">    half maximum is :math:`2\sigma`, and the peak height is</span>
+<span class="sd">    :math:`A/(\sigma\pi)`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">((</span><span class="n">amplitude</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="p">((</span><span class="n">x</span><span class="o">-</span><span class="n">center</span><span class="p">)</span><span class="o">/</span><span class="nb">max</span><span class="p">(</span><span class="n">tiny</span><span class="p">,</span> <span class="n">sigma</span><span class="p">))</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+            <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">tiny</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">sigma</span><span class="p">)))</span></div>
+
+
+
+<div class="viewcode-block" id="pvoigt">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.pvoigt">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pvoigt</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Return a 1-dimensional</span>
+<span class="sd">    `pseudo-Voigt distribution &lt;https://en.wikipedia.org/wiki/Voigt_profile#Pseudo-Voigt_Approximation&gt;`__.</span>
+
+<span class="sd">    This is an approximation of the Voigt function, a weighted sum</span>
+<span class="sd">    of a Gaussian and Lorentzian distribution, with the parameter</span>
+<span class="sd">    `fraction` setting the relative weight of the Gaussian and</span>
+<span class="sd">    Lorentzian components.</span>
+
+<span class="sd">    :param amplitude: amplitude, defaults to `1`.</span>
+<span class="sd">    :type amplitude: float, optional</span>
+<span class="sd">    :param center: Center, defaults to `0`.</span>
+<span class="sd">    :type center: float, optional</span>
+<span class="sd">    :param sigma: Standard deviation, defaults to `1`.</span>
+<span class="sd">    :type sigma: float, optional</span>
+<span class="sd">    :param fraction: Relative weight of the Gaussian and Lorentzian</span>
+<span class="sd">        components, defaults to `0.5`.</span>
+<span class="sd">    :type fraction: float, optional</span>
+<span class="sd">    :returns: The function evaluations.</span>
+<span class="sd">    :rtype: numpy.ndarray</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        f(x; A, \mu, \sigma) = frac{(1-\alpha)A}{\sigma_g\sqrt{2\pi}}</span>
+<span class="sd">            e^{[{-{(x-\mu)^2}/{{2\sigma_g}^2}}]} +</span>
+<span class="sd">            \frac{\alpha A}{\pi} \big[</span>
+<span class="sd">            \frac{\sigma}{(x - \mu)^2 + \sigma^2} \big]</span>
+
+<span class="sd">    where the parameter `amplitude` corresponds to :math:`A`, `center`</span>
+<span class="sd">    to :math:`\mu`, and `sigma` to :math:`\sigma`. Here</span>
+<span class="sd">    :math:`\sigma_g = {\sigma}/{\sqrt{2\ln{2}}}` so that the full</span>
+<span class="sd">    width at half maximum is :math:`2\sigma` and the peak height is</span>
+<span class="sd">    approximately :math:`A/(2.536\sigma)`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">((</span><span class="mi">1</span><span class="o">-</span><span class="n">fraction</span><span class="p">)</span> <span class="o">*</span> <span class="n">gaussian</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">amplitude</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">sigma</span><span class="o">/</span><span class="n">s2ln2</span><span class="p">)</span> <span class="o">+</span>
+        <span class="n">fraction</span> <span class="o">*</span> <span class="n">lorentzian</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">amplitude</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">sigma</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="rectangle">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.rectangle">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rectangle</span><span class="p">(</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">center1</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma1</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">center2</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">sigma2</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">form</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return a rectangle function.</span>
+
+<span class="sd">    Starts at 0.0, rises to ``amplitude`` (at ``center1`` with width</span>
+<span class="sd">    ``sigma1``), then drops to 0.0 (at ``center2`` with width</span>
+<span class="sd">    ``sigma2``)</span>
+
+<span class="sd">    :param x: Input values where the function is evaluated.</span>
+<span class="sd">    :type x: float or numpy.ndarray</span>
+<span class="sd">    :param amplitude: Maximum height of the rectangle, defaults to 1.0.</span>
+<span class="sd">    :type amplitude: float, optional</span>
+<span class="sd">    :param center1: Location of the rising edge, defaults to 0.0.</span>
+<span class="sd">    :type center1: float, optional</span>
+<span class="sd">    :param sigma1: Width or smoothness of the rising edge,</span>
+<span class="sd">        defaults to 1.0.</span>
+<span class="sd">    :type sigma1: float, optional</span>
+<span class="sd">    :param center2: Location of the falling edge, defaults to 1.0.</span>
+<span class="sd">    :type center2: float, optional</span>
+<span class="sd">    :param sigma2: Width or smoothness of the falling edge,</span>
+<span class="sd">        defaults to 1.0.</span>
+<span class="sd">    :type sigma2: float, optional</span>
+<span class="sd">    :param form: Shape type of the transition edges:</span>
+
+<span class="sd">        - ``&#39;linear&#39;``: Simple ramp-up and ramp-down.</span>
+<span class="sd">        - ``&#39;atan&#39;`` or ``&#39;arctan&#39;``: Inverse tangent transitions.</span>
+<span class="sd">        - ``&#39;erf&#39;``: Error function (Gaussian-like) transitions.</span>
+<span class="sd">        - ``&#39;logistic&#39;``: Sigmoidal (logistic function) transitions.</span>
+<span class="sd">    :type form: str, optional</span>
+
+<span class="sd">    :returns: The evaluated rectangle function values.</span>
+<span class="sd">    :rtype: float or numpy.ndarray</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        The output is calculated based on the selected ``form``:</span>
+
+<span class="sd">        - **atan**: $\frac{A}{\pi} [ \arctan(arg_1) + \arctan(arg_2) ]$</span>
+<span class="sd">        - **erf**:</span>
+<span class="sd">          $\frac{1}{2} A [ \text{erf}(arg_1) + \text{erf}(arg_2) ]$</span>
+<span class="sd">        - **logistic**:</span>
+<span class="sd">          $A [ \frac{1}{1 + \exp(-arg_1)} +</span>
+<span class="sd">          \frac{1}{1 + \exp(-arg_2)} - 1 ]$</span>
+
+<span class="sd">        The function is constructed using normalized arguments for the</span>
+<span class="sd">        rising and falling edges:</span>
+<span class="sd">        $arg_1 = \frac{x - center_1}{\sigma_1}$</span>
+<span class="sd">        and</span>
+<span class="sd">        $arg_2 = \frac{center_2 - x}{\sigma_2}$</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">arg1</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">center1</span><span class="p">)</span><span class="o">/</span><span class="nb">max</span><span class="p">(</span><span class="n">tiny</span><span class="p">,</span> <span class="n">sigma1</span><span class="p">)</span>
+    <span class="n">arg2</span> <span class="o">=</span> <span class="p">(</span><span class="n">center2</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span><span class="o">/</span><span class="nb">max</span><span class="p">(</span><span class="n">tiny</span><span class="p">,</span> <span class="n">sigma2</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">form</span> <span class="o">==</span> <span class="s1">&#39;erf&#39;</span><span class="p">:</span>
+        <span class="c1"># Third party modules</span>
+        <span class="c1"># pylint: disable=no-name-in-module</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">erf</span>
+
+        <span class="n">rect</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">erf</span><span class="p">(</span><span class="n">arg1</span><span class="p">)</span> <span class="o">+</span> <span class="n">erf</span><span class="p">(</span><span class="n">arg2</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">form</span> <span class="o">==</span> <span class="s1">&#39;logistic&#39;</span><span class="p">:</span>
+        <span class="n">rect</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">-</span> <span class="mf">1.</span><span class="o">/</span><span class="p">(</span><span class="mf">1.</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">arg1</span><span class="p">))</span> <span class="o">-</span> <span class="mf">1.</span><span class="o">/</span><span class="p">(</span><span class="mf">1.</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">arg2</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">form</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;atan&#39;</span><span class="p">,</span> <span class="s1">&#39;arctan&#39;</span><span class="p">):</span>
+        <span class="n">rect</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arctan</span><span class="p">(</span><span class="n">arg1</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arctan</span><span class="p">(</span><span class="n">arg2</span><span class="p">))</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+    <span class="k">elif</span> <span class="n">form</span> <span class="o">==</span> <span class="s1">&#39;linear&#39;</span><span class="p">:</span>
+        <span class="n">rect</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">arg1</span><span class="p">))</span>
+                   <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">arg2</span><span class="p">)))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid parameter form (</span><span class="si">{</span><span class="n">form</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">amplitude</span><span class="o">*</span><span class="n">rect</span></div>
+
+
+
+<div class="viewcode-block" id="validate_parameters">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.validate_parameters">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">validate_parameters</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate the parameters.</span>
+
+<span class="sd">    :param parameters: Fit model parameters.</span>
+<span class="sd">    :type parameters: list[FitParameter]</span>
+<span class="sd">    :param info: Model parameter validation information.</span>
+<span class="sd">    :type info: pydantic.ValidationInfo</span>
+<span class="sd">    :return: List of fit model parameters.</span>
+<span class="sd">    :rtype: list[FitParameter]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># System imports</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+
+    <span class="k">if</span> <span class="s1">&#39;model&#39;</span> <span class="ow">in</span> <span class="n">info</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;model&#39;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">model</span> <span class="o">==</span> <span class="s1">&#39;expression&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">parameters</span>
+    <span class="n">sig</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">models</span><span class="p">[</span><span class="n">model</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+    <span class="n">sig</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Check input model parameter validity</span>
+    <span class="k">for</span> <span class="n">par</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">par</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sig</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid parameter </span><span class="si">{par.name}</span><span class="s1"> in </span><span class="si">{model}</span><span class="s1"> model&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Set model parameters</span>
+    <span class="n">output_parameters</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">sig_name</span><span class="p">,</span> <span class="n">sig_par</span> <span class="ow">in</span> <span class="n">sig</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s1">&#39;rectangle&#39;</span> <span class="ow">and</span> <span class="n">sig_name</span> <span class="o">==</span> <span class="s1">&#39;form&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">par</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">sig_name</span> <span class="o">==</span> <span class="n">par</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">par</span> <span class="o">=</span> <span class="n">FitParameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">sig_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sig_par</span><span class="o">.</span><span class="n">default</span> <span class="o">!=</span> <span class="n">sig_par</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="n">par</span><span class="o">.</span><span class="n">_default</span> <span class="o">=</span> <span class="n">sig_par</span><span class="o">.</span><span class="n">default</span>
+        <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s1">&#39;pvoigt&#39;</span> <span class="ow">and</span> <span class="n">sig_name</span> <span class="o">==</span> <span class="s1">&#39;fraction&#39;</span><span class="p">:</span>
+            <span class="n">par</span><span class="o">.</span><span class="n">min</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">par</span><span class="o">.</span><span class="n">max</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="n">output_parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">par</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">output_parameters</span></div>
+
+
+
+<div class="viewcode-block" id="FitParameter">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.FitParameter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FitParameter</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing a specific fit parameter for the fit</span>
+<span class="sd">    processor.</span>
+
+<span class="sd">    :ivar name: Parameter name.</span>
+<span class="sd">    :vartype name: str</span>
+<span class="sd">    :ivar value: Parameter value.</span>
+<span class="sd">    :vartype value: float, optional</span>
+<span class="sd">    :ivar min: Lower Parameter value bound, defaults to `-numpy.inf`.</span>
+<span class="sd">    :vartype min: bool, optional</span>
+<span class="sd">    :ivar max: Upper Parameter value bound. defaults to `numpy.inf`.</span>
+<span class="sd">    :vartype max: bool, optional</span>
+<span class="sd">    :ivar vary: Whether the Parameter is varied during a fit, defaults</span>
+<span class="sd">        to `True`.</span>
+<span class="sd">    :vartype vary: bool, optional</span>
+<span class="sd">    :ivar expr: Mathematical expression used to constrain the</span>
+<span class="sd">        value during the fit. To remove a constraint you must</span>
+<span class="sd">        supply an empty string.</span>
+<span class="sd">    :vartype expr: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="nb">min</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">()]</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="nb">max</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">()]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="n">vary</span><span class="p">:</span> <span class="n">StrictBool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">expr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">_default</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">()</span>
+    <span class="n">_init_value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">()</span>
+    <span class="n">_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">()</span>
+    <span class="n">_stderr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">()</span>
+
+<div class="viewcode-block" id="FitParameter.validate_min">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.FitParameter.validate_min">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;min&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_min</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the specified min.</span>
+
+<span class="sd">        :param value: Field value to validate (`min`).</span>
+<span class="sd">        :type value: float or None</span>
+<span class="sd">        :return: Lower bound of fit parameter.</span>
+<span class="sd">        :rtype: float</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="k">return</span> <span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="FitParameter.validate_max">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.FitParameter.validate_max">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;max&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_max</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the specified max.</span>
+
+<span class="sd">        :param value: Field value to validate (`max`).</span>
+<span class="sd">        :type value: float or None</span>
+<span class="sd">        :return: Upper bound of fit parameter.</span>
+<span class="sd">        :rtype: float</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="k">return</span> <span class="n">value</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">default</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the default parameter value.</span>
+
+<span class="sd">        :type: float or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_default&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">init_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the initial parameter value.</span>
+
+<span class="sd">        :type: float or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_init_value&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_value</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prefix</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the parametr prefix.</span>
+
+<span class="sd">        :type: str or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_prefix&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prefix</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stderr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the parameter&#39;s uncertainty value.</span>
+
+<span class="sd">        :type: float or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_stderr&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stderr</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="FitParameter.set">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.FitParameter.set">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vary</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">expr</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set or update FitParameter attributes.</span>
+
+<span class="sd">        :param value: Parameter value.</span>
+<span class="sd">        :type value: float, optional</span>
+<span class="sd">        :param min: Lower Parameter value bound. To remove the lower</span>
+<span class="sd">            bound you must set min to `numpy.inf`.</span>
+<span class="sd">        :type min: bool, optional</span>
+<span class="sd">        :param max: Upper Parameter value bound. To remove the lower</span>
+<span class="sd">            bound you must set max to `numpy.inf`.</span>
+<span class="sd">        :type max: bool, optional</span>
+<span class="sd">        :param vary: Whether the Parameter is varied during a fit.</span>
+<span class="sd">        :type vary: bool, optional</span>
+<span class="sd">        :param expr: Mathematical expression used to constrain the</span>
+<span class="sd">            value during the fit. To remove a constraint you must</span>
+<span class="sd">            supply an empty string.</span>
+<span class="sd">        :type expr: str, optional</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">expr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid parameter expr (</span><span class="si">{</span><span class="n">expr</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">expr</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
+                <span class="n">expr</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span>
+            <span class="k">if</span> <span class="n">expr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">min</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">vary</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">return</span>
+        <span class="k">if</span> <span class="nb">min</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">min</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid parameter min (</span><span class="si">{</span><span class="nb">min</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">min</span> <span class="o">=</span> <span class="nb">min</span>
+        <span class="k">if</span> <span class="nb">max</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">max</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid parameter max (</span><span class="si">{</span><span class="nb">max</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max</span> <span class="o">=</span> <span class="nb">max</span>
+        <span class="k">if</span> <span class="n">vary</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">vary</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid parameter vary (</span><span class="si">{</span><span class="n">vary</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vary</span> <span class="o">=</span> <span class="n">vary</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid parameter value (</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">min</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">expr</span> <span class="o">=</span> <span class="kc">None</span></div>
+</div>
+
+
+<div class="viewcode-block" id="Constant">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.Constant">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Constant</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing a Constant model component.</span>
+
+<span class="sd">    :ivar model: The model component base name (a prefix will be added</span>
+<span class="sd">        if multiple identical model components are added).</span>
+<span class="sd">    :vartype model: Literal[&#39;constant&#39;]</span>
+<span class="sd">    :ivar parameters: Function parameters, defaults to those auto</span>
+<span class="sd">        generated from the function signature (excluding the</span>
+<span class="sd">        independent variable).</span>
+<span class="sd">    :vartype parameters: list[FitParameter], optional</span>
+<span class="sd">    :ivar prefix: The model prefix, defaults to `&#39;&#39;`.</span>
+<span class="sd">    :vartype prefix: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;constant&#39;</span><span class="p">]</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">FitParameter</span><span class="p">),</span>
+        <span class="n">Field</span><span class="p">(</span><span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="n">_validate_parameters_parameters</span> <span class="o">=</span> <span class="n">field_validator</span><span class="p">(</span>
+        <span class="s1">&#39;parameters&#39;</span><span class="p">)(</span><span class="n">validate_parameters</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Linear">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.Linear">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Linear</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing a Linear model component.</span>
+
+<span class="sd">    :ivar model: The model component base name (a prefix will be added</span>
+<span class="sd">        if multiple identical model components are added).</span>
+<span class="sd">    :vartype model: Literal[&#39;linear&#39;]</span>
+<span class="sd">    :ivar parameters: Function parameters, defaults to those auto</span>
+<span class="sd">        generated from the function signature (excluding the</span>
+<span class="sd">        independent variable).</span>
+<span class="sd">    :vartype parameters: list[FitParameter], optional</span>
+<span class="sd">    :ivar prefix: The model prefix, defaults to `&#39;&#39;`.</span>
+<span class="sd">    :vartype prefix: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;linear&#39;</span><span class="p">]</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">FitParameter</span><span class="p">),</span>
+        <span class="n">Field</span><span class="p">(</span><span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="n">_validate_parameters_parameters</span> <span class="o">=</span> <span class="n">field_validator</span><span class="p">(</span>
+        <span class="s1">&#39;parameters&#39;</span><span class="p">)(</span><span class="n">validate_parameters</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Quadratic">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.Quadratic">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Quadratic</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing a Quadratic model component.</span>
+
+<span class="sd">    :ivar model: The model component base name (a prefix will be added</span>
+<span class="sd">        if multiple identical model components are added).</span>
+<span class="sd">    :vartype model: Literal[&#39;quadratic&#39;]</span>
+<span class="sd">    :ivar parameters: Function parameters, defaults to those auto</span>
+<span class="sd">        generated from the function signature (excluding the</span>
+<span class="sd">        independent variable).</span>
+<span class="sd">    :vartype parameters: list[FitParameter], optional</span>
+<span class="sd">    :ivar prefix: The model prefix, defaults to `&#39;&#39;`.</span>
+<span class="sd">    :vartype prefix: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;quadratic&#39;</span><span class="p">]</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">FitParameter</span><span class="p">),</span>
+        <span class="n">Field</span><span class="p">(</span><span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="n">_validate_parameters_parameters</span> <span class="o">=</span> <span class="n">field_validator</span><span class="p">(</span>
+        <span class="s1">&#39;parameters&#39;</span><span class="p">)(</span><span class="n">validate_parameters</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Exponential">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.Exponential">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Exponential</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing an Exponential model component.</span>
+
+<span class="sd">    :ivar model: The model component base name (a prefix will be added</span>
+<span class="sd">        if multiple identical model components are added).</span>
+<span class="sd">    :vartype model: Literal[&#39;exponential&#39;]</span>
+<span class="sd">    :ivar parameters: Function parameters, defaults to those auto</span>
+<span class="sd">        generated from the function signature (excluding the</span>
+<span class="sd">        independent variable).</span>
+<span class="sd">    :vartype parameters: list[FitParameter], optional</span>
+<span class="sd">    :ivar prefix: The model prefix, defaults to `&#39;&#39;`.</span>
+<span class="sd">    :vartype prefix: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;exponential&#39;</span><span class="p">]</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">FitParameter</span><span class="p">),</span>
+        <span class="n">Field</span><span class="p">(</span><span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="n">_validate_parameters_parameters</span> <span class="o">=</span> <span class="n">field_validator</span><span class="p">(</span>
+        <span class="s1">&#39;parameters&#39;</span><span class="p">)(</span><span class="n">validate_parameters</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Gaussian">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.Gaussian">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Gaussian</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing a Gaussian model component.</span>
+
+<span class="sd">    :ivar model: The model component base name (a prefix will be added</span>
+<span class="sd">        if multiple identical model components are added).</span>
+<span class="sd">    :vartype model: Literal[&#39;gaussian&#39;]</span>
+<span class="sd">    :ivar parameters: Function parameters, defaults to those auto</span>
+<span class="sd">        generated from the function signature (excluding the</span>
+<span class="sd">        independent variable).</span>
+<span class="sd">    :vartype parameters: list[FitParameter], optional</span>
+<span class="sd">    :ivar prefix: The model prefix, defaults to `&#39;&#39;`.</span>
+<span class="sd">    :vartype prefix: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;gaussian&#39;</span><span class="p">]</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">FitParameter</span><span class="p">),</span>
+        <span class="n">Field</span><span class="p">(</span><span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="n">_validate_parameters_parameters</span> <span class="o">=</span> <span class="n">field_validator</span><span class="p">(</span>
+        <span class="s1">&#39;parameters&#39;</span><span class="p">)(</span><span class="n">validate_parameters</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Lorentzian">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.Lorentzian">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Lorentzian</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing a Lorentzian model component.</span>
+
+<span class="sd">    :ivar model: The model component base name (a prefix will be added</span>
+<span class="sd">        if multiple identical model components are added).</span>
+<span class="sd">    :vartype model: Literal[&#39;lorentzian&#39;]</span>
+<span class="sd">    :ivar parameters: Function parameters, defaults to those auto</span>
+<span class="sd">        generated from the function signature (excluding the</span>
+<span class="sd">        independent variable).</span>
+<span class="sd">    :vartype parameters: list[FitParameter], optional</span>
+<span class="sd">    :ivar prefix: The model prefix, defaults to `&#39;&#39;`.</span>
+<span class="sd">    :vartype prefix: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;lorentzian&#39;</span><span class="p">]</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">FitParameter</span><span class="p">),</span>
+        <span class="n">Field</span><span class="p">(</span><span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="n">_validate_parameters_parameters</span> <span class="o">=</span> <span class="n">field_validator</span><span class="p">(</span>
+        <span class="s1">&#39;parameters&#39;</span><span class="p">)(</span><span class="n">validate_parameters</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="PseudoVoigt">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.PseudoVoigt">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PseudoVoigt</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing a PseudoVoigt model component.</span>
+
+<span class="sd">    :ivar model: The model component base name (a prefix will be added</span>
+<span class="sd">        if multiple identical model components are added).</span>
+<span class="sd">    :vartype model: Literal[&#39;pvoigt&#39;]</span>
+<span class="sd">    :ivar parameters: Function parameters, defaults to those auto</span>
+<span class="sd">        generated from the function signature (excluding the</span>
+<span class="sd">        independent variable).</span>
+<span class="sd">    :vartype parameters: list[FitParameter], optional</span>
+<span class="sd">    :ivar prefix: The model prefix, defaults to `&#39;&#39;`.</span>
+<span class="sd">    :vartype prefix: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;pvoigt&#39;</span><span class="p">]</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">FitParameter</span><span class="p">),</span>
+        <span class="n">Field</span><span class="p">(</span><span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="n">_validate_parameters_parameters</span> <span class="o">=</span> <span class="n">field_validator</span><span class="p">(</span>
+        <span class="s1">&#39;parameters&#39;</span><span class="p">)(</span><span class="n">validate_parameters</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Rectangle">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.Rectangle">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Rectangle</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing a Rectangle model component.</span>
+
+<span class="sd">    :ivar model: The model component base name (a prefix will be added</span>
+<span class="sd">        if multiple identical model components are added).</span>
+<span class="sd">    :vartype model: Literal[&#39;rectangle&#39;]</span>
+<span class="sd">    :ivar parameters: Function parameters, defaults to those auto</span>
+<span class="sd">        generated from the function signature (excluding the</span>
+<span class="sd">        independent variable).</span>
+<span class="sd">    :vartype parameters: list[FitParameter], optional</span>
+<span class="sd">    :ivar prefix: The model prefix, defaults to `&#39;&#39;`.</span>
+<span class="sd">    :vartype prefix: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;rectangle&#39;</span><span class="p">]</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">FitParameter</span><span class="p">),</span>
+        <span class="n">Field</span><span class="p">(</span><span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="n">_validate_parameters_parameters</span> <span class="o">=</span> <span class="n">field_validator</span><span class="p">(</span>
+        <span class="s1">&#39;parameters&#39;</span><span class="p">)(</span><span class="n">validate_parameters</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Expression">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.Expression">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Expression</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing an Expression model component.</span>
+
+<span class="sd">    :ivar model: The model component base name (a prefix will be added</span>
+<span class="sd">        if multiple identical model components are added).</span>
+<span class="sd">    :vartype model: Literal[&#39;expression&#39;]</span>
+<span class="sd">    :ivar expr: Mathematical expression to represent the model</span>
+<span class="sd">        component.</span>
+<span class="sd">    :vartype expr: str</span>
+<span class="sd">    :ivar parameters: Function parameters, defaults to those auto</span>
+<span class="sd">        generated from the model expression (excluding the</span>
+<span class="sd">        independent variable).</span>
+<span class="sd">    :vartype parameters: list[FitParameter], optional</span>
+<span class="sd">    :ivar prefix: The model prefix, defaults to `&#39;&#39;`.</span>
+<span class="sd">    :vartype prefix: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;expression&#39;</span><span class="p">]</span>
+    <span class="n">expr</span><span class="p">:</span> <span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">FitParameter</span><span class="p">),</span>
+        <span class="n">Field</span><span class="p">(</span><span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="n">_validate_parameters_parameters</span> <span class="o">=</span> <span class="n">field_validator</span><span class="p">(</span>
+        <span class="s1">&#39;parameters&#39;</span><span class="p">)(</span><span class="n">validate_parameters</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Multipeak">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.Multipeak">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Multipeak</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing a multipeak model.</span>
+
+<span class="sd">    :ivar model: The model component base name (a prefix will be added</span>
+<span class="sd">        if multiple identical model components are added).</span>
+<span class="sd">    :vartype model: Literal[&#39;expression&#39;]</span>
+<span class="sd">    :ivar centers: Peak centers.</span>
+<span class="sd">    :vartype center: list[float]</span>
+<span class="sd">    :ivar centers_range: Range of peak centers around their centers.</span>
+<span class="sd">    :vartype centers_range: float, optional</span>
+<span class="sd">    :ivar fit_type: Type of fit, defaults to `&#39;unconstrained&#39;`.</span>
+<span class="sd">    :vartype fit_type: Literal[&#39;uniform&#39;, &#39;unconstrained&#39;], optional.</span>
+<span class="sd">    :ivar fwhm_min: Lower limit of the fwhm of the peaks.</span>
+<span class="sd">    :vartype fwhm_min: float, optional</span>
+<span class="sd">    :ivar fwhm_max: Upper limit of the fwhm of the peaks.</span>
+<span class="sd">    :vartype fwhm_max: float, optional</span>
+<span class="sd">    :ivar peak_models: Type of peaks, defaults to `&#39;gaussian&#39;`.</span>
+<span class="sd">    :vartype peak_models: Literal[&#39;gaussian&#39;, &#39;lorentzian&#39;, &#39;pvoigt&#39;],</span>
+<span class="sd">        optional.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;multipeak&#39;</span><span class="p">]</span>
+    <span class="n">centers</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">confloat</span><span class="p">(</span><span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">centers_range</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">fit_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;uniform&#39;</span><span class="p">,</span> <span class="s1">&#39;unconstrained&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">&#39;unconstrained&#39;</span>
+    <span class="n">fwhm_min</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">fwhm_max</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">peak_models</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;gaussian&#39;</span><span class="p">,</span> <span class="s1">&#39;lorentzian&#39;</span><span class="p">,</span> <span class="s1">&#39;pvoigt&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;gaussian&#39;</span></div>
+
+
+
+<span class="n">models</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;constant&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">constant</span><span class="p">,</span> <span class="s1">&#39;class&#39;</span><span class="p">:</span> <span class="n">Constant</span><span class="p">},</span>
+    <span class="s1">&#39;linear&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">linear</span><span class="p">,</span> <span class="s1">&#39;class&#39;</span><span class="p">:</span> <span class="n">Linear</span><span class="p">},</span>
+    <span class="s1">&#39;quadratic&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">quadratic</span><span class="p">,</span> <span class="s1">&#39;class&#39;</span><span class="p">:</span> <span class="n">Quadratic</span><span class="p">},</span>
+    <span class="s1">&#39;exponential&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">exponential</span><span class="p">,</span> <span class="s1">&#39;class&#39;</span><span class="p">:</span> <span class="n">Exponential</span><span class="p">},</span>
+    <span class="s1">&#39;gaussian&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">gaussian</span><span class="p">,</span> <span class="s1">&#39;class&#39;</span><span class="p">:</span> <span class="n">Gaussian</span><span class="p">},</span>
+    <span class="s1">&#39;lorentzian&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">lorentzian</span><span class="p">,</span> <span class="s1">&#39;class&#39;</span><span class="p">:</span> <span class="n">Lorentzian</span><span class="p">},</span>
+    <span class="s1">&#39;pvoigt&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">pvoigt</span><span class="p">,</span> <span class="s1">&#39;class&#39;</span><span class="p">:</span> <span class="n">PseudoVoigt</span><span class="p">},</span>
+    <span class="s1">&#39;rectangle&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">rectangle</span><span class="p">,</span> <span class="s1">&#39;class&#39;</span><span class="p">:</span> <span class="n">Rectangle</span><span class="p">},</span>
+<span class="p">}</span>
+
+<span class="n">model_classes</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">Constant</span><span class="p">,</span>
+    <span class="n">Linear</span><span class="p">,</span>
+    <span class="n">Quadratic</span><span class="p">,</span>
+    <span class="n">Exponential</span><span class="p">,</span>
+    <span class="n">Gaussian</span><span class="p">,</span>
+    <span class="n">Lorentzian</span><span class="p">,</span>
+    <span class="n">PseudoVoigt</span><span class="p">,</span>
+    <span class="n">Rectangle</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="FitConfig">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.FitConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FitConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing the configuration for the fit processor.</span>
+
+<span class="sd">    :ivar code: Specifies is lmfit is used to perform the fit or if</span>
+<span class="sd">        the scipy fit method is called directly, default to `&#39;lmfit&#39;`.</span>
+<span class="sd">    :vartype code: Literal[&#39;lmfit&#39;, &#39;scipy&#39;], optional</span>
+<span class="sd">    :ivar parameters: Fit model parameters in addition to those</span>
+<span class="sd">        implicitly defined through the build-in model functions,</span>
+<span class="sd">        defaults to `[]`&#39;</span>
+<span class="sd">    :vartype parameters:</span>
+<span class="sd">        list[:class:`~CHAP.utils.models.FitParameter`], optional</span>
+<span class="sd">    :ivar models: The component(s) of the (composite) fit model.</span>
+<span class="sd">    :vartype models:</span>
+<span class="sd">        list[:attr:`~CHAP.utils.models.FitConfig.models`]</span>
+<span class="sd">    :ivar rel_height_cutoff: Relative peak height cutoff for</span>
+<span class="sd">        peak fitting (any peak with a height smaller than</span>
+<span class="sd">        `rel_height_cutoff` times the maximum height of all peaks </span>
+<span class="sd">        gets removed from the fit model).</span>
+<span class="sd">    :vartype rel_height_cutoff: float, optional</span>
+<span class="sd">    :ivar num_proc: The number of processors used in fitting a map</span>
+<span class="sd">        of data, defaults to `1`.</span>
+<span class="sd">    :vartype num_proc: int, optional</span>
+<span class="sd">    :ivar plot: Whether a plot of the fit result is generated,</span>
+<span class="sd">        defaults to `False`.</span>
+<span class="sd">    :vartype plot: bool, optional.</span>
+<span class="sd">    :ivar print_report:  Whether to generate a fit result printout,</span>
+<span class="sd">        defaults to `False`.</span>
+<span class="sd">    :vartype print_report: bool, optional.</span>
+<span class="sd">    :ivar memfolder: Folder name for the temporary memory map if</span>
+<span class="sd">        multiple processors are used, defaults to `&#39;joblib_memmap&#39;`.</span>
+<span class="sd">    :vartype memfolder: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">code</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;lmfit&#39;</span><span class="p">,</span> <span class="s1">&#39;scipy&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;scipy&#39;</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">FitParameter</span><span class="p">)</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">models</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span>
+        <span class="n">Constant</span><span class="p">,</span> <span class="n">Linear</span><span class="p">,</span> <span class="n">Quadratic</span><span class="p">,</span> <span class="n">Exponential</span><span class="p">,</span> <span class="n">Gaussian</span><span class="p">,</span> <span class="n">Lorentzian</span><span class="p">,</span>
+        <span class="n">PseudoVoigt</span><span class="p">,</span> <span class="n">Rectangle</span><span class="p">,</span> <span class="n">Expression</span><span class="p">,</span> <span class="n">Multipeak</span><span class="p">],</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+        <span class="s1">&#39;leastsq&#39;</span><span class="p">,</span> <span class="s1">&#39;trf&#39;</span><span class="p">,</span> <span class="s1">&#39;dogbox&#39;</span><span class="p">,</span> <span class="s1">&#39;lm&#39;</span><span class="p">,</span> <span class="s1">&#39;least_squares&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;leastsq&#39;</span>
+    <span class="n">rel_height_cutoff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">lt</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">num_proc</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">plot</span><span class="p">:</span> <span class="n">StrictBool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">print_report</span><span class="p">:</span>  <span class="n">StrictBool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">memfolder</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;joblib_memmap&#39;</span>
+
+<div class="viewcode-block" id="FitConfig.validate_method">
+<a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.models.FitConfig.validate_method">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;method&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_method</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the specified method.</span>
+
+<span class="sd">        :param method: The value of `method` to validate.</span>
+<span class="sd">        :type method: str</span>
+<span class="sd">        :param info: Model parameter validation information.</span>
+<span class="sd">        :type info: pydantic.ValidationInfo</span>
+<span class="sd">        :return: Fit method.</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;code&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">code</span> <span class="o">==</span> <span class="s1">&#39;lmfit&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;leastsq&#39;</span><span class="p">,</span> <span class="s1">&#39;least_squares&#39;</span><span class="p">):</span>
+                <span class="n">method</span> <span class="o">=</span> <span class="s1">&#39;leastsq&#39;</span>
+        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;least_squares&#39;</span><span class="p">:</span>
+            <span class="n">method</span> <span class="o">=</span> <span class="s1">&#39;leastsq&#39;</span>
+
+        <span class="k">return</span> <span class="n">method</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

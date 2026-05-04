@@ -1,0 +1,1261 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.common.reader &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.common.reader</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.common.reader</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Module for generic Readers used in multiple experiment-specific</span>
+<span class="sd">workflows.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># System modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Literal</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Third party modules</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">PrivateAttr</span><span class="p">,</span>
+    <span class="n">conint</span><span class="p">,</span>
+    <span class="n">conlist</span><span class="p">,</span>
+    <span class="n">constr</span><span class="p">,</span>
+    <span class="n">model_validator</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DetectorConfig</span><span class="p">,</span>
+    <span class="n">SpecConfig</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.reader</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Reader</span><span class="p">,</span>
+    <span class="n">validate_reader_model</span><span class="p">,</span>
+<span class="p">)</span>
+
+<div class="viewcode-block" id="validate_model">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.validate_model">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">validate_model</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate the `model` configuration.</span>
+
+<span class="sd">    :return: Validated model.</span>
+<span class="sd">    :rtype: Any</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">filename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">validate_reader_model</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span></div>
+
+
+
+<div class="viewcode-block" id="BinaryFileReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.BinaryFileReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BinaryFileReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for binary files.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="BinaryFileReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.BinaryFileReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a content of a given binary file.</span>
+
+<span class="sd">        :return: File content.</span>
+<span class="sd">        :rtype: binary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ConfigReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.ConfigReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConfigReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for YAML files that optionally implements and verifies it</span>
+<span class="sd">    agaist its `Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__</span>
+<span class="sd">    configuration schema.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ConfigReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.ConfigReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return an optionally verified dictionary from the contents</span>
+<span class="sd">        of a yaml file.</span>
+
+<span class="sd">        :return: File content.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">YAMLReader</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">model_dump</span><span class="p">())</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="c1">#print(f&#39;\nConfigReader.read start data {type(data)}:&#39;)</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s1">&#39;FIX ConfigReader downstream validators do not like a pydantic &#39;</span>
+            <span class="s1">&#39;class as output of a reader, but returning data.model_dict() &#39;</span>
+            <span class="s1">&#39;instead screws up default value identification&#39;</span><span class="p">)</span>
+        <span class="c1">#pprint(data)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_schema</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_schema</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="s1">&#39;read&#39;</span>
+        <span class="c1">#print(f&#39;\nConfigReader.read end data {type(data)}:&#39;)</span>
+        <span class="c1">#pprint(data)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="DetectorDataReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.DetectorDataReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DetectorDataReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for detector data files. Glob filenames allowed. Mask</span>
+<span class="sd">    application and background correction available.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="DetectorDataReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.DetectorDataReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span>
+             <span class="n">mask_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mask_above</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mask_below</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+             <span class="n">mask_value</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">data_scalar</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+             <span class="n">background_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">background_scalar</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+             <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reads detector data, applies masking, scaling, and</span>
+<span class="sd">        background subtraction.</span>
+
+<span class="sd">        :param filename: Path to the primary data file.</span>
+<span class="sd">        :type filename: str</span>
+<span class="sd">        :param mask_file: Path to the mask file (optional).</span>
+<span class="sd">        :type mask_file: str, optional</span>
+<span class="sd">        :param mask_above: Mask values above this threshold (optional).</span>
+<span class="sd">        :type mask_above: float, optional</span>
+<span class="sd">        :param mask_below: Mask values below this threshold (optional).</span>
+<span class="sd">        :type mask_below: float, optional</span>
+<span class="sd">        :param data_scalar: Scalar to multiply the data (optional).</span>
+<span class="sd">        :type data_scalar: float, optional</span>
+<span class="sd">        :param background_file: Path to the background file (optional).</span>
+<span class="sd">        :type background_file: str, optional</span>
+<span class="sd">        :param background_scalar: Scalar to multiply the background</span>
+<span class="sd">            data (optional).</span>
+<span class="sd">        :type background_scalar: float, optional</span>
+<span class="sd">        :return: Processed detector data.</span>
+<span class="sd">        :rtype: numpy.ndarray</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+        <span class="c1"># Third party modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">glob</span>
+
+        <span class="c1"># Handle glob filenames</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+            <span class="n">filenames</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">filename</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">filenames</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s1">&#39;</span><span class="si">{filename}</span><span class="s1"> is not a file or glob that matches any files&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">filenames</span> <span class="o">=</span> <span class="p">[</span><span class="n">filename</span><span class="p">]</span>
+
+        <span class="c1"># Read the raw data files</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Reading </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">filenames</span><span class="p">)</span><span class="si">}</span><span class="s1"> raw data files&#39;</span><span class="p">)</span>
+        <span class="n">raw_data</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_data_from_file</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">filenames</span><span class="p">]</span>
+
+        <span class="c1"># Initialize mask arary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Initializing mask array&#39;</span><span class="p">)</span>
+        <span class="n">mask_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">raw_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mask_file</span><span class="p">:</span>
+            <span class="n">mask_array</span> <span class="o">|=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_from_file</span><span class="p">(</span><span class="n">mask_file</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span>
+
+        <span class="c1"># Initialize background data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Initializing background data&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">background_file</span><span class="p">:</span>
+            <span class="n">background_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_from_file</span><span class="p">(</span><span class="n">background_file</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">background_scalar</span><span class="p">:</span>
+                <span class="n">background_data</span> <span class="o">*=</span> <span class="n">background_scalar</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">background_data</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Handle mask_value of NaN</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mask_value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">mask_value</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;nan&#39;</span><span class="p">:</span>
+                <span class="n">mask_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+
+        <span class="c1"># Scale data, apply mask, subtract background</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Applying corrections to raw data&#39;</span><span class="p">)</span>
+        <span class="n">corrected_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_correct_data</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">raw_data</span><span class="p">),</span>
+            <span class="n">mask_array</span><span class="p">,</span> <span class="n">mask_above</span><span class="p">,</span> <span class="n">mask_below</span><span class="p">,</span> <span class="n">mask_value</span><span class="p">,</span>
+            <span class="n">data_scalar</span><span class="p">,</span> <span class="n">background_data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">corrected_data</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_data_from_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">fabio</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Reading </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">fabio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">datafile</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">datafile</span><span class="o">.</span><span class="n">data</span>
+        <span class="k">return</span> <span class="n">data</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_correct_data</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">raw_data</span><span class="p">,</span> <span class="n">mask_array</span><span class="p">,</span> <span class="n">mask_above</span><span class="p">,</span> <span class="n">mask_below</span><span class="p">,</span>
+            <span class="n">mask_value</span><span class="p">,</span> <span class="n">data_scalar</span><span class="p">,</span> <span class="n">background_data</span><span class="p">):</span>
+        <span class="c1"># Scale raw data</span>
+        <span class="n">corrected_data</span> <span class="o">=</span> <span class="n">raw_data</span>
+        <span class="k">if</span> <span class="n">data_scalar</span><span class="p">:</span>
+            <span class="n">corrected_data</span> <span class="o">*=</span> <span class="n">data_scalar</span>
+
+        <span class="c1"># Apply mask</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">mask_array</span> <span class="o">!=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">mask_above</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">|=</span> <span class="n">corrected_data</span> <span class="o">&gt;</span> <span class="n">mask_above</span>
+        <span class="k">if</span> <span class="n">mask_below</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">|=</span> <span class="n">corrected_data</span> <span class="o">&lt;</span> <span class="n">mask_below</span>
+        <span class="n">corrected_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">mask_value</span><span class="p">,</span> <span class="n">raw_data</span><span class="p">)</span>
+
+        <span class="c1"># Subtract background</span>
+        <span class="k">if</span> <span class="n">background_data</span><span class="p">:</span>
+            <span class="n">corrected_data</span> <span class="o">-=</span> <span class="n">background_data</span>
+
+        <span class="k">return</span> <span class="n">corrected_data</span></div>
+
+
+
+<div class="viewcode-block" id="FabioImageReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.FabioImageReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FabioImageReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for images using the python</span>
+<span class="sd">    `fabio &lt;https://fabio.readthedocs.io/en/main&gt;`__ package.</span>
+
+<span class="sd">    :ivar frame: Index of a specific frame to read from the file(s),</span>
+<span class="sd">        defaults to `None`.</span>
+<span class="sd">    :vartype frame: int, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">frame</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="FabioImageReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.FabioImageReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the data from the image file(s) provided.</span>
+
+<span class="sd">        :returns: Image data as a numpy array (or list of numpy</span>
+<span class="sd">            arrays, if a glob pattern matching more than one file was</span>
+<span class="sd">            provided).</span>
+<span class="sd">        :rtype: numpy.ndarray | list[numpy.ndarray]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">glob</span><span class="w"> </span><span class="kn">import</span> <span class="n">glob</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">fabio</span>
+
+        <span class="n">filenames</span> <span class="o">=</span> <span class="n">glob</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">filenames</span><span class="p">:</span>
+            <span class="n">image</span> <span class="o">=</span> <span class="n">fabio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">frame</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">frame</span><span class="p">)</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">image</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="H5Reader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.H5Reader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">H5Reader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for h5 files.</span>
+
+<span class="sd">    :ivar h5path: Path to a specific location in the h5 file to read</span>
+<span class="sd">        data from, defaults to `&#39;/&#39;`.</span>
+<span class="sd">    :vartype h5path: str, optional</span>
+<span class="sd">    :ivar idx: Data slice to read from the object at the specified</span>
+<span class="sd">        location in the h5 file.</span>
+<span class="sd">    :vartype idx: list[int], optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">h5path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span>
+    <span class="n">idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">item_type</span><span class="o">=</span><span class="nb">int</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="H5Reader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.H5Reader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the data object stored at `h5path` in an h5-file.</span>
+
+<span class="sd">        :return: Object indicated by `filename` and `h5path`.</span>
+<span class="sd">        :rtype: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">h5py</span><span class="w"> </span><span class="kn">import</span> <span class="n">File</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="n">File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">h5path</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="LinkamReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.LinkamReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LinkamReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for loading Linkam load frame .txt files as an</span>
+<span class="sd">    `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__</span>
+<span class="sd">    object.</span>
+
+<span class="sd">    :ivar columns: Column names to read in, defaults to None</span>
+<span class="sd">        (read in all columns)</span>
+<span class="sd">    :vartype columns: list[str], optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">columns</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span>
+        <span class="n">item_type</span><span class="o">=</span><span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">))]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="LinkamReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.LinkamReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read specified columns from the given Linkam file.</span>
+
+<span class="sd">        :returns: Linkam data.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXdata</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">NXdata</span><span class="p">,</span>
+            <span class="n">NXfield</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Parse .txt file</span>
+        <span class="n">start_time</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">LinkamReader</span><span class="o">.</span><span class="n">parse_file</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">)</span>
+
+        <span class="c1"># Get list of actual data column names and corresponding</span>
+        <span class="c1"># signal nxnames (same as user-supplied column names)</span>
+        <span class="n">signal_names</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">columns</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">signal_names</span> <span class="o">=</span> <span class="p">[(</span><span class="n">col</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">col</span> <span class="o">!=</span> <span class="s1">&#39;Time&#39;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="n">col_actual</span> <span class="o">=</span> <span class="n">col</span>
+                <span class="k">if</span> <span class="n">col</span> <span class="o">==</span> <span class="s1">&#39;Distance&#39;</span><span class="p">:</span>
+                    <span class="n">col_actual</span> <span class="o">=</span> <span class="s1">&#39;Force V Distance_X&#39;</span>
+                <span class="k">elif</span> <span class="n">col</span> <span class="o">==</span> <span class="s1">&#39;Force&#39;</span><span class="p">:</span>
+                    <span class="n">col_actual</span> <span class="o">=</span> <span class="s1">&#39;Force V Distance_Y&#39;</span>
+                <span class="k">elif</span> <span class="ow">not</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s1">_Y&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                        <span class="c1"># Always use the *_Y column if the user-supplied</span>
+                        <span class="c1"># column name has both _X and _Y components</span>
+                        <span class="n">col_actual</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s1">_Y&#39;</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s1"> not present in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                        <span class="k">continue</span>
+                <span class="n">signal_names</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">col_actual</span><span class="p">,</span> <span class="n">col</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Using (column name, signal name): </span><span class="si">{</span><span class="n">signal_names</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="n">nxdata</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span>
+            <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="n">NXfield</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Time&#39;</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;Time&#39;</span><span class="p">])</span> <span class="o">+</span> <span class="n">start_time</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;float64&#39;</span><span class="p">,</span>
+            <span class="p">),),</span>
+            <span class="o">**</span><span class="p">{</span><span class="n">col</span><span class="p">:</span> <span class="n">NXfield</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">col</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="n">col_actual</span><span class="p">],</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;float32&#39;</span><span class="p">,</span>
+            <span class="p">)</span> <span class="k">for</span> <span class="n">col_actual</span><span class="p">,</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">signal_names</span><span class="p">},</span>
+            <span class="n">attrs</span><span class="o">=</span><span class="n">metadata</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">nxdata</span></div>
+
+
+<div class="viewcode-block" id="LinkamReader.parse_file">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.LinkamReader.parse_file">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return start time, metadata, and data stored in the</span>
+<span class="sd">        provided Linkam .txt file.</span>
+
+<span class="sd">        :returns: Start time, metadata, and data stored in the input</span>
+<span class="sd">            file.</span>
+<span class="sd">        :rtype: tuple(float, dict[str, str], dict[str, list[float]])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+
+        <span class="c1"># Get t=0 from filename</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">basename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="n">pattern</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;(\d</span><span class="si">{2}</span><span class="s1">-\d</span><span class="si">{2}</span><span class="s1">-\d</span><span class="si">{2}</span><span class="s1">_\d</span><span class="si">{2}</span><span class="s1">-\d</span><span class="si">{2}</span><span class="s1">-\d</span><span class="si">{2}</span><span class="s1">-\d</span><span class="si">{2}</span><span class="s1">)&#39;</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">basename</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+            <span class="n">datetime_str</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">dt</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">datetime_str</span><span class="p">,</span> <span class="s1">&#39;</span><span class="si">%d</span><span class="s1">-%m-%y_%H-%M-%S-</span><span class="si">%f</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">start_time</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Datetime not found in </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Get data add metadata from file contents</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">inf</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">inf</span><span class="p">:</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
+                    <span class="c1"># If data dict has been initialized, remaining</span>
+                    <span class="c1"># lines are all data values</span>
+                    <span class="n">values</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">val</span><span class="p">,</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">())):</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s1">&#39;Cannot convert </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s1"> value to float: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s1"> &#39;</span>
+                                <span class="sa">f</span><span class="s1">&#39;(</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+                            <span class="k">continue</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                <span class="k">if</span> <span class="s1">&#39;:&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="c1"># Metadata key: value pair kept on this line</span>
+                    <span class="n">_metadata</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">_metadata</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="o">=</span> <span class="n">_metadata</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                        <span class="c1">#key, val = _metadata[0], None</span>
+                    <span class="n">metadata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^([\w\s\w]+)(\t\t[\w\s\w]+)*$&#39;</span><span class="p">,</span> <span class="n">line</span><span class="p">):</span>
+                    <span class="c1"># Match found for start of data section -- this</span>
+                    <span class="c1"># line and the next are column labels.</span>
+                    <span class="n">data_cols</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="c1"># Get base quantity column names</span>
+                    <span class="n">base_cols</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t\t</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="c1"># Get Index, X and Y component columns</span>
+                    <span class="n">line</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">inf</span><span class="p">)</span>
+                    <span class="n">comp_cols</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="c1"># Assemble actual column names</span>
+                    <span class="n">data_cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;Index&#39;</span><span class="p">)</span>
+                    <span class="n">comp_cols_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">comp_cols</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">comp_cols_count</span><span class="p">):</span>
+                        <span class="n">data_cols</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                            <span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">base_cols</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;X&#39;</span><span class="p">,</span> <span class="s1">&#39;Y&#39;</span><span class="p">)]</span>
+                        <span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">base_cols</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">comp_cols_count</span><span class="p">:</span>
+                        <span class="n">data_cols</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">base_cols</span><span class="p">[</span><span class="n">comp_cols_count</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:])</span>
+                    <span class="c1"># First column (after 0th) is actually Time</span>
+                    <span class="n">data_cols</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;Time&#39;</span>
+                    <span class="c1"># Start of data lines</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="n">col</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">data_cols</span><span class="p">}</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Found data columns: </span><span class="si">{</span><span class="n">data_cols</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">data</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="MapReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.MapReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MapReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for CHESS sample maps.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="MapReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.MapReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">map_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">detector_names</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Take a map configuration dictionary and return a</span>
+<span class="sd">        representation of the map as a NeXus style</span>
+<span class="sd">        `NXentry &lt;https://manual.nexusformat.org/classes/base_classes/NXentry.html#index-0&gt;`__</span>
+<span class="sd">        object. The NXentry&#39;s default data group will contain the</span>
+<span class="sd">        raw data collected over the course of the map.</span>
+
+<span class="sd">        :param filename: Name of a file with the map configuration</span>
+<span class="sd">            to read and pass onto the constructor of</span>
+<span class="sd">            :class:`~CHAP.common.models.map.MapConfig`.</span>
+<span class="sd">        :type filename: str, optional</span>
+<span class="sd">        :param map_config: Map configuration to be passed directly to</span>
+<span class="sd">            the constructor of</span>
+<span class="sd">            :class:`~CHAP.common.models.map.MapConfig`.</span>
+<span class="sd">        :type map_config: dict, optional</span>
+<span class="sd">        :param detector_names: Detector prefixes to include raw data</span>
+<span class="sd">            for in the returned NXentry object.</span>
+<span class="sd">        :type detector_names: list[str], optional</span>
+<span class="sd">        :return: Data from the provided map configuration.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXentry</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">NXcollection</span><span class="p">,</span>
+            <span class="n">NXdata</span><span class="p">,</span>
+            <span class="n">NXentry</span><span class="p">,</span>
+            <span class="n">NXfield</span><span class="p">,</span>
+            <span class="n">NXsample</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="n">MapConfig</span>
+
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;MapReader is obsolete, use MapProcessor&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">filename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">map_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Specify either filename or map_config &#39;</span>
+                                   <span class="s1">&#39;in common.MapReader, not both&#39;</span><span class="p">)</span>
+            <span class="c1"># Read the map configuration from file</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;input file does not exist (</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="n">extension</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">filename</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">extension</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;.yml&#39;</span><span class="p">,</span> <span class="s1">&#39;.yaml&#39;</span><span class="p">):</span>
+                <span class="n">reader</span> <span class="o">=</span> <span class="n">YAMLReader</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;input file has a non-implemented &#39;</span>
+                                   <span class="sa">f</span><span class="s1">&#39;extension (</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="n">map_config</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">map_config</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Invalid parameter map_config in &#39;</span>
+                               <span class="sa">f</span><span class="s1">&#39;common.MapReader (</span><span class="si">{</span><span class="n">map_config</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Validate the map configuration provided by constructing a</span>
+        <span class="c1"># MapConfig</span>
+        <span class="n">map_config</span> <span class="o">=</span> <span class="n">MapConfig</span><span class="p">(</span><span class="o">**</span><span class="n">map_config</span><span class="p">,</span> <span class="n">inputdir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inputdir</span><span class="p">)</span>
+
+        <span class="c1"># Set up NXentry and add misc. CHESS-specific metadata</span>
+        <span class="n">nxentry</span> <span class="o">=</span> <span class="n">NXentry</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">map_config</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;station&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">map_config</span><span class="o">.</span><span class="n">station</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">map_config</span> <span class="o">=</span> <span class="n">map_config</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">spec_scans</span> <span class="o">=</span> <span class="n">NXcollection</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">scans</span> <span class="ow">in</span> <span class="n">map_config</span><span class="o">.</span><span class="n">spec_scans</span><span class="p">:</span>
+            <span class="n">nxentry</span><span class="o">.</span><span class="n">spec_scans</span><span class="p">[</span><span class="n">scans</span><span class="o">.</span><span class="n">scanparsers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scan_name</span><span class="p">]</span> <span class="o">=</span> \
+                <span class="n">NXfield</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">scans</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">,</span>
+                        <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;spec_file&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">scans</span><span class="o">.</span><span class="n">spec_file</span><span class="p">)})</span>
+
+        <span class="c1"># Add sample metadata</span>
+        <span class="n">nxentry</span><span class="p">[</span><span class="n">map_config</span><span class="o">.</span><span class="n">sample</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">NXsample</span><span class="p">(</span>
+            <span class="o">**</span><span class="n">map_config</span><span class="o">.</span><span class="n">sample</span><span class="o">.</span><span class="n">model_dump</span><span class="p">())</span>
+
+        <span class="c1"># Set up default data group</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">map_config</span><span class="o">.</span><span class="n">map_type</span> <span class="o">==</span> <span class="s1">&#39;structured&#39;</span><span class="p">:</span>
+            <span class="n">nxentry</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">map_config</span><span class="o">.</span><span class="n">dims</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">map_config</span><span class="o">.</span><span class="n">independent_dimensions</span><span class="p">:</span>
+            <span class="n">nxentry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">dim</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">map_config</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim</span><span class="o">.</span><span class="n">label</span><span class="p">],</span>
+                <span class="n">units</span><span class="o">=</span><span class="n">dim</span><span class="o">.</span><span class="n">units</span><span class="p">,</span>
+                <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;long_name&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">dim</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="n">dim</span><span class="o">.</span><span class="n">units</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="n">dim</span><span class="o">.</span><span class="n">data_type</span><span class="p">,</span>
+                       <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="n">dim</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
+
+        <span class="c1"># Create empty NXfields for all scalar data present in the</span>
+        <span class="c1"># provided map configuration</span>
+        <span class="n">signal</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">auxilliary_signals</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">map_config</span><span class="o">.</span><span class="n">all_scalar_data</span><span class="p">:</span>
+            <span class="n">nxentry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span>
+                <span class="n">units</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">units</span><span class="p">,</span>
+                <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;long_name&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">units</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;data_type&#39;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">data_type</span><span class="p">,</span>
+                       <span class="s1">&#39;local_name&#39;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">signal</span><span class="p">:</span>
+                <span class="n">signal</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">label</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">auxilliary_signals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">label</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">signal</span><span class="p">:</span>
+            <span class="n">nxentry</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;signal&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span>
+            <span class="n">nxentry</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;auxilliary_signals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">auxilliary_signals</span>
+
+        <span class="c1"># Create empty NXfields of appropriate shape for raw</span>
+        <span class="c1"># detector data</span>
+        <span class="k">if</span> <span class="n">detector_names</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">detector_names</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">detector_name</span> <span class="ow">in</span> <span class="n">detector_names</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">detector_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">detector_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">detector_name</span><span class="p">)</span>
+            <span class="n">detector_data</span> <span class="o">=</span> <span class="n">map_config</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span>
+                <span class="n">detector_name</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,)</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+            <span class="n">nxentry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+                <span class="p">(</span><span class="o">*</span><span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="o">*</span><span class="n">detector_data</span><span class="o">.</span><span class="n">shape</span><span class="p">)),</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">detector_data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+        <span class="c1"># Read and fill in maps of raw data</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">map_config</span><span class="o">.</span><span class="n">all_scalar_data</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">detector_names</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">map_index</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">map_config</span><span class="o">.</span><span class="n">shape</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">map_config</span><span class="o">.</span><span class="n">all_scalar_data</span><span class="p">:</span>
+                    <span class="n">nxentry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">label</span><span class="p">][</span><span class="n">map_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">map_config</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span>
+                        <span class="n">data</span><span class="p">,</span> <span class="n">map_index</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">detector_name</span> <span class="ow">in</span> <span class="n">detector_names</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">detector_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                        <span class="n">detector_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">detector_name</span><span class="p">)</span>
+                    <span class="n">nxentry</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_name</span><span class="p">][</span><span class="n">map_index</span><span class="p">]</span> <span class="o">=</span> \
+                        <span class="n">map_config</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span><span class="n">detector_name</span><span class="p">,</span> <span class="n">map_index</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">nxentry</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PandasReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.PandasReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PandasReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for files that can be read in with</span>
+<span class="sd">    `pandas &lt;https://pandas.pydata.org/docs/index.html&gt;`__</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="PandasReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.PandasReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;read_csv&#39;</span><span class="p">,</span> <span class="n">comment</span><span class="o">=</span><span class="s1">&#39;#&#39;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a `pandas.DataFrame` read from the given file.</span>
+
+<span class="sd">        :param filename: Name of file to read from.</span>
+<span class="sd">        :type filename: str</span>
+<span class="sd">        :param method: Name of `pandas` method to use for reading from</span>
+<span class="sd">            `filename`. Defaults to `&#39;read_csv&#39;`.</span>
+<span class="sd">        :type method: str, optional</span>
+<span class="sd">        :param comment: Character to identify comment lines in the</span>
+<span class="sd">            input file, defaults to `&#39;#&#39;`.</span>
+<span class="sd">        :type comment: str, optional</span>
+<span class="sd">        :param kwargs: Additional keyword arguments to supply to the</span>
+<span class="sd">            `pandas` reader.</span>
+<span class="sd">        :param kwargs: dict, optional.</span>
+<span class="sd">        :rtype: `pandas.DataFrame`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="c1"># pylint: disable=import-error</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+        <span class="n">reader</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">pd</span><span class="p">,</span> <span class="n">method</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">reader</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s1"> is not a callable pandas reader method&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">kwargs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kwargs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Invalid kwargs type (</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span><span class="si">}</span><span class="s1">, should be dict)&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">reader</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">comment</span><span class="o">=</span><span class="n">comment</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NexusReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.NexusReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NexusReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for `NeXus &lt;https://www.nexusformat.org&gt;`__ files.</span>
+
+<span class="sd">    :ivar nxpath: Path to a specific location in the NeXus file tree</span>
+<span class="sd">        to read from, defaults to `&#39;/&#39;`.</span>
+<span class="sd">    :vartype nxpath: str, optional</span>
+<span class="sd">    :ivar idx: Index of array to select, defaults to `None`</span>
+<span class="sd">    :vartype idx: int, optional</span>
+<span class="sd">    :ivar mode: File mode, defaults to &#39;r&#39;.</span>
+<span class="sd">    :vartype mode: Literal[&#39;r&#39;, &#39;rw&#39;, &#39;r+&#39;, &#39;w&#39;, &#39;a&#39;], optional</span>
+<span class="sd">    :ivar nxmemory: Maximum memory usage when reading NeXus files.</span>
+<span class="sd">    :vartype nxmemory: int, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">nxpath</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span>
+    <span class="n">idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="s1">&#39;rw&#39;</span><span class="p">,</span> <span class="s1">&#39;r+&#39;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;r&#39;</span>
+    <span class="n">nxmemory</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="NexusReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.NexusReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the NeXus Style</span>
+<span class="sd">        `NXobject &lt;https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0&gt;`__,</span>
+<span class="sd">        object stored at `nxpath` in a</span>
+<span class="sd">        `NeXus &lt;https://www.nexusformat.org&gt;`__ file.</span>
+
+<span class="sd">        :raises nexusformat.nexus.NeXusError: If `filename` is not a</span>
+<span class="sd">            NeXus file or `nxpath` is not in its tree.</span>
+<span class="sd">        :return: NeXus object indicated by `filename` and `nxpath`.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXobject</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">nxload</span><span class="p">,</span>
+            <span class="n">nxsetconfig</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nxmemory</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">nxsetconfig</span><span class="p">(</span><span class="n">memory</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nxmemory</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">nxload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">nxpath</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">nxload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">nxpath</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NXdataReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.NXdataReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NXdataReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for constructing a NeXus style</span>
+<span class="sd">    `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__</span>
+<span class="sd">    object from components.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="NXdataReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.NXdataReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">nxfield_params</span><span class="p">,</span> <span class="n">signal_name</span><span class="p">,</span> <span class="n">axes_names</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a basic NeXus style</span>
+<span class="sd">        `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__</span>
+<span class="sd">        object constructed from components.</span>
+
+<span class="sd">        :param name: NXdata group name.</span>
+<span class="sd">        :type name: str</span>
+<span class="sd">        :param nxfield_params: List of sets of parameters for</span>
+<span class="sd">            :class:`~CHAP/common.reader.NXfieldReader` specifying the</span>
+<span class="sd">            `NXfield &lt;https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield&gt;`__</span>
+<span class="sd">            objects belonging to the NXdata object.</span>
+<span class="sd">        :type nxfield_params: list[dict]</span>
+<span class="sd">        :param signal_name: Name of the signal for the NXdata (musts</span>
+<span class="sd">            be one of the names of the NXfields indicated in</span>
+<span class="sd">            `nxfields`).</span>
+<span class="sd">        :type signal: str</span>
+<span class="sd">        :param axes_names: Name or names of the coordinate axes</span>
+<span class="sd">            NXfields associated with the signal (must be names of</span>
+<span class="sd">            NXfields indicated in `nxfields`).</span>
+<span class="sd">        :type axes_names: str | list[str]</span>
+<span class="sd">        :param attrs: Additional configuration attributes.</span>
+<span class="sd">        :type attrs: dict, optional</span>
+<span class="sd">        :returns: NXdata object.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXdata</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">NXdata</span>
+
+        <span class="c1"># Read in NXfields</span>
+        <span class="n">nxfields</span> <span class="o">=</span> <span class="p">[</span><span class="n">NXfieldReader</span><span class="p">()</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">,</span> <span class="n">inputdir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inputdir</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">params</span> <span class="ow">in</span> <span class="n">nxfield_params</span><span class="p">]</span>
+        <span class="n">nxfields</span> <span class="o">=</span> <span class="p">{</span><span class="n">nxfield</span><span class="o">.</span><span class="n">nxname</span><span class="p">:</span> <span class="n">nxfield</span> <span class="k">for</span> <span class="n">nxfield</span> <span class="ow">in</span> <span class="n">nxfields</span><span class="p">}</span>
+
+        <span class="c1"># Get signal NXfield</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">nxsignal</span> <span class="o">=</span> <span class="n">nxfields</span><span class="p">[</span><span class="n">signal_name</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s1">&#39;`signal_name` must be the name of one of the NXfields &#39;</span>
+                <span class="s1">&#39;indicated in `nxfields`: , &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">nxfields</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+
+        <span class="c1"># Get axes NXfield(s)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">axes_names</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">axes_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">axes_names</span><span class="p">]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">nxaxes</span> <span class="o">=</span> <span class="p">[</span><span class="n">nxfields</span><span class="p">[</span><span class="n">axis_name</span><span class="p">]</span> <span class="k">for</span> <span class="n">axis_name</span> <span class="ow">in</span> <span class="n">axes_names</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s1">&#39;`axes_names` must contain only names of NXfields indicated &#39;</span>
+                <span class="s1">&#39;in `nxfields`: &#39;</span> <span class="o">+</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">nxfields</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">nxaxis</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">nxaxes</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nxaxis</span><span class="p">)</span> <span class="o">!=</span> <span class="n">nxsignal</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;Shape mismatch on signal dimension </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">: signal &#39;</span>
+                    <span class="o">+</span> <span class="sa">f</span><span class="s1">&#39;&quot;</span><span class="si">{</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">nxname</span><span class="si">}</span><span class="s1">&quot; has </span><span class="si">{</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s1"> values, &#39;</span>
+                    <span class="o">+</span> <span class="sa">f</span><span class="s1">&#39;but axis &quot;</span><span class="si">{</span><span class="n">nxaxis</span><span class="o">.</span><span class="n">nxname</span><span class="si">}</span><span class="s1">&quot; has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">nxaxis</span><span class="p">)</span><span class="si">}</span><span class="s1"> values.&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">attrs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">attrs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span><span class="n">signal</span><span class="o">=</span><span class="n">nxsignal</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="n">nxaxes</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">,</span>
+                        <span class="o">**</span><span class="n">nxfields</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">tree</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="NXfieldReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.NXfieldReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NXfieldReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for a NeXus style</span>
+<span class="sd">    `NXfield &lt;https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield&gt;`__</span>
+<span class="sd">    with options to modify certain attributes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="NXfieldReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.NXfieldReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nxpath</span><span class="p">,</span> <span class="n">nxname</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">update_attrs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">slice_params</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a copy of the indicated NeXus style</span>
+<span class="sd">        `NXfield &lt;https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield&gt;`__</span>
+<span class="sd">        object from the file. Name and attributes of the returned copy</span>
+<span class="sd">        may be modified with the `nxname` and `update_attrs` keyword</span>
+<span class="sd">        arguments.</span>
+
+<span class="sd">        :param nxpath: Path in `nxfile` pointing to the NXfield to</span>
+<span class="sd">           read.</span>
+<span class="sd">        :type nxpath: str</span>
+<span class="sd">        :param nxname: New name for the returned NXfield.</span>
+<span class="sd">        :type nxname: str, optional</span>
+<span class="sd">        :param update_attrs: Optional dictonary used to add to /</span>
+<span class="sd">            update the original NXfield&#39;s attributes.</span>
+<span class="sd">        :type update_attrs: dict, optional</span>
+<span class="sd">        :param slice_params: Parameters for returning just a slice of</span>
+<span class="sd">            the full field data. Slice parameters are provided in a</span>
+<span class="sd">            list dictionaries with integer values for any / all of the</span>
+<span class="sd">            following keys: `&quot;start&quot;`, `&quot;end&quot;`, `&quot;step&quot;`. Default</span>
+<span class="sd">            values used are: `&quot;start&quot;` - `0`, `&quot;end&quot;` -- `None`,</span>
+<span class="sd">            `&quot;step&quot;` -- `1`. The order of the list must correspond to</span>
+<span class="sd">            the order of the field&#39;s axes.</span>
+<span class="sd">        :type slice_params: list[dict[str, int]], optional</span>
+<span class="sd">        :returns: Copy of the indicated NXfield (with name and</span>
+<span class="sd">            attributes optionally modified).</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXfield</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">NXfield</span><span class="p">,</span>
+            <span class="n">nxload</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">nxroot</span> <span class="o">=</span> <span class="n">nxload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+        <span class="n">nxfield</span> <span class="o">=</span> <span class="n">nxroot</span><span class="p">[</span><span class="n">nxpath</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">nxname</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">nxname</span> <span class="o">=</span> <span class="n">nxfield</span><span class="o">.</span><span class="n">nxname</span>
+
+        <span class="n">attrs</span> <span class="o">=</span> <span class="n">nxfield</span><span class="o">.</span><span class="n">attrs</span>
+        <span class="k">if</span> <span class="n">update_attrs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">attrs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">update_attrs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">slice_params</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">nxfield</span><span class="o">.</span><span class="n">nxdata</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">slice_params</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">nxfield</span><span class="o">.</span><span class="n">ndim</span><span class="p">:</span>
+                <span class="n">slice_params</span><span class="o">.</span><span class="n">extend</span><span class="p">([{}]</span> <span class="o">*</span> <span class="p">(</span><span class="n">nxfield</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">slice_params</span><span class="p">)))</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">slice_params</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">nxfield</span><span class="o">.</span><span class="n">ndim</span><span class="p">:</span>
+                <span class="n">slice_params</span> <span class="o">=</span> <span class="n">slice_params</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">nxfield</span><span class="o">.</span><span class="n">ndim</span><span class="p">]</span>
+            <span class="n">slices</span> <span class="o">=</span> <span class="p">()</span>
+            <span class="c1"># FIX convert to using CHAPSlice</span>
+            <span class="n">default_slice</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;start&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;end&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;step&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slice_params</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">default_slice</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">s</span><span class="p">:</span>
+                        <span class="n">s</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+                <span class="n">slices</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">slices</span><span class="p">,</span> <span class="nb">slice</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s1">&#39;start&#39;</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="s1">&#39;end&#39;</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="s1">&#39;step&#39;</span><span class="p">]))</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">nxfield</span><span class="o">.</span><span class="n">nxdata</span><span class="p">[</span><span class="n">slices</span><span class="p">]</span>
+
+        <span class="n">nxfield</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">nxname</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="n">attrs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Result -- nxfield.tree =</span><span class="se">\n</span><span class="si">{</span><span class="n">nxfield</span><span class="o">.</span><span class="n">tree</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">nxfield</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SpecReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.SpecReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SpecReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for CHESS SPEC scans.</span>
+
+<span class="sd">    :ivar config: SPEC configuration to be passed directly to the</span>
+<span class="sd">        constructor of :class:`~CHAP.common.models.map.SpecConfig`.</span>
+<span class="sd">    :vartype config: dict, optional</span>
+<span class="sd">    :ivar detectors: Detector configurations of the detectors to</span>
+<span class="sd">        include raw data for in the returned NeXus</span>
+<span class="sd">        `NXroot &lt;https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0&gt;`__</span>
+<span class="sd">        object, defaults to None (only a valid input for EDD).</span>
+<span class="sd">    :vartype detectors: dict | DetectorConfig,</span>
+<span class="sd">        optional</span>
+<span class="sd">    :ivar filename: Name of file to read from.</span>
+<span class="sd">    :vartype filename: str, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="n">SpecConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">detector_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DetectorConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">filename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">_mapping_filename</span><span class="p">:</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">_validate_filename</span> <span class="o">=</span> <span class="n">model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)(</span><span class="n">validate_model</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SpecReader.validate_specreader_after">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.SpecReader.validate_specreader_after">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_specreader_after</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the `SpecReader` configuration.</span>
+
+<span class="sd">        :return: Validated configuration.</span>
+<span class="sd">        :rtype: SpecReader</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Specify either filename or config in &#39;</span>
+                       <span class="s1">&#39;common.SpecReader, not both&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">YAMLReader</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">model_dump</span><span class="p">())</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span>
+            <span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="s1">&#39;common.models.map.SpecConfig&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_type</span> <span class="o">!=</span> <span class="s1">&#39;EDD&#39;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s1">&#39;Missing parameter detector_config for experiment type &#39;</span>
+                    <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_type</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="SpecReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.SpecReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Take a SPEC configuration filename or dictionary and return</span>
+<span class="sd">        the raw data as a NeXus style</span>
+<span class="sd">        `NXroot &lt;https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0&gt;`__</span>
+<span class="sd">        object.</span>
+
+<span class="sd">        :return: Data from the provided SPEC configuration.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXroot</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="c1"># pylint: disable=no-name-in-module</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">json</span><span class="w"> </span><span class="kn">import</span> <span class="n">dumps</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">NXcollection</span><span class="p">,</span>
+            <span class="n">NXdata</span><span class="p">,</span>
+            <span class="n">NXentry</span><span class="p">,</span>
+            <span class="n">NXfield</span><span class="p">,</span>
+            <span class="n">NXroot</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># pylint: enable=no-name-in-module</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="n">Detector</span>
+
+        <span class="c1"># Create the NXroot object</span>
+        <span class="n">nxroot</span> <span class="o">=</span> <span class="n">NXroot</span><span class="p">()</span>
+        <span class="n">nxentry</span> <span class="o">=</span> <span class="n">NXentry</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_type</span><span class="p">)</span>
+        <span class="n">nxroot</span><span class="p">[</span><span class="n">nxentry</span><span class="o">.</span><span class="n">nxname</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxentry</span>
+
+        <span class="c1"># Set up NXentry and add misc. CHESS-specific metadata as well</span>
+        <span class="c1"># as all spec_motors, scan_columns, and smb_pars, and the</span>
+        <span class="c1"># detector info and raw detector data</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;station&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">station</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">spec_scans</span> <span class="o">=</span> <span class="n">NXcollection</span><span class="p">()</span>
+<span class="c1">#        nxpaths = []</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_type</span> <span class="o">==</span> <span class="s1">&#39;EDD&#39;</span><span class="p">:</span>
+            <span class="n">detector_data_format</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">scans</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">spec_scans</span><span class="p">:</span>
+            <span class="n">nxscans</span> <span class="o">=</span> <span class="n">NXcollection</span><span class="p">()</span>
+            <span class="n">nxentry</span><span class="o">.</span><span class="n">spec_scans</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">scans</span><span class="o">.</span><span class="n">scanparsers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scan_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxscans</span>
+            <span class="n">nxscans</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;spec_file&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">scans</span><span class="o">.</span><span class="n">spec_file</span><span class="p">)</span>
+            <span class="n">nxscans</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;scan_numbers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scans</span><span class="o">.</span><span class="n">scan_numbers</span>
+            <span class="k">for</span> <span class="n">scan_number</span> <span class="ow">in</span> <span class="n">scans</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">:</span>
+                <span class="n">scanparser</span> <span class="o">=</span> <span class="n">scans</span><span class="o">.</span><span class="n">get_scanparser</span><span class="p">(</span><span class="n">scan_number</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_type</span> <span class="o">==</span> <span class="s1">&#39;EDD&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">detector_data_format</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">detector_data_format</span> <span class="o">=</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">detector_data_format</span>
+                    <span class="k">elif</span> <span class="p">(</span><span class="n">scanparser</span><span class="o">.</span><span class="n">detector_data_format</span> <span class="o">!=</span>
+                            <span class="n">detector_data_format</span><span class="p">):</span>
+                        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                            <span class="s1">&#39;Mixing `spec` and `h5` data formats&#39;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">detectors_ids</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">elif</span> <span class="n">detector_data_format</span> <span class="o">==</span> <span class="s1">&#39;spec&#39;</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                            <span class="s1">&#39;detector_data_format = &quot;spec&quot;&#39;</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">detectors_ids</span> <span class="o">=</span> <span class="p">[</span>
+                            <span class="nb">int</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">get_id</span><span class="p">())</span>
+                            <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span><span class="o">.</span><span class="n">detectors</span><span class="p">]</span>
+                <span class="n">nxscans</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span> <span class="o">=</span> <span class="n">NXcollection</span><span class="p">()</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">nxscans</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span><span class="o">.</span><span class="n">spec_motors</span> <span class="o">=</span> <span class="n">dumps</span><span class="p">(</span>
+                        <span class="p">{</span><span class="n">k</span><span class="p">:</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span><span class="n">v</span>
+                         <span class="ow">in</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_positioner_values</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">nxscans</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span><span class="o">.</span><span class="n">scan_columns</span> <span class="o">=</span> <span class="n">dumps</span><span class="p">(</span>
+                        <span class="p">{</span><span class="n">k</span><span class="p">:</span><span class="nb">list</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span><span class="n">v</span>
+                         <span class="ow">in</span> <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)})</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">nxscans</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span><span class="o">.</span><span class="n">smb_pars</span> <span class="o">=</span> <span class="n">dumps</span><span class="p">(</span>
+                        <span class="nb">dict</span><span class="p">(</span><span class="n">scanparser</span><span class="o">.</span><span class="n">pars</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">nxscans</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span><span class="o">.</span><span class="n">spec_scan_motor_mnes</span> <span class="o">=</span> <span class="n">dumps</span><span class="p">(</span>
+                        <span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_motor_mnes</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_type</span> <span class="o">==</span> <span class="s1">&#39;EDD&#39;</span><span class="p">:</span>
+                    <span class="n">nxdata</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">()</span>
+                    <span class="n">nxscans</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">nxdata</span>
+<span class="c1">#                    nxpaths.append(</span>
+<span class="c1">#                        f&#39;spec_scans/{nxscans.nxname}/{scan_number}/data&#39;)</span>
+                    <span class="n">nxdata</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span>
+                        <span class="n">value</span><span class="o">=</span><span class="n">scanparser</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span><span class="n">detectors_ids</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_type</span> <span class="o">==</span> <span class="s1">&#39;TOMO&#39;</span><span class="p">:</span>
+                        <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">dtype</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">nxdata</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">()</span>
+                    <span class="n">nxscans</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">nxdata</span>
+<span class="c1">#                    nxpaths.append(</span>
+<span class="c1">#                        f&#39;spec_scans/{nxscans.nxname}/{scan_number}/data&#39;)</span>
+                    <span class="k">for</span> <span class="n">detector</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span><span class="o">.</span><span class="n">detectors</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span><span class="o">.</span><span class="n">roi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="n">detector_roi</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">detector_roi</span><span class="o">=</span><span class="p">[</span>
+                               <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span><span class="o">.</span><span class="n">roi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">toslice</span><span class="p">(),</span>
+                               <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span><span class="o">.</span><span class="n">roi</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">toslice</span><span class="p">()]</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">\n\n</span><span class="s1">detector_roi: </span><span class="si">{</span><span class="n">detector_roi</span><span class="si">}</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                        <span class="n">nxdata</span><span class="p">[</span><span class="n">detector</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span>
+                           <span class="n">value</span><span class="o">=</span><span class="n">scanparser</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span>
+                               <span class="n">detector</span><span class="o">.</span><span class="n">get_id</span><span class="p">(),</span>
+                               <span class="n">detector_roi</span><span class="o">=</span><span class="n">detector_roi</span><span class="p">,</span>
+                               <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_type</span> <span class="o">==</span> <span class="s1">&#39;EDD&#39;</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">detector_data_format</span> <span class="o">==</span> <span class="s1">&#39;spec&#39;</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;detector_data_format = &quot;spec&quot;&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span> <span class="o">=</span> <span class="n">DetectorConfig</span><span class="p">(</span>
+                <span class="n">detectors</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">Detector</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nxdata</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])])</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">detectors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span>
+
+        <span class="c1">#return nxroot, nxpaths</span>
+        <span class="k">return</span> <span class="n">nxroot</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="URLReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.URLReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">URLReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for data available over HTTPS.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="URLReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.URLReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Make an HTTPS request to the provided URL and return the</span>
+<span class="sd">        results. Headers for the request are optional.</span>
+
+<span class="sd">        :param url: URL to read.</span>
+<span class="sd">        :type url: str</span>
+<span class="sd">        :param headers: Headers to attach to the request.</span>
+<span class="sd">        :type headers: dict, optional</span>
+<span class="sd">        :param timeout: Timeout for the HTTPS request,</span>
+<span class="sd">            defaults to `10`.</span>
+<span class="sd">        :type timeout: int</span>
+<span class="sd">        :return: Content of the response.</span>
+<span class="sd">        :rtype: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+
+        <span class="k">if</span> <span class="n">headers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">headers</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">content</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Response content: </span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">data</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="YAMLReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.YAMLReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">YAMLReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for YAML files.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="YAMLReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.YAMLReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a dictionary from the contents of a yaml file.</span>
+
+<span class="sd">        :return: Contents of the file.</span>
+<span class="sd">        :rtype: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+</div>
+
+
+<div class="viewcode-block" id="ZarrReader">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.ZarrReader">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ZarrReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for</span>
+<span class="sd">    `Zarr &lt;https://zarr.readthedocs.io/en/stable/&gt;`__</span>
+<span class="sd">    stores.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ZarrReader.read">
+<a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.ZarrReader.read">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="n">idx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the `Zarr &lt;https://zarr.readthedocs.io/en/stable/&gt;`__</span>
+<span class="sd">        object stored at `path` in a Zarr store.</span>
+
+<span class="sd">        :param filename: Path or URL to the Zarr store.</span>
+<span class="sd">        :type filename: str</span>
+<span class="sd">        :param path: Path to a specific location in the Zarr hierarchy</span>
+<span class="sd">            to read from, defaults to `&#39;/&#39;`.</span>
+<span class="sd">        :type path: str, optional</span>
+<span class="sd">        :param idx: Optional index or slice to apply to the returned</span>
+<span class="sd">            object.</span>
+<span class="sd">        :type idx: int, slice, tuple, optional</span>
+<span class="sd">        :param mode: Store access mode, defaults to `&#39;r&#39;`.</span>
+<span class="sd">            Common values: `&#39;r&#39;`, `&#39;r+&#39;`, `&#39;a&#39;`, `&#39;w&#39;`.</span>
+<span class="sd">        :type mode: str, optional</span>
+<span class="sd">        :raises KeyError: If `path` does not exist in the store.</span>
+<span class="sd">        :return: Zarr array or group indicated by `filename` and</span>
+<span class="sd">            `path`.</span>
+<span class="sd">        :rtype: zarr.core.Array or zarr.hierarchy.Group</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="c1"># pylint: disable=import-error</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+
+        <span class="c1"># Open the Zarr store (directory, zip, or URL)</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">)</span>
+
+        <span class="c1"># Normalize path handling</span>
+        <span class="k">if</span> <span class="n">path</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">):</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">root</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Remove leading slash for Zarr traversal</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">root</span><span class="p">[</span><span class="n">path</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)]</span>
+
+        <span class="c1"># Optional indexing (arrays only)</span>
+        <span class="k">if</span> <span class="n">idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">data</span></div>
+</div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c1"># Local modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">main</span>
+
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

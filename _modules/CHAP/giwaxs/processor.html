@@ -1,0 +1,575 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.giwaxs.processor &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.giwaxs.processor</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.giwaxs.processor</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1">#-*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Module for Processors unique to the GIWAXS workflow.</span>
+
+<span class="sd">Add discription of GIWAXS</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># System modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">json</span><span class="w"> </span><span class="kn">import</span> <span class="n">loads</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="c1"># Third party modules</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Field</span><span class="p">,</span>
+    <span class="n">PrivateAttr</span><span class="p">,</span>
+    <span class="n">conint</span><span class="p">,</span>
+    <span class="n">constr</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.giwaxs.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">GiwaxsConversionConfig</span><span class="p">,</span>
+    <span class="n">PyfaiIntegrationConfig</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">Processor</span>
+
+
+<div class="viewcode-block" id="GiwaxsConversionProcessor">
+<a class="viewcode-back" href="../../../CHAP.giwaxs.html#CHAP.giwaxs.processor.GiwaxsConversionProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GiwaxsConversionProcessor</span><span class="p">(</span><span class="n">Processor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A processor for converting GIWAXS images from curved to</span>
+<span class="sd">    rectangular coordinates (wedge correction).</span>
+
+<span class="sd">    :ivar config: Initialization parameters for an instance of</span>
+<span class="sd">        :class:`~CHAP.giwaxs.models.GiwaxsConversionConfig`.</span>
+<span class="sd">    :vartype config: dict, optional</span>
+<span class="sd">    :ivar nxmemory: Maximum memory usage when reading NeXus files.</span>
+<span class="sd">    :vartype nxmemory: int, optional</span>
+<span class="sd">    :ivar nxpath: Path to a specific location in the NeXus file tree</span>
+<span class="sd">        to read the intensity data from.</span>
+<span class="sd">    :vartype nxpath: str, optional</span>
+<span class="sd">    :ivar save_figures: Save .pngs of plots for checking inputs &amp;</span>
+<span class="sd">        outputs of this Processor, defaults to `False`.</span>
+<span class="sd">    :vartype save_figures: bool, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pipeline_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="s1">&#39;giwaxs.models.GiwaxsConversionConfig&#39;</span><span class="p">},</span> <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">GiwaxsConversionConfig</span>
+    <span class="n">nxmemory</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">100000</span>
+    <span class="n">nxpath</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">save_figures</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">_animation</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="p">[])</span>
+    <span class="n">_figures</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="p">[])</span>
+
+<div class="viewcode-block" id="GiwaxsConversionProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.giwaxs.html#CHAP.giwaxs.processor.GiwaxsConversionProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Process the GIWAXS input images &amp; configuration and return</span>
+<span class="sd">        a map of the images in rectangular coordinates as a NeXus style</span>
+<span class="sd">        `NXroot &lt;https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot&gt;`__</span>
+<span class="sd">        object.</span>
+
+<span class="sd">        :param data: Results of</span>
+<span class="sd">            :class:`~CHAP.common.processor.MapProcessor` containing</span>
+<span class="sd">            a map with the GIWAXS input images.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :return: Converted GIWAXS images.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXroot</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">fabio</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">NXdata</span><span class="p">,</span>
+            <span class="n">NXfield</span><span class="p">,</span>
+            <span class="n">NXprocess</span><span class="p">,</span>
+            <span class="n">nxsetconfig</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus.tree</span><span class="w"> </span><span class="kn">import</span> <span class="n">NeXusError</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">pyFAI.gui.utils.units</span><span class="w"> </span><span class="kn">import</span> <span class="n">Unit</span>
+
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.map_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_axes</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">nxcopy</span>
+
+        <span class="n">nxsetconfig</span><span class="p">(</span><span class="n">memory</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nxmemory</span><span class="p">)</span>
+
+        <span class="c1"># Load the detector data</span>
+        <span class="n">nxroot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_nxroot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+
+        <span class="c1"># Validate the azimuthal integrator configuration and check</span>
+        <span class="c1"># against the input data (availability and shape)</span>
+        <span class="n">nxentry</span> <span class="o">=</span> <span class="n">nxroot</span><span class="p">[</span><span class="n">nxroot</span><span class="o">.</span><span class="n">default</span><span class="p">]</span>
+        <span class="n">detector_ids</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="c1">#str(id, &#39;utf-8&#39;) for id in nxentry.detector_ids.nxdata]</span>
+            <span class="nb">str</span><span class="p">(</span><span class="nb">id</span><span class="p">)</span> <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">nxentry</span><span class="o">.</span><span class="n">detector_ids</span><span class="o">.</span><span class="n">nxdata</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">detector_ids</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;More than one detector not yet implemented&#39;</span><span class="p">)</span>
+        <span class="n">nxdata</span> <span class="o">=</span> <span class="n">nxentry</span><span class="p">[</span><span class="n">nxentry</span><span class="o">.</span><span class="n">default</span><span class="p">]</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">independent_dims</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">skipped_detectors</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">ais</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azimuthal_integrators</span><span class="p">:</span>
+            <span class="n">ai_id</span> <span class="o">=</span> <span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">ai_id</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">nxdata</span><span class="p">[</span><span class="n">ai_id</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Inconsistent raw data dimension &#39;</span>
+                                       <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">nxdata</span><span class="p">[</span><span class="n">ai_id</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">ais</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ai</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nxpath</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">[</span><span class="n">ai_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxdata</span><span class="p">[</span><span class="n">ai_id</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">[</span><span class="n">ai_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxroot</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">nxpath</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">skipped_detectors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ai_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">skipped_detectors</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Skipping detector(s) &#39;</span>
+                                <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">skipped_detectors</span><span class="si">}</span><span class="s1"> (no raw data)&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ais</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;No matching raw detector data found&#39;</span><span class="p">)</span>
+        <span class="n">ai_id</span> <span class="o">=</span> <span class="n">ais</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span>
+        <span class="n">axes</span> <span class="o">=</span> <span class="n">get_axes</span><span class="p">(</span><span class="n">nxdata</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">axes</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Unable to find axes information&#39;</span><span class="p">)</span>
+        <span class="n">independent_dims</span><span class="p">[</span><span class="n">ai_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">nxcopy</span><span class="p">(</span><span class="n">nxdata</span><span class="p">[</span><span class="n">a</span><span class="p">])</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">]</span>
+        <span class="n">data</span><span class="p">[</span><span class="n">ai_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxdata</span><span class="p">[</span><span class="n">ai_id</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;theta&#39;</span><span class="p">:</span>
+            <span class="n">thetas</span> <span class="o">=</span> <span class="n">nxdata</span><span class="p">[</span><span class="s1">&#39;theta&#39;</span><span class="p">]</span>
+            <span class="n">theta_unit</span> <span class="o">=</span> <span class="n">thetas</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;units&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s1">&#39;deg&#39;</span> <span class="ow">in</span> <span class="n">theta_unit</span><span class="p">:</span>
+                <span class="n">thetas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">thetas</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">thetas</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Read the mask(s)</span>
+        <span class="c1"># FIX read at validation, like the poni file</span>
+        <span class="n">masks</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="n">ais</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Reading </span><span class="si">{</span><span class="n">ai</span><span class="o">.</span><span class="n">mask_file</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">fabio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">ai</span><span class="o">.</span><span class="n">mask_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">mask</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">data</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;mask shape for </span><span class="si">{</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">masks</span><span class="p">[</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span> <span class="o">=</span> <span class="n">mask</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;No mask file found for </span><span class="si">{</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">masks</span><span class="p">:</span>
+            <span class="n">masks</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Perform integration(s)</span>
+        <span class="n">ais_pyfai</span> <span class="o">=</span> <span class="p">{</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">():</span> <span class="n">ai</span><span class="o">.</span><span class="n">ai</span> <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="n">ais</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">integrations</span><span class="p">:</span>
+
+            <span class="c1"># Add a NXprocess object(s) to the NXroot</span>
+            <span class="n">nxprocess</span> <span class="o">=</span> <span class="n">NXprocess</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">nxroot</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">nxroot</span><span class="o">.</span><span class="n">default</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxprocess</span>
+            <span class="k">except</span> <span class="p">(</span><span class="n">NeXusError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="c1"># Copy nxroot if nxroot is read as read-only</span>
+                <span class="n">nxroot</span> <span class="o">=</span> <span class="n">nxcopy</span><span class="p">(</span><span class="n">nxroot</span><span class="p">)</span>
+                <span class="n">nxroot</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">nxroot</span><span class="o">.</span><span class="n">default</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxprocess</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">integration_config</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">azimuthal_integrators</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">ai</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span> <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="n">ais</span><span class="p">]</span>
+
+            <span class="c1"># Integrate the data</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">integrate</span><span class="p">(</span>
+                <span class="n">ais_pyfai</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">masks</span><span class="o">=</span><span class="n">masks</span><span class="p">,</span> <span class="n">thetas</span><span class="o">=</span><span class="n">thetas</span><span class="p">)</span>
+
+            <span class="c1"># Create the NXdata object with the integrated data</span>
+            <span class="n">intensities</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;intensities&#39;</span><span class="p">]</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">independent_dims</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                      <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">v</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ais_pyfai</span><span class="p">]</span>
+            <span class="n">q_outofplane</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;outofplane&#39;</span><span class="p">][</span><span class="s1">&#39;coords&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;outofplane&#39;</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;qoop_A^-1&#39;</span><span class="p">:</span>
+                <span class="n">unit</span> <span class="o">=</span> <span class="n">Unit</span><span class="o">.</span><span class="n">INV_ANGSTROM</span><span class="o">.</span><span class="n">symbol</span>
+            <span class="k">elif</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;outofplane&#39;</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;qoop_nm^-1&#39;</span><span class="p">:</span>
+                <span class="n">unit</span> <span class="o">=</span> <span class="s1">&#39;nm^-1&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">unit</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;outofplane&#39;</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">intensities</span><span class="p">)</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">intensities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">intensities</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">q_outofplane</span><span class="p">,</span> <span class="s1">&#39;q_outofplane&#39;</span><span class="p">,</span>
+                    <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="n">unit</span><span class="p">}))</span>
+            <span class="n">q_inplane</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;inplane&#39;</span><span class="p">][</span><span class="s1">&#39;coords&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;inplane&#39;</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;qip_A^-1&#39;</span><span class="p">:</span>
+                <span class="n">unit</span> <span class="o">=</span> <span class="n">Unit</span><span class="o">.</span><span class="n">INV_ANGSTROM</span><span class="o">.</span><span class="n">symbol</span>
+            <span class="k">elif</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;inplane&#39;</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;qip_nm^-1&#39;</span><span class="p">:</span>
+                <span class="n">unit</span> <span class="o">=</span> <span class="s1">&#39;nm^-1&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">unit</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;inplane&#39;</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span>
+            <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">q_inplane</span><span class="p">,</span> <span class="s1">&#39;q_inplane&#39;</span><span class="p">,</span>
+                    <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="n">unit</span><span class="p">}))</span>
+            <span class="n">nxdata</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span><span class="n">NXfield</span><span class="p">(</span><span class="n">intensities</span><span class="p">,</span> <span class="n">ai_id</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">axes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;unstructured_axes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">][:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">del</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">]</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">nxdata</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">default</span> <span class="o">=</span> <span class="s1">&#39;data&#39;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azimuthal_integrators</span> <span class="o">=</span> <span class="n">ais</span>
+
+        <span class="k">return</span> <span class="n">nxroot</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PyfaiIntegrationProcessor">
+<a class="viewcode-back" href="../../../CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PyfaiIntegrationProcessor</span><span class="p">(</span><span class="n">Processor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A processor for azimuthally integrating images.</span>
+
+<span class="sd">    :ivar config: Initialization parameters for an instance of</span>
+<span class="sd">        :class:`~CHAP.giwaxs.models.PyfaiIntegrationConfig`.</span>
+<span class="sd">    :vartype config: dict, optional</span>
+<span class="sd">    :ivar nxmemory: Maximum memory usage when reading NeXus files.</span>
+<span class="sd">    :vartype nxmemory: int, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pipeline_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="s1">&#39;giwaxs.models.PyfaiIntegrationConfig&#39;</span><span class="p">},</span> <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">PyfaiIntegrationConfig</span>
+    <span class="n">nxmemory</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">100000</span>
+
+<div class="viewcode-block" id="PyfaiIntegrationProcessor.process">
+<a class="viewcode-back" href="../../../CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.process">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Process the input images &amp; configuration and return a map of</span>
+<span class="sd">        the azimuthally integrated images as a NeXus style</span>
+<span class="sd">        `NXroot &lt;https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot&gt;`__</span>
+<span class="sd">        object.</span>
+
+<span class="sd">        :param data: Results of</span>
+<span class="sd">            :class:`~CHAP.common.processor.MapProcessor` or other</span>
+<span class="sd">            suitable preprocessor of the raw detector data containing</span>
+<span class="sd">            the map of input images.</span>
+<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :return: Integrated images.</span>
+<span class="sd">        :rtype: nexusformat.nexus.NXroot</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Third party modules</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">fabio</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+            <span class="n">NXdata</span><span class="p">,</span>
+            <span class="n">NXfield</span><span class="p">,</span>
+            <span class="n">NXprocess</span><span class="p">,</span>
+            <span class="n">nxsetconfig</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">pyFAI.gui.utils.units</span><span class="w"> </span><span class="kn">import</span> <span class="n">Unit</span>
+
+        <span class="c1"># Local imports</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">nxcopy</span>
+
+        <span class="n">nxsetconfig</span><span class="p">(</span><span class="n">memory</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nxmemory</span><span class="p">)</span>
+
+        <span class="c1"># Load the detector data</span>
+        <span class="n">nxroot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_nxroot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+
+        <span class="c1"># Validate the azimuthal integrator configuration and check</span>
+        <span class="c1"># against the input data (availability and shape)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">independent_dims</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">nxprocess_converted</span> <span class="o">=</span> <span class="n">nxroot</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">nxroot</span><span class="o">.</span><span class="n">default</span><span class="si">}</span><span class="s1">_converted&#39;</span><span class="p">]</span>
+            <span class="n">conversion_config</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">nxprocess_converted</span><span class="o">.</span><span class="n">conversion_config</span><span class="p">))</span>
+            <span class="n">converted_ais</span> <span class="o">=</span> <span class="n">conversion_config</span><span class="p">[</span><span class="s1">&#39;azimuthal_integrators&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">converted_ais</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s1">&#39;More than one detector not yet implemented&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azimuthal_integrators</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Local modules</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.integration</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+                    <span class="n">AzimuthalIntegratorConfig</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="n">ais</span> <span class="o">=</span> <span class="p">[</span><span class="n">AzimuthalIntegratorConfig</span><span class="p">(</span><span class="o">**</span><span class="n">converted_ais</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">converted_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">ai</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="n">converted_ais</span><span class="p">]</span>
+                <span class="n">skipped_detectors</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">ais</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azimuthal_integrators</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span> <span class="ow">in</span> <span class="n">converted_ids</span><span class="p">:</span>
+                        <span class="n">ais</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ai</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">skipped_detectors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">())</span>
+                <span class="k">if</span> <span class="n">skipped_detectors</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;Skipping detector(s) </span><span class="si">{</span><span class="n">skipped_detectors</span><span class="si">}</span><span class="s1"> &#39;</span>
+                        <span class="s1">&#39;(no converted data)&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">ais</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                        <span class="s1">&#39;No matching azimuthal integrators found&#39;</span><span class="p">)</span>
+            <span class="n">nxdata</span> <span class="o">=</span> <span class="n">nxprocess_converted</span><span class="o">.</span><span class="n">data</span>
+            <span class="n">axes</span> <span class="o">=</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;More than one independent dimension &#39;</span>
+                                   <span class="s1">&#39;not yet implemented&#39;</span><span class="p">)</span>
+            <span class="n">axes</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">independent_dims</span><span class="p">[</span><span class="n">ais</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span> <span class="o">=</span> <span class="n">nxcopy</span><span class="p">(</span><span class="n">nxdata</span><span class="p">[</span><span class="n">axes</span><span class="p">])</span>
+            <span class="n">data</span><span class="p">[</span><span class="n">ais</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">nxdata</span><span class="o">.</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">nxdata</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">experiment_type</span> <span class="o">=</span> <span class="n">loads</span><span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">nxroot</span><span class="p">[</span><span class="n">nxroot</span><span class="o">.</span><span class="n">default</span><span class="p">]</span><span class="o">.</span><span class="n">map_config</span><span class="p">))[</span><span class="s1">&#39;experiment_type&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">experiment_type</span> <span class="o">==</span> <span class="s1">&#39;GIWAXS&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s1">&#39;No converted data found, use raw data for integration&#39;</span><span class="p">)</span>
+            <span class="n">nxentry</span> <span class="o">=</span> <span class="n">nxroot</span><span class="p">[</span><span class="n">nxroot</span><span class="o">.</span><span class="n">default</span><span class="p">]</span>
+            <span class="n">detector_ids</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="c1">#str(id, &#39;utf-8&#39;) for id in nxentry.detector_ids.nxdata]</span>
+                <span class="nb">str</span><span class="p">(</span><span class="nb">id</span><span class="p">)</span> <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">nxentry</span><span class="o">.</span><span class="n">detector_ids</span><span class="o">.</span><span class="n">nxdata</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">detector_ids</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s1">&#39;More than one detector not yet implemented&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azimuthal_integrators</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Missing azimuthal_integrators parameter in &#39;</span>
+                                 <span class="sa">f</span><span class="s1">&#39;PyfaiIntegrationProcessor.config &#39;</span>
+                                 <span class="sa">f</span><span class="s1">&#39;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+            <span class="n">nxdata</span> <span class="o">=</span> <span class="n">nxentry</span><span class="p">[</span><span class="n">nxentry</span><span class="o">.</span><span class="n">default</span><span class="p">]</span>
+            <span class="n">skipped_detectors</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">ais</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azimuthal_integrators</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">nxdata</span><span class="p">[</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Inconsistent raw data dimension &#39;</span>
+                                           <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">nxdata</span><span class="p">[</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span><span class="o">.</span><span class="n">ndim</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">ais</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ai</span><span class="p">)</span>
+                    <span class="n">data</span><span class="p">[</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span> <span class="o">=</span> <span class="n">nxdata</span><span class="p">[</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span><span class="o">.</span><span class="n">nxdata</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">skipped_detectors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">skipped_detectors</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Skipping detector(s) &#39;</span>
+                                    <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">skipped_detectors</span><span class="si">}</span><span class="s1"> (no raw data)&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">ais</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;No matching raw detector data found&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s1">&#39;unstructured_axes&#39;</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+                <span class="n">axes</span> <span class="o">=</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;unstructured_axes&#39;</span><span class="p">]</span>
+                <span class="n">independent_dims</span><span class="p">[</span><span class="n">ais</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">nxcopy</span><span class="p">(</span><span class="n">nxdata</span><span class="p">[</span><span class="n">a</span><span class="p">])</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="s1">&#39;axes&#39;</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
+                <span class="n">axes</span> <span class="o">=</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">]</span>
+                <span class="n">independent_dims</span><span class="p">[</span><span class="n">ais</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span> <span class="o">=</span> <span class="n">nxcopy</span><span class="p">(</span><span class="n">nxdata</span><span class="p">[</span><span class="n">axes</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Unable to find independent_dimensions&#39;</span><span class="p">)</span>
+            <span class="n">data</span><span class="p">[</span><span class="n">ais</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span> <span class="o">=</span> <span class="n">nxdata</span><span class="p">[</span><span class="n">ais</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span>
+
+        <span class="c1"># Select the images to integrate</span>
+        <span class="c1">#if False and self.config.scan_step_indices is not None:</span>
+        <span class="c1">#    #FIX</span>
+        <span class="c1">#    independent_dims = independent_dims[self.config.scan_step_indices]</span>
+        <span class="c1">#    data = data[self.config.scan_step_indices]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;data shape(s): </span><span class="si">{</span><span class="p">[(</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">sum_axes</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">nxdata</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)[</span><span class="kc">None</span><span class="p">,:,:]</span>
+                    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;data shape(s) after summing: &#39;</span>
+                              <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="p">[(</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Read the mask(s)</span>
+        <span class="c1"># FIX read at validation, like the poni file</span>
+        <span class="n">masks</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="n">ais</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Reading </span><span class="si">{</span><span class="n">ai</span><span class="o">.</span><span class="n">mask_file</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">fabio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">ai</span><span class="o">.</span><span class="n">mask_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">mask</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">data</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s1">&#39;mask shape for </span><span class="si">{</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">masks</span><span class="p">[</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span> <span class="o">=</span> <span class="n">mask</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;No mask file found for </span><span class="si">{</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">masks</span><span class="p">:</span>
+            <span class="n">masks</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Perform integration(s)</span>
+        <span class="n">ais_pyfai</span> <span class="o">=</span> <span class="p">{</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">():</span> <span class="n">ai</span><span class="o">.</span><span class="n">ai</span> <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="n">ais</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">integrations</span><span class="p">:</span>
+
+            <span class="c1"># Add a NXprocess object(s) to the NXroot</span>
+            <span class="n">nxprocess</span> <span class="o">=</span> <span class="n">NXprocess</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">nxroot</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">nxroot</span><span class="o">.</span><span class="n">default</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxprocess</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="c1"># Copy nxroot if nxroot is read as read-only</span>
+                <span class="n">nxroot</span> <span class="o">=</span> <span class="n">nxcopy</span><span class="p">(</span><span class="n">nxroot</span><span class="p">)</span>
+                <span class="n">nxroot</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">nxroot</span><span class="o">.</span><span class="n">default</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxprocess</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">integration_config</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">azimuthal_integrators</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">ai</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span> <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="n">ais</span><span class="p">]</span>
+
+            <span class="c1"># Integrate the data</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">integration</span><span class="o">.</span><span class="n">integrate</span><span class="p">(</span><span class="n">ais_pyfai</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+
+            <span class="c1"># Create the NXdata object with the integrated data</span>
+            <span class="n">intensities</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;intensities&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">sum_axes</span><span class="p">:</span>
+                <span class="n">coords</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">coords</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">independent_dims</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ais_pyfai</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">independent_dims</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                          <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">v</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ais_pyfai</span><span class="p">]</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;azimuthal&#39;</span> <span class="ow">in</span> <span class="n">results</span>
+                    <span class="ow">and</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;azimuthal&#39;</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;chi_deg&#39;</span><span class="p">):</span>
+                <span class="n">chi</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;azimuthal&#39;</span><span class="p">][</span><span class="s1">&#39;coords&#39;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">integration</span><span class="o">.</span><span class="n">right_handed</span><span class="p">:</span>
+                    <span class="n">chi</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">chi</span><span class="p">)</span>
+                    <span class="n">intensities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">intensities</span><span class="p">,</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)))</span>
+                <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">NXfield</span><span class="p">(</span><span class="n">chi</span><span class="p">,</span> <span class="s1">&#39;chi&#39;</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="s1">&#39;deg&#39;</span><span class="p">}))</span>
+            <span class="k">if</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;radial&#39;</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;q_A^-1&#39;</span><span class="p">:</span>
+                <span class="n">unit</span> <span class="o">=</span> <span class="n">Unit</span><span class="o">.</span><span class="n">INV_ANGSTROM</span><span class="o">.</span><span class="n">symbol</span>
+                <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">NXfield</span><span class="p">(</span>
+                        <span class="n">results</span><span class="p">[</span><span class="s1">&#39;radial&#39;</span><span class="p">][</span><span class="s1">&#39;coords&#39;</span><span class="p">],</span> <span class="s1">&#39;q&#39;</span><span class="p">,</span>
+                        <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;units&#39;</span><span class="p">:</span> <span class="n">unit</span><span class="p">}))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">NXfield</span><span class="p">(</span>
+                        <span class="n">results</span><span class="p">[</span><span class="s1">&#39;radial&#39;</span><span class="p">][</span><span class="s1">&#39;coords&#39;</span><span class="p">],</span> <span class="s1">&#39;r&#39;</span><span class="p">))</span><span class="c1">#,</span>
+<span class="c1">#                        attrs={&#39;units&#39;: &#39;\u212b&#39;}))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s1">&#39;Unknown radial unit: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;radial&quot;</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">nxdata</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span><span class="n">NXfield</span><span class="p">(</span><span class="n">intensities</span><span class="p">,</span> <span class="s1">&#39;integrated&#39;</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;unstructured_axes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">][:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">del</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;axes&#39;</span><span class="p">]</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">nxdata</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">default</span> <span class="o">=</span> <span class="s1">&#39;data&#39;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azimuthal_integrators</span> <span class="o">=</span> <span class="n">ais</span>
+
+        <span class="k">return</span> <span class="n">nxroot</span></div>
+</div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c1"># Local modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">main</span>
+
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

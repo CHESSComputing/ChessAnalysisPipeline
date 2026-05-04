@@ -1,0 +1,368 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.common.models.common &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.common.models.common</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.common.models.common</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Common `Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__ model</span>
+<span class="sd">configuration classes.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># System modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Literal</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Third party modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">confloat</span><span class="p">,</span>
+    <span class="n">conint</span><span class="p">,</span>
+    <span class="n">conlist</span><span class="p">,</span>
+    <span class="n">constr</span><span class="p">,</span>
+    <span class="n">field_validator</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="c1">#from typing_extensions import Annotated</span>
+
+<span class="c1"># Local modules</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">CHAPBaseModel</span>
+
+
+<div class="viewcode-block" id="BinarizeConfig">
+<a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.common.BinarizeConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BinarizeConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration class to binarize a dataset in a 2D or 3D</span>
+<span class="sd">    array-like object or a NeXus style</span>
+<span class="sd">    `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html&gt;`__</span>
+<span class="sd">    or</span>
+<span class="sd">    `NXfield &lt;https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield&gt;`__</span>
+<span class="sd">    object.</span>
+
+<span class="sd">    :ivar method: Binarization method, defaults to `&#39;CHAP&#39;`</span>
+<span class="sd">        (CHAP&#39;s internal implementation of Otzu&#39;s method).</span>
+<span class="sd">    :vartype method: Literal[</span>
+<span class="sd">        &#39;CHAP&#39;, &#39;isodata&#39;, &#39;minimum&#39;, &#39;otsu&#39;, &#39;yen&#39;]</span>
+<span class="sd">    :ivar num_bin: The number of bins used to calculate the</span>
+<span class="sd">        histogram in the binarization algorithms, defaults to `256`.</span>
+<span class="sd">    :vartype num_bin: int, optional</span>
+<span class="sd">    :ivar nxpath: The path to a specific NeXus style NXdata or NXfield</span>
+<span class="sd">        object in the NeXus file tree to read the input data from</span>
+<span class="sd">        (ignored for non-NeXus input objects).</span>
+<span class="sd">    :vartype nxpath: str, optional</span>
+<span class="sd">    :ivar remove_original_data: Removes the original data field</span>
+<span class="sd">        (ignored for non-NeXus input objects), defaults to `False`.</span>
+<span class="sd">    :vartype remove_original_data: bool, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">method</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span>
+        <span class="s1">&#39;CHAP&#39;</span><span class="p">,</span> <span class="s1">&#39;isodata&#39;</span><span class="p">,</span> <span class="s1">&#39;minimum&#39;</span><span class="p">,</span> <span class="s1">&#39;otsu&#39;</span><span class="p">,</span> <span class="s1">&#39;yen&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">&#39;CHAP&#39;</span>
+    <span class="n">num_bin</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">256</span>
+    <span class="n">nxpath</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">remove_original_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+
+<div class="viewcode-block" id="ImageProcessorConfig">
+<a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.common.ImageProcessorConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ImageProcessorConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing the configuration of various image selection</span>
+<span class="sd">    and visualization types of processors.</span>
+
+<span class="sd">    :ivar animation: Create an animation for an image stack</span>
+<span class="sd">        (ignored for a single image), defaults to `False`.</span>
+<span class="sd">    :vartype animation: bool, optional</span>
+<span class="sd">    :ivar axis: Axis direction or name for the image slice(s),</span>
+<span class="sd">        defaults to `0`.</span>
+<span class="sd">    :vartype axis: int or str, optional</span>
+<span class="sd">    :ivar basename: Basename of each file when saving a set of &#39;tif&#39;</span>
+<span class="sd">        images (only used when &#39;fileformat&#39; = &#39;fit&#39;), defaults to</span>
+<span class="sd">        &#39;image&#39;.</span>
+<span class="sd">    :vartype basename: str, optional</span>
+<span class="sd">    :ivar coord_range: Coordinate value range of the selected image</span>
+<span class="sd">        slice(s), up to three floating point numbers (start, end,</span>
+<span class="sd">        step), defaults to `None`, which enables index_range to select</span>
+<span class="sd">        the image slice(s). Include only `coord_range` or</span>
+<span class="sd">        `index_range`, not both.</span>
+<span class="sd">    :vartype coord_range: float or list[float], optional</span>
+<span class="sd">    :ivar index_range: Array index range of the selected image</span>
+<span class="sd">        slice(s), up to three integers (start, end, step).</span>
+<span class="sd">        Set index_range to -1 to select the center image slice</span>
+<span class="sd">        of an image stack in the `axis` direction. Only used when</span>
+<span class="sd">        coord_range = `None`. Defaults to `None`, which will include</span>
+<span class="sd">        all slices.</span>
+<span class="sd">    :vartype index_range: int or list[int], optional</span>
+<span class="sd">    :ivar fileformat: Image (stack) return file type, defaults to</span>
+<span class="sd">        &#39;png&#39; for a single image, &#39;tif&#39; for a (set of) &#39;tif&#39; image(s),</span>
+<span class="sd">        or &#39;gif&#39; for an animation. Set to &#39;tifstack&#39; for a single &#39;tif&#39;</span>
+<span class="sd">        image stack.</span>
+<span class="sd">    :vartype fileformat: Literal[</span>
+<span class="sd">        &#39;gif&#39;, &#39;jpeg&#39;, &#39;png&#39;, &#39;tif&#39; &#39;tifstack&#39;], optional</span>
+<span class="sd">    :ivar vrange: Data value range in image slice(s), defaults to</span>
+<span class="sd">        `None`, which uses the full data value range in the slice(s).</span>
+<span class="sd">        Specify as [None, float] or [float, None] to set only the upper</span>
+<span class="sd">        or lower limit of the value range.</span>
+<span class="sd">    :vartype vrange: list[float, float]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">animation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">axis</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">constr</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">basename</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="s1">&#39;image&#39;</span>
+    <span class="c1"># FIX convert to using CHAPSlice</span>
+    <span class="n">coord_range</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span>
+        <span class="n">confloat</span><span class="p">(</span><span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                <span class="n">item_type</span><span class="o">=</span><span class="n">confloat</span><span class="p">(</span><span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">))]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">index_range</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span>
+        <span class="nb">int</span><span class="p">,</span>
+        <span class="n">conlist</span><span class="p">(</span>
+            <span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">item_type</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">int</span><span class="p">])]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">fileformat</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;gif&#39;</span><span class="p">,</span> <span class="s1">&#39;jpeg&#39;</span><span class="p">,</span> <span class="s1">&#39;png&#39;</span><span class="p">,</span> <span class="s1">&#39;tif&#39;</span><span class="p">,</span> <span class="s1">&#39;tifstack&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">vrange</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">conlist</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="n">item_type</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">confloat</span><span class="p">(</span><span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)])]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="ImageProcessorConfig.validate_index_range">
+<a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.common.ImageProcessorConfig.validate_index_range">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;index_range&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_index_range</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">index_range</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the index_range.</span>
+
+<span class="sd">        :ivar index_range: Array index range of the selected image</span>
+<span class="sd">            slice(s), defaults to `None`.</span>
+<span class="sd">        :type index_range: int or list[int], optional</span>
+<span class="sd">        :return: Validated index_range.</span>
+<span class="sd">        :rtype: list[int]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index_range</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">index_range</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="kc">None</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">i</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;none&#39;</span> <span class="k">else</span> <span class="n">i</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">index_range</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="ImageProcessorConfig.validate_vrange">
+<a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.common.ImageProcessorConfig.validate_vrange">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;vrange&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_vrange</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">vrange</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the vrange.</span>
+
+<span class="sd">        :ivar vrange: Data value range in image slice(s),</span>
+<span class="sd">            defaults to `None`.</span>
+<span class="sd">        :type vrange: list[float, float], optional</span>
+<span class="sd">        :return: Validated vrange.</span>
+<span class="sd">        :rtype: list[float, float]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">vrange</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">vrange</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">if</span> <span class="kc">None</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">vrange</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">[</span><span class="nb">min</span><span class="p">(</span><span class="n">vrange</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">vrange</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="kc">None</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">i</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;none&#39;</span> <span class="k">else</span> <span class="n">i</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">info</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;index_range&#39;</span><span class="p">]]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="UnstructuredToStructuredConfig">
+<a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.common.UnstructuredToStructuredConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UnstructuredToStructuredConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration class to reshape data in an</span>
+<span class="sd">    `NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html&gt;`__</span>
+<span class="sd">    from an &quot;unstructured&quot; to a &quot;structured&quot; representation.</span>
+
+<span class="sd">    :ivar nxpath: Path to a specific NeXus style NXdata object in the</span>
+<span class="sd">        NeXus file tree to read the input data from.</span>
+<span class="sd">    :vartype nxpath: str, optional</span>
+<span class="sd">    :ivar signals: Paths to the dataset&#39;s signal-like fields to</span>
+<span class="sd">        reshape (in addition to possible ones in the optional `nxpath`</span>
+<span class="sd">        object).</span>
+<span class="sd">    :vartype signals: str or list[str], optional</span>
+<span class="sd">    :ivar unstructured_axes: Names of the dataset&#39;s unstructured axes</span>
+<span class="sd">        fields. Defaults to the `&#39;unstructured axis&#39;` attribute of the</span>
+<span class="sd">        default NeXus style NXdata object or that specified in `nxpath`</span>
+<span class="sd">        if present. If `nxpath` is unspecified and there is no default</span>
+<span class="sd">        NeXus style NXdata object, the `unstructured_axes` is required</span>
+<span class="sd">        and has to contain full paths to the unstructured axes fields.</span>
+<span class="sd">    :vartype unstructured_axes: str or list[str], optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">nxpath</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">signals</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">conlist</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">item_type</span><span class="o">=</span><span class="nb">str</span><span class="p">)]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">unstructured_axes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">conlist</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">item_type</span><span class="o">=</span><span class="nb">str</span><span class="p">)]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="UnstructuredToStructuredConfig.validate_nxpath">
+<a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.common.UnstructuredToStructuredConfig.validate_nxpath">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;nxpath&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_nxpath</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">nxpath</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate nxpath.</span>
+
+<span class="sd">        :param nxpath: Path to a specific NeXus style NXdata object in</span>
+<span class="sd">            the NeXus file tree to read the input data from.</span>
+<span class="sd">        :type nxpath: str</span>
+<span class="sd">        :return: Validated nxpath.</span>
+<span class="sd">        :rtype: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">nxpath</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;/&#39;</span><span class="p">:</span>
+            <span class="n">nxpath</span> <span class="o">=</span> <span class="n">nxpath</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">return</span> <span class="n">nxpath</span></div>
+
+
+<div class="viewcode-block" id="UnstructuredToStructuredConfig.validate_signals">
+<a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.common.UnstructuredToStructuredConfig.validate_signals">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;signals&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_signals</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">signals</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate signals.</span>
+
+<span class="sd">        :param signals: The (additional) dataset&#39;s signal-like fields.</span>
+<span class="sd">        :type signals: str or list[str]</span>
+<span class="sd">        :return: Validated signals.</span>
+<span class="sd">        :rtype: list[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">signals</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">signals</span> <span class="o">=</span> <span class="p">[</span><span class="n">signals</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">signal</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">signals</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">signal</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;/&#39;</span><span class="p">:</span>
+                <span class="n">signals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">return</span> <span class="n">signals</span></div>
+
+
+<div class="viewcode-block" id="UnstructuredToStructuredConfig.validate_unstructured_axes">
+<a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.common.UnstructuredToStructuredConfig.validate_unstructured_axes">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;unstructured_axes&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_unstructured_axes</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">unstructured_axes</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate unstructured_axes.</span>
+
+<span class="sd">        :param unstructured_axes: The dataset&#39;s unstructured axes.</span>
+<span class="sd">        :type unstructured_axes: str or list[str]</span>
+<span class="sd">        :return: Validated unstructured axes.</span>
+<span class="sd">        :rtype: list[str]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">unstructured_axes</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">unstructured_axes</span> <span class="o">=</span> <span class="p">[</span><span class="n">unstructured_axes</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">axis</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">unstructured_axes</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">axis</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;/&#39;</span><span class="p">:</span>
+                <span class="n">unstructured_axes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">axis</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">return</span> <span class="n">unstructured_axes</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
