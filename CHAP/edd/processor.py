@@ -1413,26 +1413,20 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
                     NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
                 {'models': models, 'method': 'trf'})
 
+
             # Extract the fit results for the peaks
-            fit_peak_amplitudes = sorted([
-                mean_data_fit.best_values[f'peak{i+1}_amplitude'].tolist()
+            fit_peak_amplitudes = np.asarray([
+                mean_data_fit.best_values[f'peak{i+1}_amplitude']
                 for i in range(len(initial_peak_indices))])
             self.logger.debug(f'Fit peak amplitudes: {fit_peak_amplitudes}')
-            fit_peak_indices = sorted([
-                mean_data_fit.best_values[f'peak{i+1}_center'].tolist()
+            fit_peak_indices = np.asarray([
+                mean_data_fit.best_values[f'peak{i+1}_center']
                 for i in range(len(initial_peak_indices))])
             self.logger.debug(f'Fit peak center indices: {fit_peak_indices}')
-            fit_peak_sigmas = sorted([
-                mean_data_fit.best_values[f'peak{i+1}_sigma'].tolist()
+            fit_peak_sigmas = np.asarray([
+                mean_data_fit.best_values[f'peak{i+1}_sigma']
                 for i in range(len(initial_peak_indices))])
             self.logger.debug(f'Fit peak sigmas: {fit_peak_sigmas}')
-            self._peak_fit_results[id_] = {
-                'amplitudes': fit_peak_amplitudes,
-                'centers': fit_peak_indices,
-                'sigmas': fit_peak_sigmas,
-                'independent_dimension': {
-                    'name': 'Detector Channel', 'unit': '-'}
-            }
 
             # FIX for now stick with a linear energy correction
             fit = FitProcessor(**self.run_config)
@@ -1504,6 +1498,17 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
                 if self.interactive:
                     plt.show()
                 plt.close()
+
+            # Collect the fit results for the peaks
+            # FIX assume Gaussian peaks for now and a=0
+            self._peak_fit_results[id_] = {
+                'heights': (fit_peak_amplitudes /
+                            (np.sqrt(2*np.pi)*fit_peak_sigmas)).tolist(),
+                'centers': (b*fit_peak_indices + c).tolist(),
+                'fwhm': (b*fit_peak_sigmas*np.sqrt(8*np.log(2))).tolist(),
+                'independent_dimension': {
+                    'name': 'Energy', 'unit': '-'},
+            }
 
     def _get_initial_peak_positions(
             self, y, low, index_ranges, input_indices, input_max_peak_index,
@@ -2145,28 +2150,18 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
         residual = result.residual
 
         # Extract the Bragg peak indices from the fit
-        fit_peak_amplitudes = [
-            result.best_values[f'peak{i+1}_amplitude'].tolist()
-            for i in range(len(e_bragg))]
+        fit_peak_amplitudes = np.asarray([
+            result.best_values[f'peak{i+1}_amplitude']
+            for i in range(len(e_bragg))])
         self.logger.debug(f'Fit peak amplitudes: {fit_peak_amplitudes}')
-        fit_peak_indices = [
-            result.best_values[f'peak{i+1}_center'].tolist()
-            for i in range(len(e_bragg))]
+        fit_peak_indices = np.asarray([
+            result.best_values[f'peak{i+1}_center']
+            for i in range(len(e_bragg))])
         self.logger.debug(f'Fit peak center indices: {fit_peak_indices}')
-        fit_peak_sigmas = [
-            result.best_values[f'peak{i+1}_sigma'].tolist()
-            for i in range(len(e_bragg))]
+        fit_peak_sigmas = np.asarray([
+            result.best_values[f'peak{i+1}_sigma']
+            for i in range(len(e_bragg))])
         self.logger.debug(f'Fit peak sigmas: {fit_peak_sigmas}')
-        self._peak_fit_results[detector.get_id()] = {
-            'amplitudes': fit_peak_amplitudes,
-            'centers': fit_peak_indices,
-            'sigmas': fit_peak_sigmas,
-            'independent_dimension': {
-                'name': 'Detector Channel', 'unit': '-'}
-        }
-        fit_peak_indices = np.asarray(
-            [result.best_values[f'peak{i+1}_center']
-             for i in range(len(e_bragg))])
 
         # Fit a line through zero strain peak energies vs detector
         # energy bins
@@ -2188,6 +2183,18 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             c_fit = result.best_values['intercept']
         e_bragg_unconstrained = (
             (a_fit*fit_peak_indices + b_fit) * fit_peak_indices + c_fit)
+
+        # Collect the fit results for the peaks
+        # FWHM to first order (i.e. ignore non-zero a)
+        # FIX assume Gaussian peaks for now
+        self._peak_fit_results[detector.get_id()] = {
+            'heights': (fit_peak_amplitudes /
+                (np.sqrt(2*np.pi)*fit_peak_sigmas)).tolist(),
+            'centers': e_bragg_unconstrained.tolist(),
+            'fwhm': (b_fit*fit_peak_sigmas*np.sqrt(8*np.log(2))).tolist(),
+            'independent_dimension': {
+                'name': 'Energy', 'unit': 'keV'},
+        }
 
         return {
             'best_fit_unconstrained': best_fit,
