@@ -224,7 +224,7 @@ The "config" block defines the CHAP generic configuration parameters:
 
 - `log_level`: The [Python logging level](https://docs.python.org/3/library/logging.html#levels).
 
-The remainder of the file contains the actual workflow pipeline, in this example it consists of four blocks, `energy`, `tththeta`, `map`, and `strain`, which can be executed individually or all at once [as described here](chap_pipeline). In addition to the readers and writers of the intermediate results, nine toplevel processes get executed successively in the combined four pipeline blocks:
+The remainder of the file contains the actual workflow pipeline, in this example it consists of four blocks, `energy`, `twotheta`, `map`, and `strain`, which can be executed individually or all at once [as described here](chap_pipeline). In addition to the readers and writers of the intermediate results, nine toplevel processes get executed successively in the combined four pipeline blocks:
 
 - The EDD/XRF energy calibration consists of two processes:
 
@@ -316,6 +316,69 @@ map:
       filename: map.nxs     # NeXus map output filename
       force_overwrite: true
 ```
+
+### Specifying the detector configuration in the EDD workflow
+
+#### Selecting detectors for detector calibration
+
+In the example above, the raw data for both the energy and the $2\theta$ calibration is read by the `common.SpecReader` pipeline item, while which detectors to include in the calibration is specified in the `detectors` field under `detector_config` in the `edd.MCAEnergyCalibrationProcessor` and `edd.MCATthCalibrationProcessor` pipeline items, respectively.
+However, this is not the only way to specify the detectors to use. As can be seen from the documentation for [`SpecReader`](https://chesscomputing.github.io/ChessAnalysisPipeline/CHAP.common.html#CHAP.common.reader.SpecReader), the detectors for which raw data is read can also be specified by adding a `detector_config` field to the `SpecReader`. For example, by using the following in the pipeline file for the EDD workflow above:
+```yaml
+  - common.SpecReader:
+      config:
+        station: id1a3      # Change as needed
+        experiment_type: EDD
+        spec_scans:         # Edit both SPEC log file path and EDD scan numbers
+                            # Path can be relative to inputdir (line 3) or absolute
+          - spec_file: <your_raw_ceria_data_directory>/spec.log
+            scan_numbers: 1
+      detector_config:
+        detectors:          # Choose the detectors
+                            # Use all available detector elements when omitted
+          - id: 0
+          - id: 11
+          - id: 22
+```
+When the `detector_config` or `detectors` field is omitted in the `MCAEnergyCalibrationProcessor` configuration, the energy calibration will be performed for all detectors for which raw data is read. With the `detectors` field specified, the energy calibration is performed for only *those detectors* that are selected there that are *also* read by `SpecReader`. Any detector selected in the `MCAEnergyCalibrationProcessor` configuration that is not read by `SpecReader` will be *omitted* (resulting in a "no raw data" warning).
+The same detector selection mechanism is valid for $2\theta$ calibration, with the added feature that any detector selected during the energy calibration will be included automatically during $2\theta$ calibration, *irrespective* of it being selected in the `MCATthCalibrationProcessor` configuration (contingent upon the reading of the appropriate raw data by the preceeding `SpecReader`). 
+
+#### Selecting detectors for Strain analysis
+
+A similar detector selection approach is available for the strain analysis among the `MapProcessor` and the `StrainAnalysisProcessor` configurations and the availablity of calibrated detector data. When the `detector_config` or `detectors` field is omitted in the `StrainAnalysisProcessor` configuration, the strain analysis will be performed for all detectors for which both raw data is read by `MapProcessor` and for which calibrated detector data is read by the `common.YAMLReader` pipeline item under the `strain` block in the pipeline file above. With the `detectors` field specified, the detectors that are used are further restricted to only those that are listed in its field under the `edd.StrainAnalysisProcessor` pipeline item. Any detector selected in the `StrainAnalysisProcessor` configuration for which raw data from `MapProcessor` is missing is skipped accompanied by a "no raw data" warning. Similarly, any selected detector for which detector calibration input is missing is skipped accompanied by a "no calibration data" warning.
+
+#### Selecting other parameters in the detector configuration
+
+In addition to which detectors to include, the user also has the choice to pick many other parameters that affect the detector configuration and the EDD workflow. Some are specific to certain processors in the EDD workflow, but a certain set, those in the [`FitConfig`](https://chesscomputing.github.io/ChessAnalysisPipeline/CHAP.edd.html#CHAP.edd.model.FitConfig) configuration class, can be specified both on a *per-detector-basis* as well as on a *for-all-detectors basis*. This is evident from the fact that both [`MCADetectorConfig`](https://chesscomputing.github.io/ChessAnalysisPipeline/CHAP.edd.html#CHAP.edd.model.MCADetectorConfig) as well the list entries in its `detectors` field are derived from `FitConfig`. The generic behavior for each of these parameters is that those specified on the *for-all-detector* level, i.e. as items of the `detector_config` fields, superseed those that are specified on a *per-detector-basis*.
+
+Take for example two scenarios for the detector configuration in the energy calibration step:
+
+- as specified in the pipeline file above:
+  ```yaml
+    detector_config:
+       baseline: true
+       mask_ranges: [[650, 850]]
+       detectors:
+         - id: 0
+         - id: 11
+         - id: 22
+  ```
+
+- or specified as follows:
+  ```yaml
+    detector_config:
+       mask_ranges: [[650, 850]]
+       detectors:
+         - id: 0
+           baseline: true
+         - id: 11
+           mask_ranges: [[600, 850]]
+         - id: 22
+           baseline:
+             lam: 1.e-5
+           mask_ranges: [[650, 900]]
+  ```
+
+The first case will set `baseline` and `mask_range` for each detector to the *same* value specified by the respective values in the `detector_config` configuration. The same happens for `mask_range` in the second case, where its entries for detector 11 and 22 are ignored. Whereas, the `baseline` parameter for detector 0, 11 and 22 is set to `True`, `False` (its default value), and `True` with a smoothness parameter, lam, of $10^{-5}$, respectively.
 
 ## Additional notes on energy calibration
 
