@@ -550,7 +550,7 @@ class PandasReader(Reader):
     `pandas <https://pandas.pydata.org/docs/index.html>`__
     """
 
-    def read(self, filename, method='read_csv', comment='#', kwargs=None):
+    def read(self, filename, method='read_csv', comment='#', **kwargs):
         """Return a `pandas.DataFrame` read from the given file.
 
         :param filename: Name of file to read from.
@@ -561,9 +561,8 @@ class PandasReader(Reader):
         :param comment: Character to identify comment lines in the
             input file, defaults to `'#'`.
         :type comment: str, optional
-        :param kwargs: Additional keyword arguments to supply to the
+        :param \*\*kwargs: Additional keyword arguments to supply to the
             `pandas` reader.
-        :param kwargs: dict, optional.
         :rtype: `pandas.DataFrame`
         """
         # Third party modules
@@ -575,8 +574,6 @@ class PandasReader(Reader):
             raise ValueError(
                 f'{method} is not a callable pandas reader method')
 
-        if kwargs is None:
-            kwargs = {}
         if not isinstance(kwargs, dict):
             raise TypeError(
                 f'Invalid kwargs type ({type(kwargs)}, should be dict)')
@@ -921,7 +918,6 @@ class SpecReader(Reader):
                             detector_roi=[
                                self.detector_config.roi[0].toslice(),
                                self.detector_config.roi[1].toslice()]
-                        print(f'\n\ndetector_roi: {detector_roi}\n\n')
                         nxdata[detector.get_id()] = NXfield(
                            value=scanparser.get_detector_data(
                                detector.get_id(),

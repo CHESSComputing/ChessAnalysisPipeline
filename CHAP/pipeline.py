@@ -444,18 +444,17 @@ class PipelineItem(RunConfig):
             unwrapped_data = [data]
         return unwrapped_data
 
-    def execute(self, data):#, metadata, provenance):
+    def execute(self, data=None):#, metadata, provenance):
         """Execute the appropriate method of the object and return the
         result.
 
         :param data: Input data.
-        :type data: list[PipelineData]
+        :type data: list[PipelineData], optional
         :return: Wrapped result of executing read, process, or write.
         :rtype: PipelineData | tuple[PipelineData]
         """
 #        self._metadata = metadata
 #        self._provenance = provenance
-
         if 'data' in self._allowed_args:
             self._args['data'] = data
         t0 = time()
@@ -466,6 +465,84 @@ class PipelineItem(RunConfig):
         self.logger.info(
             f'Finished "{self._method}" in {time()-t0:.0f} seconds\n')
         return data
+
+    @classmethod
+    def run(cls, **kwargs):
+        """Execute the appropriate method of the object and return the
+        result.
+
+        This class method gets and executes the appropriate method
+        (process, read or write) from the pipeline item it's called
+        from.  It is intended to be called from a script or notebook
+        only and should not be called from other CHAP Processors,
+        Readers or Writers.
+
+        The method expects the same parameters as those used to
+        instantiate its class object and run the process, read or
+        write method, in addition to any run time parameter in the
+        pipeline file config dictionary (see:
+        :class:`~CHAP.models.RunConfig)`.
+
+        :param \*\*kwargs: Optional keyword arguments, including:
+        :keyword config: Initialization parameters for an instance
+            of the pipeline item this method is called from (often
+            used by Readers and Processors).
+        :type config: dict, optional
+        :keyword data: Input data (required for any Processor, but
+            is allowed to be `None` or `[]`).
+        :type data: list[PipelineData], optional
+        :keyword filename: Name of file to read (required for most
+            Readers and Writers).
+        :type filename: str, optional
+        :keyword force_overwrite: Flag to allow data in `filename`
+            to be overwritten if it already exists, defaults to
+            `False` (optional for Writers).
+        :type force_overwrite: bool, optional
+        :keyword remove: Flag to remove the dictionary from `data`,
+            defaults to `False` (optional for Writers).
+        :type remove: bool, optional
+        :return: Returned result from executing the underlying read,
+            process, or write method.
+        :rtype: Any
+        """
+        # System modules
+        from importlib import import_module
+        from inspect import isclass
+        from pkgutil import walk_packages
+
+        # Local modules
+        from CHAP.utils.general import input_menu
+
+        def _find_class_in_package(package_name, class_name):
+            package = import_module(package_name)
+            # Recursively walk through all submodules
+            found_classes = []
+            for _, module_name, _ in walk_packages(
+                    package.__path__, package.__name__ + "."):
+                try:
+                    module = import_module(module_name)
+                    # Check if the class exists in this module
+                    if hasattr(module, class_name):
+                        cls = getattr(module, class_name)
+                        if (isclass(cls) and cls.__module__ == module_name
+                                and cls not in found_classes):
+                            found_classes.append(cls)
+                except ImportError:
+                    continue
+            if not found_classes:
+                raise ImportError(f'Unable to find {class_name} in CHAP')
+            if len(found_classes) == 1:
+                return found_classes[0]
+            index = input_menu(
+                [v.__module__ for v in found_classes],
+                header=f'\nFound multiple classes named {class_name} in '
+                       f'CHAP\nUse {class_name} from:')
+            return found_classes[index]
+
+        cls_name = cls.__name__
+        mmc = _find_class_in_package('CHAP', cls_name)
+        item = mmc(modelmetaclass=mmc, **kwargs)
+        return item.execute(kwargs.get('data'))
 
 
 class Pipeline(CHAPBaseModel):
