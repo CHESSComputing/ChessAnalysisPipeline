@@ -1201,6 +1201,7 @@ class MapConfig(CHAPBaseModel):
                 f'For station {station}, allowed experiment types are '
                 f'{", ".join(allowed_experiment_types)}. '
                 f'Supplied experiment type {experiment_type} is not allowed.')
+        import_scanparser(station, experiment_type)
         return experiment_type
 
 
