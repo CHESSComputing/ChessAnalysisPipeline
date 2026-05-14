@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""SAXSWAXS command line writer."""
+"""Module for Writers unique to the SAXSWAXS workflow."""
 
 if __name__ == '__main__':
     # Local modules

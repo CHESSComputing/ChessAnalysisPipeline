@@ -1,10 +1,6 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-File       : general.py
-Author     : Rolf Verberg <rolfverberg AT gmail dot com>
-Description: Module defining the Material class
-"""
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+"""Module defining the Material class."""
 
 # System modules
 from logging import getLogger
@@ -12,28 +8,29 @@ from os import path
 
 # Third party modules
 import numpy as np
-try:
-    from xrayutilities import materials
-    from xrayutilities import simpack
-    HAVE_XU = True
-except ImportError:
-    HAVE_XU = False
-try:
-    from hexrd import material
-    HAVE_HEXRD = True
-except ImportError:
-    HAVE_HEXRD = False
-if HAVE_HEXRD:
-    try:
-        from hexrd.valunits import valWUnit
-    except ImportError:
-        HAVE_HEXRD = False
-#from xrayutilities import materials
-#from xrayutilities import simpack
-#HAVE_XU = True
-#HAVE_HEXRD = False
+from hexrd import material
+from hexrd.valunits import valWUnit
+HAVE_XU = False
+HAVE_HEXRD = True
+#try:
+#    from xrayutilities import materials
+#    from xrayutilities import simpack
+#    HAVE_XU = True
+#except ImportError:
+#    HAVE_XU = False
+#try:
+#    from hexrd import material
+#    HAVE_HEXRD = True
+#except ImportError:
+#    HAVE_HEXRD = False
+#if HAVE_HEXRD:
+#    try:
+#        from hexrd.valunits import valWUnit
+#    except ImportError:
+#        raise
+#        HAVE_HEXRD = False
 
-POEDER_INTENSITY_CUTOFF = 1.e-8
+POWDER_INTENSITY_CUTOFF = 1.e-8
 
 logger = getLogger(__name__)
 
@@ -43,11 +40,29 @@ class Material:
     now it assumes a single material, extend its ability to do
     differently when test data is available.
     """
+
     def __init__(
             self, material_name=None, material_file=None, sgnum=None,
             lattice_parameters_angstroms=None, atoms=None, pos=None,
             enrgy=None):
-        """Initialize Material."""
+        """Initialize Material.
+
+        :param material_name: Material name.
+        :type material_name: str, optional
+        :param material_file: Material file name in cif or hdf5 format.
+        :type material_file: str, optional
+        :param sgnum: Space group number.
+        :type sgnum: int, optional
+        :param lattice_parameters_angstroms: Lattice parameters in
+            angstrom.
+        :type lattice_parameters_angstroms: float, optional
+        :param atoms: Elements.
+        :type atoms: list, optional
+        :param pos: Wyckoff atom positions in the unit cell.
+        :type pos: list, optional
+        :param enrgy: X-ray energy in eV.
+        :type enrgy: float, optional
+        """
         self._enrgy = enrgy
         self._materials = []
         self._ds_min = []
@@ -59,7 +74,13 @@ class Material:
                 lattice_parameters_angstroms, atoms, pos)
 
     def lattice_parameters(self, index=0):
-        """Convert from internal nm units to angstrom."""
+        """Convert from internal nm units to angstrom.
+
+        :param index: List index of the material, defaults to `0`.
+        :type index: int, optional
+        :return: Lattice parameters in angstrom.
+        :rtype: list
+        """
         matl = self._materials[index]
         if isinstance(matl, materials.material.Crystal):
             return [matl.a, matl.b, matl.c]
@@ -70,13 +91,36 @@ class Material:
         raise ValueError('Illegal material class type')
 
     def ds_unique(self, tth_tol=None, tth_max=None, round_sig=8):
-        """Return the unique lattice spacings."""
+        """Return the unique lattice spacings.
+
+        :param tth_tol: Two-theta tolerance (in degrees).
+        :type tth_tol: float, optional
+        :param tth_max: Maximum two-theta value (in degrees).
+        :type tth_max: float, optional
+        :param round_sig: Significant digits, passed to round()
+            function, defaults to `8`.
+        :type round_sig: int, optional
+        :returns: Unique lattice spacings.
+        :rtype: list
+        """
         if self._ds_unique is None:
             self.get_ds_unique(tth_tol, tth_max, round_sig)
         return self._ds_unique
 
     def hkls_unique(self, tth_tol=None, tth_max=None, round_sig=8):
-        """Return the unique HKLs."""
+        """Return the unique HKLs.
+
+        :param tth_tol: Two-theta tolerance (in degrees).
+        :type tth_tol: float, optional
+        :param tth_max: Maximum two-theta value (in degrees).
+        :type tth_max: float, optional
+        :param round_sig: Significant digits, passed to round()
+            function, defaults to `8`.
+        :type round_sig: int, optional
+        :returns: HKLs corresponding to the unique lattice
+            spacings.
+        :rtype: list
+        """
         if self._hkls_unique is None:
             self.get_ds_unique(tth_tol, tth_max, round_sig)
         return self._hkls_unique
@@ -84,8 +128,26 @@ class Material:
     def add_material(
             self, material_name, material_file=None, sgnum=None,
             lattice_parameters_angstroms=None, atoms=None, pos=None,
-            dmin_angstroms=0.6):
-        """Add a material."""
+            dmin_angstroms=0.35):
+        """Add a material to the internal list of materials.
+
+        :param material_name: Material name.
+        :type material_name: str
+        :param material_file: Material file name in cif or hdf5 format.
+        :type material_file: str, optional
+        :param sgnum: Space group number.
+        :type sgnum: int, optional
+        :param lattice_parameters_angstroms: Lattice parameters in
+            angstrom.
+        :type lattice_parameters_angstroms: float, optional
+        :param atoms: Elements.
+        :type atoms: list, optional
+        :param pos: Wyckoff atom positions in the unit cell.
+        :type pos: list, optional
+        :param dmin_angstroms: Minimum lattice spacing in angstrom,
+            defaults to `0.35`.
+        :type dmin_angstroms: float, optional
+        """
         # At this point only for a single material
         # Unique energies works for more, but fitting with different
         #     materials is not implemented
@@ -107,8 +169,8 @@ class Material:
         :param round_sig: Significant digits, passed to round()
             function, defaults to `8`.
         :type round_sig: int, optional
-        :returns: The list of hkl's corresponding to the unique lattice
-            spacings and the list of the unique lattice spacings.
+        :returns: HKLs corresponding to the unique lattice spacings
+            and the list of the unique lattice spacings.
         :rtype: list, list
         """
         hkls = np.empty((0,3))
@@ -169,9 +231,31 @@ class Material:
     def make_material(
             material_name, material_file=None, sgnum=None,
             lattice_parameters_angstroms=None, atoms=None, pos=None,
-            dmin_angstroms=0.6):
-        """Use HeXRD to get material properties when a materials file
-        is provided. Use xrayutilities otherwise.
+            dmin_angstroms=0.35):
+        """Use `HeXRD <https://github.com/HEXRD/hexrd>`__ to get
+        material properties when a materials file is provided. Use
+        `xrayutilities <https://github.com/dkriegner/xrayutilities>`__
+        otherwise.
+
+        :param material_name: Material name.
+        :type material_name: str
+        :param material_file: Material file name in cif or hdf5 format.
+        :type material_file: str, optional
+        :param sgnum: Space group number.
+        :type sgnum: int, optional
+        :param lattice_parameters_angstroms: Lattice parameters in
+            angstrom.
+        :type lattice_parameters_angstroms: float, optional
+        :param atoms: Elements.
+        :type atoms: list, optional
+        :param pos: Wyckoff atom positions in the unit cell.
+        :type pos: list, optional
+        :param dmin_angstroms: Minimum lattice spacing in angstrom,
+            defaults to `0.35`.
+        :type dmin_angstroms: float, optional
+        :return: Material properties.
+        :rtype: hexrd.material.Material or
+            xrayutilities.materials.Crystal
         """
         # pylint: disable=possibly-used-before-assignment
         lattice_parameters = None
@@ -184,6 +268,7 @@ class Material:
                 logger.warning(
                     'Overwrite lattice_parameters of material_file with input '
                     f'values ({lattice_parameters_angstroms})')
+                raise NotImplementedError('material_file needs testing')
             if isinstance(lattice_parameters_angstroms, (int, float)):
                 lattice_parameters = [lattice_parameters_angstroms]
             elif isinstance(
@@ -194,7 +279,24 @@ class Material:
                     'Illegal lattice_parameters_angstroms: '
                     f'{lattice_parameters_angstroms} '
                     f'{type(lattice_parameters_angstroms)}')
+
+        # FIX use "old" method for now (moved from CHAP/edd/utils.py)
+        # Do not instantial with material name, it is ignored when you
+        # do not also provide a material file
+        matl = material.Material()
+        matl.name = material_name
+        matl.sgnum = sgnum
+        if isinstance(lattice_parameters, float):
+            lattice_parameters = [lattice_parameters]
+        matl.latticeParameters = lattice_parameters
+        matl.dmin = valWUnit('lp', 'length',  dmin_angstroms, 'angstrom')
+        nhkls = len(matl.planeData.exclusions)
+        matl.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
+        return matl
+
         if material_file is None:
+            if pos is not None:
+                raise NotImplementedError(f'pos {type(pos)}: {pos}')
             if not isinstance(sgnum, int):
                 raise ValueError(f'Illegal sgnum: {sgnum} {type(sgnum)}')
             if (sgnum is None or lattice_parameters_angstroms is None
@@ -228,9 +330,12 @@ class Material:
                     materials.SGLattice(sgnum, *lattice_parameters,
                                         atoms=atoms, pos=list(np.array(pos))))
             else:
-                matl = material.Material(material_name)
+                # Do not instantial with material name, it is ignored
+                # when you do not also provide a material file
+                matl = material.Material()
+                matl.name = material_name
                 matl.sgnum = sgnum
-                matl.atominfo = np.vstack((pos.T, np.ones(pos.shape[0]))).T
+                #matl.atominfo = np.vstack((pos.T, np.ones(pos.shape[0]))).T
                 matl.latticeParameters = lattice_parameters
                 matl.dmin = valWUnit(
                     'lp', 'length', dmin_angstroms, 'angstrom')
@@ -238,7 +343,7 @@ class Material:
                 powder_intensity = matl.planeData.powder_intensity
                 exclusions = [
                     exclusion or i >= len(powder_intensity)
-                    or powder_intensity[i] < POEDER_INTENSITY_CUTOFF
+                    or powder_intensity[i] < POWDER_INTENSITY_CUTOFF
                     for i, exclusion in enumerate(exclusions)]
                 matl.planeData.set_exclusions(exclusions)
                 logger.debug(
@@ -264,7 +369,7 @@ class Material:
             powder_intensity = matl.planeData.powder_intensity
             exclusions = [
                 exclusion or i >= len(powder_intensity)
-                or powder_intensity[i] < POEDER_INTENSITY_CUTOFF
+                or powder_intensity[i] < POWDER_INTENSITY_CUTOFF
                 for i, exclusion in enumerate(exclusions)]
             matl.planeData.set_exclusions(exclusions)
             logger.debug(

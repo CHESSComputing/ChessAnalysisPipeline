@@ -1,18 +1,13 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""
-File       : processor.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Processor module
-
-Define a generic `Processor` object.
+"""Module defining the base `Processor` class to derive all others
+from.
 """
 
 # System modules
 import argparse
 import logging
 from sys import modules
-from typing import Optional
 
 # Third party modules
 from pydantic import model_validator
@@ -22,15 +17,27 @@ from CHAP.pipeline import PipelineItem
 
 
 class Processor(PipelineItem):
-    """Generic data processor.
+    """Base processor.
 
-    The job of any `Processor` in a `Pipeline` is to receive data
-    returned by the previous `PipelineItem`, process it in some way,
-    and return the result for the next `PipelineItem` to use as input.
+    The job of any `Processor` in a pipeline is to receive data
+    returned by a previous `PipelineItem`, process it in some way,
+    and return the result for the following `PipelineItem`\\s to use.
     """
+
+    # FIX add a validation status, so that the validator doesn't get
+    # executed twice with the config staying on the pipeline
     @model_validator(mode='before')
     @classmethod
     def validate_processor_before(cls, data):
+        """Validate the `Processor` class attributes.
+
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
+        :rtype: dict
+        """
         # System modules
         from copy import deepcopy
 
@@ -55,7 +62,7 @@ class Processor(PipelineItem):
                         try:
                             value = deepcopy(mmc.get_data(
                                 data['data'], schema=schema, remove=False))
-                        except:
+                        except Exception:
                             pass
                         else:
                             if k in data:
@@ -72,7 +79,9 @@ class Processor(PipelineItem):
         and return the amended value.
 
         :param data: Input data.
+        :type data: list[PipelineData]
         :return: Processed data.
+        :rtype: str
         """
         # If needed, extract data from a returned value of Reader.read
         if isinstance(data, list):
@@ -88,6 +97,7 @@ class Processor(PipelineItem):
 
 class OptionParser():
     """User based option parser."""
+
     def __init__(self):
         self.parser = argparse.ArgumentParser(prog='PROG')
         self.parser.add_argument(
@@ -102,7 +112,11 @@ class OptionParser():
 
 
 def main(opt_parser=OptionParser):
-    """Main function."""
+    """Main function.
+
+    :param opt_parser: User based option parser.
+    :type opt_parser: OptionParser
+    """
     optmgr = opt_parser()
     opts = optmgr.parser.parse_args()
     cls_name = opts.processor

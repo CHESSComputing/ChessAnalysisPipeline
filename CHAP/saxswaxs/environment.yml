@@ -1,14 +1,17 @@
 name: CHAP_saxswaxs
 channels:
   - conda-forge
-  - defaults
+  - nodefaults
 dependencies:
-  - python>=3.9,<3.11
-  - requests==2.28.2
-  - numpy==1.24.2
-  - pydantic==1.10.7
-  - pip==23.0.1
+  - python==3.11
+#  - chessanalysispipeline
+  - nexpy==1.0.9
+  - nexusformat==1.0.6
+  - pandas==2.3.3
+  - pip==24.2
+  - pydantic==2.7.3
+  - pyfai==2025.1.0
+  - zarr==3.0.6
   - pip:
     - certif-pyspec==1.5.3
-    - pyfai==2023.3.0 # pyFAI w/o GUIs can only be installed via pip
-  - nexusformat==1.0.1
+#    - chess-scanparsers

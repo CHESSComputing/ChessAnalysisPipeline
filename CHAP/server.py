@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""
-File       : server.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Python server with thread pool and CHAP pipeline
+"""Python server with thread pool and CHAP pipeline.
 
 ===========
 Client side
@@ -62,9 +59,14 @@ from queue import Queue
 from flask import Flask, request
 
 # Local modules
-from CHAP.TaskManager import TaskManager, start_new_thread
-from CHAP.runner import run, set_logger
-
+from CHAP.taskmanager import (
+    TaskManager,
+    start_new_thread,
+)
+from CHAP.runner import (
+    run,
+    set_logger,
+)
 
 # Task manager to execute our tasks
 taskManager = TaskManager()
@@ -78,13 +80,11 @@ task_queue = Queue()
 @app.route("/")
 def index_route():
     """Server main end-point."""
-
     return "CHAP daemon"
 
 @app.route("/run")
 def run_route():
     """Server main end-point."""
-
     ttask = request.args.get('task')
     task_queue.put(ttask)
     return f'Execute {ttask}'
@@ -92,7 +92,6 @@ def run_route():
 @app.route("/pipeline", methods=["POST"])
 def pipeline_route():
     """Server /pipeline end-point."""
-
     content = request.json
     if 'pipeline' in content:
         # spawn new pipeline task
@@ -104,7 +103,6 @@ def pipeline_route():
 
 def task(*args, **kwds):
     """Helper function to execute CHAP pipeline."""
-
     log_level = 'INFO'
     logger, log_handler = set_logger(log_level)
     logger.info(f'call pipeline args={args} kwds={kwds}')
@@ -114,7 +112,6 @@ def task(*args, **kwds):
 
 def daemon(name, queue, interval):
     """Daemon example based on Queue."""
-
     print(f'Daemon {name}')
     while True:
         if queue.qsize() == 0:

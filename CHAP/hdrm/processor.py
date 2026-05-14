@@ -48,11 +48,9 @@ class HdrmOrmfinderProcessor(Processor):
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
-            NXentry,
             NXlink,
             NXprocess,
             NXparameters,
-            NXroot,
             nxsetconfig,
         )
         # pylint: enable=no-name-in-module
@@ -60,20 +58,7 @@ class HdrmOrmfinderProcessor(Processor):
         nxsetconfig(memory=100000)
 
         # Load the detector data
-        try:
-            nxobject = self.get_data(data)
-            if isinstance(nxobject, NXroot):
-                nxroot = nxobject
-            elif isinstance(nxobject, NXentry):
-                nxroot = NXroot()
-                nxroot[nxobject.nxname] = nxobject
-                nxobject.set_default()
-            else:
-                raise ValueError(
-                    f'Invalid nxobject in data pipeline ({type(nxobject)}')
-        except Exception as exc:
-            raise RuntimeError(
-                'No valid detector data in input pipeline data') from exc
+        nxroot = self.get_nxroot(self.get_data(data))
 
         # Load the validated HDRM image stacking configuration
         config = self.get_config(data=data, config=config,
@@ -265,10 +250,8 @@ class HdrmPeakfinderProcessor(Processor):
         # Third party modules
         from nexusformat.nexus import (
             NXdata,
-            NXentry,
             NXlink,
             NXprocess,
-            NXroot,
             nxsetconfig,
         )
         # pylint: disable=no-name-in-module
@@ -278,20 +261,7 @@ class HdrmPeakfinderProcessor(Processor):
         nxsetconfig(memory=100000)
 
         # Load the detector data
-        try:
-            nxobject = self.get_data(data)
-            if isinstance(nxobject, NXroot):
-                nxroot = nxobject
-            elif isinstance(nxobject, NXentry):
-                nxroot = NXroot()
-                nxroot[nxobject.nxname] = nxobject
-                nxobject.set_default()
-            else:
-                raise ValueError(
-                    f'Invalid nxobject in data pipeline ({type(nxobject)}')
-        except Exception as exc:
-            raise RuntimeError(
-                'No valid detector data in input pipeline data') from exc
+        nxroot = self.get_nxroot(self.get_data(data))
 
         # Load the validated HDRM image stacking configuration
         config = self.get_config(data=data, config=config,

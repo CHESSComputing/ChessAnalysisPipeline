@@ -1,19 +1,37 @@
-"""This subpackage contains `PipelineItems` to communicate with FOXDEN
-services.
+"""`PipelineItems` unique to communicating with FOXDEN
+
+This module contains all the `PipelineItems` (Processors, Readers and
+Writers) that are unique to communicate with
+`FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__. Any of these
+`PipelineItems` can be used as items in a :doc:`/pipeline` or
+instantiated from a user Python script.
+
+.. note::
+    Using the FOXDEN pipeline items in a :doc:`/pipeline` and running
+    it, requires a conda environent for the appropriate workflow or
+    access to the appropriate CHAP executable.
+
+Submodules summary
+------------------
+
+models
+    `Pydantic <https://github.com/pydantic/pydantic>`__ model
+    configuration classes unique to the FOXDEN pipeline items.
+processor
+    Processors unique to the FOXDEN pipeline items.
+reader
+    Readers unique to the FOXDEN pipeline items.
+writer
+    Writers unique to the FOXDEN pipeline items.
 """
 
-from CHAP.foxden.processor import (
-#    FoxdenMetadataProcessor,
-    FoxdenProvenanceProcessor,
-)
-from CHAP.foxden.reader import (
-    FoxdenDataDiscoveryReader,
-    FoxdenMetadataReader,
-    FoxdenProvenanceReader,
-    FoxdenSpecScansReader,
-)
-from CHAP.foxden.writer import (
-    FoxdenDoiWriter,
-    FoxdenMetadataWriter,
-    FoxdenProvenanceWriter,
-)
+# System modules
+import typing
+
+# Local modules
+from CHAP.foxden.models import FoxdenRequestConfig
+
+# Avoid Pydantic "Class not fully defined" in sphinx autodoc as a
+# result of lazy importing by using FoxdenRequestConfig within a
+# default value of a pydantic instance variable
+FoxdenRequestConfig.model_rebuild(_types_namespace=vars(typing))

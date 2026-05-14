@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""GIWAXS command line reader."""
+"""Module for Readers unique to the GIWAXS workflow."""
 
 if __name__ == '__main__':
     # Local modules

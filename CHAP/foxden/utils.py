@@ -1,11 +1,14 @@
 """FOXDEN utils module."""
 
 
-def readFoxdenToken(scope):
-    """Obtain a FOXDEN token.
+def read_foxden_token(scope):
+    """Obtain a
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__ token.
 
     :param scope: FOXDEN scope: `'read'` or `'write'`.
     :type scope: string
+    :return: The FOXDEN token.
+    :rtype: str
     """
     # System modules
     import os
@@ -15,14 +18,15 @@ def readFoxdenToken(scope):
         token_file = os.path.join(
             os.getenv('HOME'), f'.foxden.{scope.lower()}.token')
         if os.path.exists(token_file):
-            with open(token_file, 'r') as f:
+            with open(token_file, 'r', encoding='utf-8') as f:
                 token = f.read()
     return token
 
-def HttpRequest(
-        url, payload, method='POST', headers=None, scope='read', timeout=10,
+def HTTP_request(
+        url, payload, *, method='POST', headers=None, scope='read', timeout=10,
         dry_run=False):
-    """Submit a HTTP request to a FOXDEN service
+    """Submit a HTTP request to a
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__ service.
 
     :param url: URL of service.
     :type url: str
@@ -57,7 +61,7 @@ def HttpRequest(
         headers['Content-type'] = 'application/json'
     if 'Accept' not in headers:
         headers['Accept'] = 'application/json'
-    token = readFoxdenToken(scope)
+    token = read_foxden_token(scope)
     if token:
         headers['Authorization'] = f'Bearer {token}'
     else:

@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-"""
-File       : writer.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Module for Writers used in multiple experiment-specific workflows.
+#-*- coding: utf-8 -*-
+"""Module for generic Writers used in multiple experiment-specific
+workflows.
 """
 
 # System modules
@@ -22,20 +21,28 @@ from pydantic import (
 )
 
 # Local modules
-from CHAP import Writer
 from CHAP.pipeline import PipelineItem
-from CHAP.writer import validate_writer_model
+from CHAP.writer import (
+    Writer,
+    validate_writer_model,
+)
 from CHAP.common.models import IndexSliceConfig
 
 
+
 def validate_model(model):
+    """Validate the `model` configuration.
+
+    :return: Validated model.
+    :rtype: Any
+    """
     if model.filename is not None:
         validate_writer_model(model)
     return model
 
 
 def write_matplotlibfigure(data, filename, savefig_kw, force_overwrite=False):
-    """Write a Matplotlib figure to file.
+    """Write a `Matplotlib <https://matplotlib.org>`__ figure to file.
 
     :param data: The figure to write to file
     :type data: matplotlib.figure.Figure
@@ -64,7 +71,9 @@ def write_matplotlibfigure(data, filename, savefig_kw, force_overwrite=False):
         data.savefig(filename, **savefig_kw)
 
 def write_nexus(data, filename, force_overwrite=False):
-    """Write a NeXus object to file.
+    """Write a NeXus style
+    `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
+    object to file.
 
     :param data: The data to write to file
     :type data: nexusformat.nexus.NXobject
@@ -112,7 +121,7 @@ def write_txt(data, filename, force_overwrite=False, append=False):
     """Write plain text to file.
 
     :param data: The data to write to file
-    :type data: Union[str, list[str]]
+    :type data: str | list[str]
     :param filename: File name.
     :type filename: str
     :param force_overwrite: Flag to allow data to be overwritten if it
@@ -133,13 +142,13 @@ def write_txt(data, filename, force_overwrite=False, append=False):
         raise FileExistsError(f'{filename} already exists')
 
     if append:
-        with open(filename, 'a') as f:
+        with open(filename, 'a', encoding='utf-8') as f:
             if isinstance(data, str):
                 f.write(data)
             else:
                 f.write('\n'.join(data))
     else:
-        with open(filename, 'w') as f:
+        with open(filename, 'w', encoding='utf-8') as f:
             if isinstance(data, str):
                 f.write(data)
             else:
@@ -149,7 +158,7 @@ def write_yaml(data, filename, force_overwrite=False):
     """Write data to a YAML file.
 
     :param data: The data to write to file
-    :type data: Union[dict, list]
+    :type data: dict | list
     :param filename: File name.
     :type filename: str
     :param force_overwrite: Flag to allow data to be overwritten if it
@@ -165,7 +174,7 @@ def write_yaml(data, filename, force_overwrite=False):
     if os.path.isfile(filename) and not force_overwrite:
         raise FileExistsError(f'{filename} already exists')
 
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf-8') as f:
         yaml.dump(data, f, sort_keys=False)
 
 def write_filetree(data, outputdir='.', force_overwrite=False):
@@ -240,8 +249,9 @@ def write_filetree(data, outputdir='.', force_overwrite=False):
 
 class ExtractArchiveWriter(Writer):
     """Writer for tar files from binary data."""
+
     def write(self, data):
-        """Take a .tar archive represented as bytes contained in `data`
+        """Take a tar archive represented as bytes contained in `data`
         and write the extracted archive to files.
 
         :param data: The data to write to archive.
@@ -257,18 +267,20 @@ class ExtractArchiveWriter(Writer):
 
 
 class FileTreeWriter(PipelineItem):
-    """Writer for a file tree in NeXus format.
+    """Writer for a file tree in
+    `NeXus <https://www.nexusformat.org>`__ format.
 
     :ivar force_overwrite: Flag to allow data to be overwritten if it
         already exists, defaults to `False`. Note that the existence
         of files prior to executing the pipeline is not possible since
         the filename(s) of the data are unknown during pipeline
         validation.
-    :type force_overwrite: bool, optional
+    :vartype force_overwrite: bool, optional
     :ivar remove: Flag to remove the dictionary from `data`,
         defaults to `True`.
-    :type remove: bool, optional
+    :vartype remove: bool, optional
     """
+
     force_overwrite: Optional[bool] = False
     remove: Optional[bool] = True
 
@@ -281,21 +293,21 @@ class FileTreeWriter(PipelineItem):
         :raises RuntimeError: If `filename` already exists and
             `force_overwrite` is `False`.
         """
-        # Third party modules
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
-
         nxentry = self.get_default_nxentry(
                 self.get_data(data, remove=self.remove))
         write_filetree(nxentry, self.outputdir, self.force_overwrite)
 
 
 class H5Writer(Writer):
-    """Writer for H5 files from an nexusformat.nexus.NXdata object."""
+    """Writer for `HDF5 <https://www.hdfgroup.org/solutions/hdf5/>`__
+    files from a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    object."""
+
     def write(self, data):
-        """Write the NeXus object contained in `data` to hdf5 file.
+        """Write the NeXus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+        object contained in `data` to hdf5 file.
 
         :param data: The data to write to file.
         :type data: list[PipelineData]
@@ -326,14 +338,15 @@ class ImageWriter(PipelineItem):
     """Writer for saving image files.
 
     :ivar filename: Name of file to write to.
-    :type filename: str, optional
+    :vartype filename: str, optional
     :ivar force_overwrite: Flag to allow data in `filename` to be
         overwritten if it already exists, defaults to `False`.
-    :type force_overwrite: bool, optional
+    :vartype force_overwrite: bool, optional
     :ivar remove: Flag to remove the dictionary from `data`,
         defaults to `False`.
-    :type remove: bool, optional
+    :vartype remove: bool, optional
     """
+
     filename: Optional[str] = None
     force_overwrite: Optional[bool] = False
     remove: Optional[bool] = True
@@ -389,6 +402,8 @@ class ImageWriter(PipelineItem):
             fileformat = data[1]
         else:
             image_data = data
+        if self.filename is None:
+            self.filename = 'image'
         basename, ext = os.path.splitext(self.filename)
         if ext[1:] != fileformat:
             self.filename = f'{self.filename}.{fileformat}'
@@ -475,11 +490,13 @@ class JSONWriter(Writer):
 
 
 class MatplotlibAnimationWriter(Writer):
-    """Writer for saving matplotlib animations.
+    """Writer for saving `Matplotlib <https://matplotlib.org>`__
+    animations.
 
     :ivar fps: Movie frame rate (frames per second), defaults to `1`.
-    :type fps: int, optional
+    :vartype fps: int, optional
     """
+
     fps: Optional[conint(gt=0)] = 1
 
     def write(self, data):
@@ -500,12 +517,14 @@ class MatplotlibAnimationWriter(Writer):
 
 
 class MatplotlibFigureWriter(Writer):
-    """Writer for saving matplotlib figures to image files.
+    """Writer for saving `Matplotlib <https://matplotlib.org>`__
+    figures to image files.
 
     :ivar savefig_kw: Keyword args to pass to
         matplotlib.figure.Figure.savefig.
-    :type savefig_kw: dict, optional
+    :vartype savefig_kw: dict, optional
     """
+
     savefig_kw: Optional[dict] = None
 
     def write(self, data):
@@ -523,16 +542,22 @@ class MatplotlibFigureWriter(Writer):
 
 
 class NexusWriter(Writer):
-    """Writer for NeXus files from `NXobject`-s.
+    """Writer for `NeXus <https://www.nexusformat.org>`__ files from
+    NeXus style
+    `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
+    objexts.
 
     :ivar nxpath: Path to a specific location in the NeXus file tree
         to write to (ignored if `filename` does not yet exist).
-    :type nxpath: str, optional
+    :vartype nxpath: str, optional
     """
+
     nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = None
 
     def write(self, data):
-        """Write the NeXus object contained in `data` to file.
+        """Write the NeXus style
+        `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
+        contained in `data` to file.
 
         :param data: The data to write to file.
         :type data: list[PipelineData]
@@ -595,6 +620,9 @@ class NexusWriter(Writer):
                 except Exception as exc:
                     raise exc
 
+        # Return provenance with the output file name added
+        return self._update_provenance(data)
+
 
 class NexusValuesWriter(Writer):
     """Writer for updating values in an existing NeXus file.
@@ -651,7 +679,8 @@ class NexusValuesWriter(Writer):
                     self.logger.error(exc)
 
     def nxs_writer(self, nxroot, path, idx, data):
-        """Write data to a specific NeXus file.
+        """Write data to a specific
+        `NeXus <https://www.nexusformat.org>`__ file.
 
         This method writes `data` to a specified dataset within a NeXus
         file at the given index (`idx`). If the dataset does not
@@ -659,7 +688,9 @@ class NexusValuesWriter(Writer):
         of `data` matches the shape of the target slice before
         writing.
 
-        :param nxroot: NeXus root object.
+        :param nxroot: NeXus Style
+            `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0>`__
+            object.
         :type nxroot: nexusformat.nexus.NXroot
         :param path: Path to the dataset inside the NeXus file.
         :type path: str
@@ -720,31 +751,34 @@ class NexusValuesWriter(Writer):
 
 
 class PyfaiResultsWriter(Writer):
-    """Writer for results of one or more pyFAI integrations. Able to
-    handle multiple output formats. Currently supported formats are:
-    .npz, .nxs.
+    """Writer for results of one or more
+    `pyFAI <https://pyfai.readthedocs.io/en/stable>`__ integrations.
+    Able to handle multiple output formats. Currently supported formats
+    are: .npz, .nxs.
     """
+
     def write(self, data):
-        """Save pyFAI integration results to a file. Format is
-        determined automatically form the extension of `filename`.
+        """Save `pyFAI <https://pyfai.readthedocs.io/en/stable>`__
+        integration results to a file. Format is determined
+        automatically form the extension of `filename`.
 
         :param data: The data to write to file.
-        :type data: Union[list[PipelineData],
-            list[pyFAI.containers.IntegrateResult]]
+        :type data: list[PipelineData] |
+            list[pyFAI.containers.IntegrateResult]
         """
         # Third party modules
         from pyFAI.containers import Integrate1dResult, Integrate2dResult
 
         try:
             results = self.get_pipelinedata_item(data, remove=self.remove)
-        except Exception:
+        except ValueError:
             results = data
         if not isinstance(results, list):
             results = [results]
         if (not all([isinstance(r, Integrate1dResult) for r in results])
                and not all(
                    [isinstance(r, Integrate2dResult) for r in results])):
-            raise Exception(
+            raise ValueError(
                 'Bad input data: all items must have the same type -- either '
                 'all pyFAI.containers.Integrate1dResult, or all '
                 'pyFAI.containers.Integrate2dResult.')
@@ -754,14 +788,14 @@ class PyfaiResultsWriter(Writer):
                 self.logger.warning(f'Removing existing file {self.filename}')
                 os.remove(self.filename)
             else:
-                raise Exception(f'{self.filename} already exists.')
+                raise RuntimeError(f'{self.filename} already exists.')
         _, ext = os.path.splitext(self.filename)
         if ext.lower() == '.npz':
             self.write_npz(results, self.filename)
         elif ext.lower() == '.nxs':
             self.write_nxs(results, self.filename)
         else:
-            raise Exception(f'Unsupported file format: {ext}')
+            raise RuntimeError(f'Unsupported file format: {ext}')
         self.logger.info(f'Wrote to {self.filename}')
 
     def write_npz(self, results, filename):
@@ -788,8 +822,9 @@ class TXTWriter(Writer):
 
     :ivar append: Flag to allow data in `filename` to be be appended,
         defaults to `False`.
-    :type append: bool, optional
+    :vartype append: bool, optional
     """
+
     append: Optional[bool] = False
 
     def write(self, data):
@@ -810,6 +845,7 @@ class TXTWriter(Writer):
 
 class YAMLWriter(Writer):
     """Writer for YAML files from `dict`-s."""
+
     def write(self, data):
         """Write the last matching dictionary contained in `data` to
         file (the schema mush match is a schema is provided).
@@ -862,15 +898,19 @@ class YAMLWriter(Writer):
         self.status = 'written' # Right now does nothing yet, but could
                                 # add a sort of modification flag later
 
+       # Return provenance with the output file name added
+        return self._update_provenance(data)
+
 
 class ZarrValuesWriter(Writer):
-    """Writer for updating values in arrays of an existing Zarr
-    file.
+    """Writer for updating values in arrays of an existing
+    `Zarr <https://zarr.readthedocs.io/en/stable/>`__ file.
 
     :ivar path_prefix: Prefix to prepend to all "path" fields in
         `data` before writing. Defaults to `""`.
-    :type path_prefix: str, optional
+    :vartype path_prefix: str, optional
     """
+
     path_prefix: Optional[str] = ''
 
     def write(self, data):
@@ -883,6 +923,7 @@ class ZarrValuesWriter(Writer):
         :type data: list[PipelineData]
         """
         # Third party modules
+        # pylint: disable=import-error
         import zarr
 
         # Open file in append mode to allow modifications
@@ -897,9 +938,10 @@ class ZarrValuesWriter(Writer):
                 data=d['data'])
 
     def zarr_writer(self, zarrfile, path, idx, data):
-        """Write data to a specific Zarr dataset.
+        """Write data to a specific dataset.
 
-        This method writes `data` to a specified dataset within a Zarr
+        This method writes `data` to a specified dataset within a
+        `Zarr <https://zarr.readthedocs.io/en/stable/>`__
         file at the given index (`idx`). If the dataset does not
         exist, an error is raised. The method ensures that the shape
         of `data` matches the shape of the target slice before
@@ -940,12 +982,15 @@ class ZarrValuesWriter(Writer):
 
 
 class ZarrWriter(Writer):
-    """Writer for zarr groups."""
+    """Writer for `Zarr <https://zarr.readthedocs.io/en/stable/>`__
+    groups."""
+
     def write(self, data):
         # System modules
         import asyncio
 
         # Third party modules
+        # pylint: disable=import-error
         from zarr.core.buffer import default_buffer_prototype
         from zarr.storage import LocalStore
         from zarr.abc.store import Store

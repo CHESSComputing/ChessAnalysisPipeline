@@ -1,7 +1,7 @@
 config:
   root: examples/tomo
   inputdir: config
-  outputdir: hollow_brick
+  outputdir: reduced/hollow_brick
   interactive: true
   log_level: info
   profile: false
@@ -10,7 +10,7 @@ map:
 
   # Convert the CHESS style map
   - common.YAMLReader:
-      filename: map_id3a_brick.yaml
+      filename: map_id1a3_brick.yaml
       schema: common.models.map.MapConfig
   - common.MapProcessor:
       num_proc: 1
@@ -20,19 +20,19 @@ map:
       schema: tomofields
   - common.SpecReader:
       config:
-        station: id3a
+        station: id1a3
         experiment_type: TOMO
         spec_scans:
-        - spec_file: ../data/hollow_brick/spec.log
+        - spec_file: ../raw/hollow_brick/spec.log
           scan_numbers: 1
       detector_config:
         detectors:
           - id: sim
       schema: darkfield
   - common.SpecReader:
-      inputdir: ../data/hollow_brick
+      inputdir: ../raw/hollow_brick
       config:
-        station: id3a
+        station: id1a3
         experiment_type: TOMO
         spec_scans:
         - spec_file: spec.log
@@ -61,7 +61,7 @@ full_recon:
       force_overwrite: true
 
   - common.YAMLReader:
-      filename: find_center_id3a.yaml
+      filename: find_center_id1a3.yaml
       schema: tomo.models.TomoFindCenterConfig
   - tomo.TomoFindCenterProcessor:
 #      config:
@@ -82,7 +82,7 @@ full_recon:
       force_overwrite: true
 
   - common.YAMLReader:
-      filename: combine_data_id3a.yaml
+      filename: combine_data_id1a3.yaml
       schema: tomo.models.TomoCombineConfig
   - tomo.TomoCombineProcessor:
       save_figures: true
