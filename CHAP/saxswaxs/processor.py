@@ -745,7 +745,7 @@ class SetupProcessor(Processor):
         # pylint: enable=import-error
 
         # Local modules
-        from CHAP.common import (
+        from CHAP.common.processor import (
             MapProcessor,
             NexusToZarrProcessor,
         )
@@ -1238,7 +1238,7 @@ class UpdateValuesProcessor(Processor):
         import os
 
         # Local modules
-        from CHAP.common import MapSliceProcessor
+        from CHAP.common.map_utils import MapSliceProcessor
         from CHAP.pipeline import PipelineData
         #from CHAP.saxswaxs.processor import PyfaiIntegrationProcessor
 
@@ -1278,7 +1278,7 @@ class UpdateValuesProcessor(Processor):
         ).process(None, idx_slice=idx_slice)
 
         def _get_detector_data(values, name):
-            "Get the detector data."""
+            """Get the detector data."""
             for v in values:
                 if os.path.basename(v['path']) == name:
                     return v['data']
