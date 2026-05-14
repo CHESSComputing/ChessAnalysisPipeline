@@ -1234,6 +1234,7 @@ class UpdateValuesProcessor(Processor):
         # Pass detector data to PyfaiIntegration processor
         # Concatenate & return results
         # System modules
+        from copy import deepcopy
         import logging
         import os
 
@@ -1242,6 +1243,7 @@ class UpdateValuesProcessor(Processor):
         from CHAP.pipeline import PipelineData
         #from CHAP.saxswaxs.processor import PyfaiIntegrationProcessor
 
+        _data = deepcopy(data)
         def set_logger(pipeline_item):
             """Set the logger and logging handler for given pipeline
             item.
@@ -1286,7 +1288,7 @@ class UpdateValuesProcessor(Processor):
 
         # Use raw detector data as input to integration
         for d in self.detectors:
-            data.append(
+            _data.append(
                 PipelineData(
                     name=d.get_id(),
                     data=_get_detector_data(raw_values, d.get_id()),
@@ -1295,7 +1297,7 @@ class UpdateValuesProcessor(Processor):
         # Get integrated data
         processed_values = set_logger(
             PyfaiIntegrationProcessor(config=self.pyfai_config)
-        ).process(data, idx_slices=[idx_slice])
+        ).process(_data, idx_slices=[idx_slice])
 
         if self.raw_data:
             return raw_values + processed_values
