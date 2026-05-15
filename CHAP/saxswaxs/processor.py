@@ -499,7 +499,7 @@ class PyfaiIntegrationProcessor(Processor):
         init_var=True)
     config: PyfaiIntegrationConfig
 
-    def process(self, data, idx_slices=None):
+    def process(self, data):
         """Perform a set of integrations on 2D detector data.
 
         :param data: Input data.
@@ -516,18 +516,10 @@ class PyfaiIntegrationProcessor(Processor):
         # System modules
         import time
 
-        if idx_slices is None:
-            idx_slices = [{'start':0, 'step': 1}]
-
         # Organize input for integrations
         input_data = {d['name']: d['data']
             for d in [d for d in data if isinstance(d['data'], np.ndarray)]}
         ais = {ai.get_id(): ai for ai in self.config.azimuthal_integrators}
-
-        # Finalize idx slice for results
-        idx = tuple(slice(idx_slice.get('start'),
-                     idx_slice.get('stop'),
-                     idx_slice.get('step')) for idx_slice in idx_slices)
 
         # Perform integration(s), package results for ZarrResultsWriter
         results = []
@@ -544,7 +536,6 @@ class PyfaiIntegrationProcessor(Processor):
                 [
                     {
                         'path': f'{integration.name}/data/I',
-                        'idx': idx,
                         'data': np.asarray(result['intensities']),
                     },
                 ]
@@ -1297,7 +1288,7 @@ class UpdateValuesProcessor(Processor):
         # Get integrated data
         processed_values = set_logger(
             PyfaiIntegrationProcessor(config=self.pyfai_config)
-        ).process(_data, idx_slices=[idx_slice])
+        ).process(_data)
 
         if self.raw_data:
             return raw_values + processed_values
