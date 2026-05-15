@@ -16,6 +16,7 @@ from pydantic import (
     conlist,
     constr,
     field_validator,
+    model_validator,
 )
 
 # Local modules
@@ -762,11 +763,12 @@ class SliceNXdataReader(Reader):
     object and slices all fields according to the provided slicing
     parameters.
  
-    :ivar scan_number: SPEC scan number.
-    :vartype scan_number: int
+    :ivar scan_numbers: Numbers of scans from which to read slices of
+        raw data.
+    :vartype scan_numbers: list[int]
     """
-
-    scan_number: conint(ge=0)
+    scan_number: Optional[conint(gt=0)] = None
+    scan_numbers: Optional[conlist(item_type=conint(gt=0))] = None
 
     def read(self):
         """Reads a NeXus style
@@ -786,28 +788,87 @@ class SliceNXdataReader(Reader):
         from CHAP.common import NexusReader
         from CHAP.utils.general import nxcopy
 
+        # Read NXroot
         reader = NexusReader(**self.model_dump())
-        nxroot = nxcopy(reader.read())
-        nxdata = None
-        for nxname, nxobject in nxroot.items():
-            if isinstance(nxobject, NXentry):
-                nxdata = nxobject.data
-        if nxdata is None:
-            msg = 'Could not find NXdata group'
-            self.logger.error(msg)
-            raise ValueError(msg)
+        nxroot = reader.read()
 
-        indices = np.argwhere(
-            nxdata.SCAN_N.nxdata == self.scan_number).flatten()
-        for nxname, nxobject in nxdata.items():
-            if isinstance(nxobject, NXfield):
-                nxdata[nxname] = NXfield(
-                    value=nxobject.nxdata[indices],
-                    dtype=nxdata[nxname].dtype,
-                    attrs=nxdata[nxname].attrs,
-                )
+        # Locate NXentry
+        nxentry = next(
+            (obj for obj in nxroot.values() if isinstance(obj, NXentry)),
+            None,
+        )
+        if nxentry is None:
+            raise ValueError('Could not find NXentry group')
+        nxentry_nxpath = nxentry.nxpath
+        self.logger.info(f'Using NXentry at: {nxentry_nxpath}')
+
+        # Make a copy of the NXroot, excluding everything but the
+        # NXentry of interest. Do this so we can just slice the
+        # NXfields in place in the copy (because copy is not tied to
+        # the original input file).
+        exclude_nxpaths = []
+        for v in nxroot.values():
+            if v.nxpath != nxentry_nxpath:
+                exclude_nxpaths.append(v.nxpath)
+        nxroot = nxcopy(nxroot, exclude_nxpaths=exclude_nxpaths)
+        nxentry = nxroot[nxentry_nxpath]
+
+        # Locate NXdata containining the "SCAN_N" NXfield
+        nxdata = getattr(nxentry, 'data', None)
+        if nxdata is None:
+            self.logger.warning('NXdata group missing — searching fallback')
+
+            for v in nxentry.values():
+                if hasattr(v, 'SCAN_N'):
+                    nxdata = v
+                    break
+
+            if nxdata is None:
+                raise ValueError('Cannot find SCAN_N dataset')
+        self.logger.info(f'Using NXdata at: {nxdata.nxpath}')
+
+        # Get indicies of SCAN_N that match self.scan_number
+        scan_field = nxdata['SCAN_N'].nxdata
+        indices = np.flatnonzero(np.isin(scan_field, self.scan_numbers))
+
+        if indices.size == 0:
+            self.logger.warning(
+                f'scan_number {self.scan_number} not found in SCAN_N'
+            )
+        self.logger.info(f'Slicing NXfields with: {indices}')
+
+        # Slice only NXfields
+        for name, obj in list(nxdata.items()):
+            if isinstance(obj, NXfield):
+                self.logger.info(f'Slicing NXfield at: {obj.nxpath}')
+                nxdata[name] = obj[indices]
 
         return nxroot
+
+    @model_validator(mode='before')
+    @classmethod
+    def fill_scan_numbers(cls, data):
+        if not isinstance(data, dict):
+            return data
+        if 'scan_numbers' not in data or data['scan_numbers'] is None:
+            if data.get('scan_number') is not None:
+                data['scan_numbers'] = [data['scan_number']]
+        elif isinstance(data['scan_numbers'], int):
+            data['scan_numbers'] = [data['scan_numbers']]
+        elif isinstance(data['scan_numbers'], str):
+            from CHAP.utils.general import string_to_list
+            data['scan_numbers'] = string_to_list(data['scan_numbers'])
+        return data
+
+    @model_validator(mode='after')
+    def validate_scan_numbers(self):
+        if self.scan_numbers is None:
+            raise ValueError(
+                'scan_numbers is required; alternatively, provide scan_number')
+        if self.scan_number is not None \
+           and self.scan_number not in self.scan_numbers:
+            self.scan_numbers.append(self.scan_number)
+        return self
 
 class UpdateNXdataReader(Reader):
     """Companion to :class:`~CHAP.edd.reader.SetupNXdataReader` and

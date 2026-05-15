@@ -77,7 +77,7 @@ class Detector(CHAPBaseModel):
     """
 
     id_: constr(min_length=1) = Field(alias='id')
-    shape: Optional[tuple[int, int]] = None
+    shape: Optional[Union[tuple[int, int], tuple[int]]] = None
     attrs: Optional[dict] = {}
 
     @field_validator('id_', mode='before')
@@ -190,7 +190,7 @@ class SpecScans(CHAPBaseModel):
 
     spec_file: FilePath
     scan_numbers: Union[
-        constr(min_length=1), conlist(item_type=conint(gt=0), min_length=1)]
+        constr(min_length=1), conlist(item_type=conint(gt=0))]
     par_file: Optional[FilePath] = None
 
     @field_validator('spec_file')
@@ -417,9 +417,11 @@ class PointByPointScanData(CHAPBaseModel):
     label: constr(min_length=1)
     units: constr(strip_whitespace=True, min_length=1)
     data_type: Literal[
-        'expression', 'detector_log_timestamps', 'scan_column',
-        'scan_start_time', 'scan_step_index', 'smb_par', 'spec_motor',
-        'spec_motor_absolute', 'spec_motor_static']
+        'detector_log_timestamps', 'expression', 'scan_column',
+        'scan_number', 'scan_start_time', 'scan_step_index',
+        'smb_par', 'spec_motor', 'spec_motor_absolute',
+        'spec_motor_static'
+    ]
     name: constr(strip_whitespace=True, min_length=1)
     ndigits: Optional[conint(ge=0)] = None
 
@@ -625,6 +627,8 @@ class PointByPointScanData(CHAPBaseModel):
                 return scan_step_index
             scanparser = get_scanparser(spec_scans.spec_file, scan_number)
             return [i for i in range(scanparser.spec_scan_npts)]
+        if self.data_type == 'scan_number':
+            return scan_number
         return None
 
 @cache
@@ -838,7 +842,9 @@ def validate_data_source_for_map_config(data_source, info):
         if data_source is not None:
             values = info.data
             if data_source.data_type == 'expression':
-                data_source.validate_for_scalar_data(values['scalar_data'])
+                if 'scalar_data' in values:
+                    data_source.validate_for_scalar_data(
+                        values['scalar_data'])
             else:
                 import_scanparser(
                     values['station'], values['experiment_type'])
@@ -1221,6 +1227,18 @@ class MapConfig(CHAPBaseModel):
             data['attrs'] = {}
         return data
 
+    @model_validator(mode='after')
+    def validate_scalar_data_expressions(self):
+        """Validate any expression-type items in scalar_data against
+        the complete scalar_data list. This deferred check is necessary
+        because field validation of scalar_data runs before the list is
+        fully constructed.
+        """
+        for data_source in self.scalar_data:
+            if data_source.data_type == 'expression':
+                data_source.validate_for_scalar_data(self.scalar_data)
+        return self
+
     #RV maybe better to use model_validator, see v2 docs?
     @field_validator('attrs')
     @classmethod
@@ -1239,13 +1257,17 @@ class MapConfig(CHAPBaseModel):
         """
         # Get the map's scan_type for EDD experiments
         values = info.data
+        if not values['validate_data_present']:
+            return attrs
         station = values['station']
         experiment_type = values['experiment_type']
         if station in ['id1a3', 'id3a'] and experiment_type == 'EDD':
             scan_type = cls.get_smb_par_attr(values, 'scan_type')
             if scan_type is not None:
                 attrs['scan_type'] = scan_type
-            attrs['config_id'] = cls.get_smb_par_attr(values, 'config_id')
+            config_id = cls.get_smb_par_attr(values, 'config_id')
+            if config_id is not None:
+                attrs['config_id'] = config_id
             dataset_id = cls.get_smb_par_attr(
                 values, 'dataset_id', unique=False)
             if dataset_id is not None:
@@ -1297,6 +1319,8 @@ class MapConfig(CHAPBaseModel):
 #                        f'{scans.spec_file}.')
                     values.append(None)
         values = list(set(values))
+        if not values:
+            return None
         if len(values) == 1:
             return values[0]
         if unique:

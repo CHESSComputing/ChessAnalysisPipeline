@@ -965,6 +965,11 @@ class MapProcessor(Processor):
     :ivar num_proc: Number of processors used to read map,
         defaults to `1`.
     :vartype num_proc: int, optional
+    :ivar remove_constant_dims: Flag to indicate that any
+        `independent_dimension`s in the map whose values are constant
+        across the map should be exluded from the output
+        `NXentry`. Defaults to `True`.
+    :vartype remove_constant_dims: bool, optional
     """
 
     pipeline_fields: dict = Field(
@@ -975,6 +980,7 @@ class MapProcessor(Processor):
     config: Optional[MapConfig] = None
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
     num_proc: Optional[conint(gt=0)] = 1
+    remove_constant_dims: Optional[bool] = True
 
     @field_validator('num_proc')
     @classmethod
@@ -1054,7 +1060,7 @@ class MapProcessor(Processor):
             spec_scans = self.config.spec_scans[0]
             scan_numbers = spec_scans.scan_numbers
             num_scan = len(scan_numbers)
-            if num_scan < self.num_proc:
+            if 0 < num_scan < self.num_proc:
                 self.logger.warning(
                     f'Requested number of processors ({self.num_proc}) exceeds '
                     f'the number of scans ({num_scan}): reset it to {num_scan}')
@@ -1138,7 +1144,16 @@ class MapProcessor(Processor):
                 offset = common_comm.scatter(offsets, root=0)
 
             # Read the raw data
-            if self.config.experiment_type == 'EDD':
+            if num_scan == 0:
+                num_id = len(self.config.independent_dimensions)
+                num_sd = len(self.config.all_scalar_data)
+                num_det = len(self.detector_config.detectors)
+                if placeholder_data is not False:
+                    num_sd += 1
+                data = np.empty((num_det, 0))
+                independent_dimensions = np.empty((num_id, 0))
+                all_scalar_data = np.empty((num_sd, 0))
+            elif self.config.experiment_type == 'EDD':
                 data, independent_dimensions, all_scalar_data = \
                     self._read_raw_data_edd(
                         common_comm, num_scan, offset, placeholder_data)
@@ -1146,7 +1161,8 @@ class MapProcessor(Processor):
                 data, independent_dimensions, all_scalar_data = \
                     self._read_raw_data(common_comm, num_scan, offset)
             if not rank:
-                self.logger.debug(f'Data shape: {data.shape}')
+                self.logger.debug(
+                    f'Data shape: {data.shape if data is not None else None}')
                 if independent_dimensions is not None:
                     self.logger.debug('Independent dimensions shape: '
                                       f'{independent_dimensions.shape}')
@@ -1195,6 +1211,11 @@ class MapProcessor(Processor):
             all_scalar_data = np.empty(
                 (len(self.config.all_scalar_data), map_len))
             if len(self.detector_config.detectors) > 0:
+                if det_shapes is False:
+                    det_shapes = {}
+                    for det in self.detector_config.detectors:
+                        if det.shape is not None:
+                            det_shapes[det.get_id()] = det.shape
                 data = np.empty(
                     (len(self.detector_config.detectors),
                      map_len,
@@ -1343,35 +1364,63 @@ class MapProcessor(Processor):
             nxentry.attrs[k] = v
         nxentry.spec_scans = NXcollection()
         for scans in self.config.spec_scans:
-            nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
+            if len(scans.scanparsers) > 0:
+                key = scans.scanparsers[0].scan_name
+            else:
+                if str(scans.spec_file).endswith('spec.log'):
+                    key = str(scans.spec_file).split('/')[-2]
+                else:
+                    key = str(scans.spec_file).split('/')[-1]
+            nxentry.spec_scans[key] = \
                 NXfield(value=scans.scan_numbers,
                         dtype='int8',
                         attrs={'spec_file': str(scans.spec_file)})
+        nxentry.data = NXdata()
 
         # Add sample metadata
         nxentry[self.config.sample.name] = NXsample(
             **self.config.sample.model_dump())
 
-        # Set up independent dimensions NXdata group
-        # (squeeze out constant dimensions)
-        constant_dim = []
-        for i, dim in enumerate(self.config.independent_dimensions):
-            unique = np.unique(independent_dimensions[i])
-            if unique.size == 1:
-                constant_dim.append(i)
+        # Set up independent dimensions NeXus NXdata group
         nxentry.independent_dimensions = NXdata()
-        if len(constant_dim) < len(self.config.independent_dimensions):
+        if self.remove_constant_dims:
+            # (squeeze out constant dimensions)
+            constant_dim = []
             for i, dim in enumerate(self.config.independent_dimensions):
-                if i not in constant_dim:
-                    nxentry.independent_dimensions[dim.label] = NXfield(
-                        independent_dimensions[i], dim.label,
-                        attrs={'units': dim.units,
-                               'long_name': f'{dim.label} ({dim.units})',
-                               'data_type': dim.data_type,
-                               'local_name': dim.name})
+                unique = np.unique(independent_dimensions[i])
+                if unique.size == 1:
+                    constant_dim.append(i)
+            if len(constant_dim) < len(self.config.independent_dimensions):
+                for i, dim in enumerate(self.config.independent_dimensions):
+                    if i not in constant_dim or not self.remove_constant_dims:
+                        nxentry.independent_dimensions[dim.label] = NXfield(
+                            independent_dimensions[i], dim.label,
+                            attrs={'units': dim.units,
+                                   'long_name': f'{dim.label} ({dim.units})',
+                                   'data_type': dim.data_type,
+                                   'local_name': dim.name},
+                            maxshape=(None,
+                                      *independent_dimensions[i].shape[1:]),
+                            chunks=(1, *independent_dimensions[i].shape[1:])
+                        )
+            else:
+                nxentry.independent_dimensions.index = NXfield(
+                    np.arange(independent_dimensions[0].size), 'index',
+                    maxshape=(None,),
+                    chunks=(1,)
+                )
         else:
-            nxentry.independent_dimensions.index = NXfield(
-                np.arange(independent_dimensions[0].size), 'index')
+            for i, dim in enumerate(self.config.independent_dimensions):
+                nxentry.independent_dimensions[dim.label] = NXfield(
+                    independent_dimensions[i], dim.label,
+                    attrs={'units': dim.units,
+                           'long_name': f'{dim.label} ({dim.units})',
+                           'data_type': dim.data_type,
+                           'local_name': dim.name},
+                    maxshape=(None,
+                              *independent_dimensions[i].shape[1:]),
+                    chunks=(1, *independent_dimensions[i].shape[1:])
+                )
 
         # Set up scalar data NXdata group
         # (add the constant independent dimensions)
@@ -1387,7 +1436,11 @@ class MapProcessor(Processor):
                 units=dim.units,
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
-                       'local_name': dim.name}))
+                       'local_name': dim.name},
+                maxshape=(None, *all_scalar_data[i].shape[1:]),
+                chunks=(1, *all_scalar_data[i].shape[1:])
+            ))
+
         if (self.config.experiment_type == 'EDD'
                 and not placeholder_data is False):
             scalar_signals.append('placeholder_data_used')
@@ -1395,23 +1448,31 @@ class MapProcessor(Processor):
                 value=all_scalar_data[-1],
                 attrs={'description':
                     'Indicates whether placeholder data may be present for'
-                    'the corresponding frames of detector data.'}))
-        for i, dim in enumerate(deepcopy(self.config.independent_dimensions)):
-            if i in constant_dim:
-                scalar_signals.append(dim.label)
-                scalar_data.append(NXfield(
-                    independent_dimensions[i], dim.label,
-                    attrs={'units': dim.units,
-                           'long_name': f'{dim.label} ({dim.units})',
-                           'data_type': dim.data_type,
-                           'local_name': dim.name}))
-                self.config.all_scalar_data.append(
-                    PointByPointScanData(**dim.model_dump()))
-                self.config.independent_dimensions.remove(dim)
+                    'the corresponding frames of detector data.'},
+                maxshape=(None, *all_scalar_data[-1].shape[1:]),
+                chunks=(1, *all_scalar_data[-1].shape[1:])
+            ))
+        if self.remove_constant_dims:
+            for i, dim in enumerate(deepcopy(self.config.independent_dimensions)):
+                if i in constant_dim:
+                    scalar_signals.append(dim.label)
+                    scalar_data.append(NXfield(
+                        independent_dimensions[i], dim.label,
+                        attrs={'units': dim.units,
+                               'long_name': f'{dim.label} ({dim.units})',
+                               'data_type': dim.data_type,
+                               'local_name': dim.name},
+                        maxshape=(None, *independent_dimensions[i].shape[1:]),
+                        chunks=(1, *independent_dimensions[i].shape[1:])
+                    ))
+                    self.config.all_scalar_data.append(
+                        PointByPointScanData(**dim.model_dump()))
+                    self.config.independent_dimensions.remove(dim)
         if scalar_signals:
             nxentry.scalar_data = NXdata()
             for k, v in zip(scalar_signals, scalar_data):
                 nxentry.scalar_data[k] = v
+                nxentry.data.makelink(nxentry.scalar_data[k])
             if 'SCAN_N' in scalar_signals:
                 nxentry.scalar_data.attrs['signal'] = 'SCAN_N'
             else:
@@ -1420,19 +1481,25 @@ class MapProcessor(Processor):
             nxentry.scalar_data.attrs['auxiliary_signals'] = scalar_signals
 
         # Add detector data
-        nxdata = NXdata()
-        nxentry.data = nxdata
+        nxdata = nxentry.data
         nxentry.data.set_default()
         detector_ids = []
         for k, v in self.config.attrs.items():
             nxdata.attrs[k] = v
         if data is not None:
-            min_ = np.min(data, axis=tuple(range(1, data.ndim)))
-            max_ = np.max(data, axis=tuple(range(1, data.ndim)))
+            if data.size > 0:
+                min_ = np.min(data, axis=tuple(range(1, data.ndim)))
+                max_ = np.max(data, axis=tuple(range(1, data.ndim)))
+            else:
+                min_ = np.full(len(self.detector_config.detectors), np.nan)
+                max_ = np.full(len(self.detector_config.detectors), np.nan)
         for i, detector in enumerate(self.detector_config.detectors):
             nxdata[detector.get_id()] = NXfield(
                 value=data[i],
-                attrs={**detector.attrs, 'min': min_[i], 'max': max_[i]})
+                attrs={**detector.attrs, 'min': min_[i], 'max': max_[i]},
+                maxshape=(None, *data[i].shape[1:]),
+                chunks=(1, *data[i].shape[1:])
+            )
             detector_ids.append(detector.get_id())
         linkdims(nxdata, nxentry.independent_dimensions)
         if len(self.detector_config.detectors) == 1:

@@ -6,7 +6,11 @@ workflows.
 
 # System modules
 import os
-from typing import Optional
+from typing import (
+    Literal,
+    Optional,
+    Union,
+)
 
 # Third party modules
 import numpy as np
@@ -22,6 +26,8 @@ from CHAP.writer import (
     Writer,
     validate_writer_model,
 )
+from CHAP.common.models import IndexSliceConfig
+
 
 
 def validate_model(model):
@@ -427,6 +433,62 @@ class ImageWriter(PipelineItem):
             raise ValueError(f'Invalid image input type {type(image_data)}')
 
 
+class JSONWriter(Writer):
+    """Writer for JSON data.
+
+    :ivar index: Index of ``PipelineData`` item in input ``data`` list
+        that should be written to the JSON file. Defaults to ``-1``.
+    :vartpe index: int, Optional.
+    :ivar update: Update an existing file with new values, overwriting
+        the existing file's values. Defaults to ``False``.
+    :vartype update: bool, optional
+    :ivar extend: Extend the values in an existing file, adding to the
+        existing file's value lists. Defaults to ``False``.
+    :vartype extend: bool, optional
+    """
+    index: int = -1
+    update: Optional[bool] = False
+    extend: Optional[bool] = False
+
+    def write(self, data):
+        """Write the last """
+        import json
+
+        _data = self.get_pipelinedata_item(
+            data,
+            index=self.index,
+            remove=self.remove,
+        )
+
+        write_data = _data
+        if self.update:
+            try:
+                with open(self.filename, 'r') as inf:
+                    write_data = json.load(inf)
+            except:
+                self.logger.warning(f'Could not load JSON from {self.filename}')
+                write_data = {}
+            if self.extend:
+                for k, v in _data.items():
+                    if k in write_data:
+                        if not isinstance(write_data[k], list):
+                            write_data[k] = [write_data[k]]
+                        write_data[k].extend(v)
+                    else:
+                        write_data[k] = v
+            else:
+                write_data.update(_data)
+
+        with open(self.filename, 'w') as outf:
+            json.dump(write_data, outf)
+
+    @model_validator(mode='after')
+    def validate_modes(self):
+        if self.extend and not self.update:
+            self.update = True
+        return self
+
+
 class MatplotlibAnimationWriter(Writer):
     """Writer for saving `Matplotlib <https://matplotlib.org>`__
     animations.
@@ -563,20 +625,36 @@ class NexusWriter(Writer):
 
 
 class NexusValuesWriter(Writer):
-    """Writer for updating values in an existing
-    `NeXus <https://www.nexusformat.org>`__ file."""
+    """Writer for updating values in an existing NeXus file.
 
-    def write(self, data, filename, path_prefix=''):
-        """Write new values specified in `data` to the exising
-        `NeXus <https://www.nexusformat.org>`__ file `filename`.
+    :ivar path_prefix: Prefix to use for all paths in input `data`,
+        defaults to `''`.
+    :vartype path_prefix: str, optional
+    :ivar resize_axis: `False` OR the axis along which the dataset
+        should be resized if the target slice shape does not match the
+        data shape. If `False`, any mismatching shapes will just raise
+        an error. Defaults to `False`.
+    :vartype resize_axis: Union[int, Literal[False]], optional
+    :ivar idx_slice: Configuration for a slice object that will be
+        used to select the slice of the target array to write to. Used
+        only if the `"idx"` key is not present for an item in the
+        newest `PipelineData` item in `data`. Defaults to
+        `IndexSliceConfig()`.
+    :vartype idx_slice: CHAP.common.models.IndexSliceConfig, optional
+    """
+    path_prefix: str = ''
+    resize_axis: Union[int, Literal[False]] = False
+    idx_slice: Optional[IndexSliceConfig] = IndexSliceConfig()
 
-        :param data: List of dictionaries with the following entries --
-            `'path'` identifying the location of the NeXus style
-            `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
-            object to which values will be written, `'data'`
-            identifying the data to be written, and `'idx'`
-            identifying the index / indicies of the NXfield to which
-            the data will be written.
+    def write(self, data, filename):
+        """Write new values specified in `data` to the exising NeXus
+        file `filename`.
+
+        :param data: List of dictionaries with the following entries
+        -- `'path'` identifying the location of the `NXfield` object
+        to which values will be written, `'data'` identifying the data
+        to be written, and `'idx'` identifying the index / indicies of
+         the `NXfield` to which the data will be written.
         :type data: list[PipelineData]
         :param filename: Name of an existing NeXus file to update.
         :type filename: str
@@ -588,14 +666,17 @@ class NexusValuesWriter(Writer):
         from nexusformat.nexus import NXFile
 
         data = self.get_pipelinedata_item(data, remove=self.remove)
-        for d in data:
-            with NXFile(filename, 'a') as nxroot:
-                self.nxs_writer(
-                    nxroot=nxroot,
-                    path=os.path.join(path_prefix, d['path']),
-                    idx=d['idx'],
-                    data=d['data']
-                )
+        with NXFile(filename, 'a') as nxroot:
+            for d in data:
+                try:
+                    self.nxs_writer(
+                        nxroot=nxroot,
+                        path=os.path.join(self.path_prefix, d['path']),
+                        idx=d.get('idx', self.idx_slice._slice),
+                        data=d['data']
+                    )
+                except Exception as exc:
+                    self.logger.error(exc)
 
     def nxs_writer(self, nxroot, path, idx, data):
         """Write data to a specific
@@ -613,8 +694,8 @@ class NexusValuesWriter(Writer):
         :type nxroot: nexusformat.nexus.NXroot
         :param path: Path to the dataset inside the NeXus file.
         :type path: str
-        :param idx: Index or slice where the data should be written.
-        :type idx: tuple or int
+        :param idx: Slice where the data should be written.
+        :type idx: slice
         :param data: Data to be written to the specified slice in the
             dataset.
         :type data: numpy.ndarray or compatible array-like object
@@ -630,13 +711,39 @@ class NexusValuesWriter(Writer):
 
         # Access the specified dataset
         dataset = nxroot[path]
+        self.logger.debug(
+            f'chunks, maxshape = {dataset.chunks}, {dataset.maxshape}'
+        )
 
-        # Check that the slice shape matches the data shape
         data = np.asarray(data)
+
+        # Check the datatype
+        if data.dtype != dataset.dtype:
+            self.logger.warning(
+                f'Converting new data (type: {data.dtype}) to {dataset.dtype}'
+            )
+            data = data.astype(dataset.dtype)
+
+        # Check the shape
+        self.logger.debug(
+            f'data shape, target shape = {data.shape}, {dataset[idx].shape}'
+        )
         if dataset[idx].shape != data.shape:
-            raise ValueError(
-                f'Data shape {data.shape} does not match the target slice '
-                f'shape {dataset[idx].shape}.')
+            if self.resize_axis is not False:
+                # Resize along the specified axis
+                start = idx.start or 0
+                stop = start + data.shape[0]
+                newshape = max(dataset.shape[self.resize_axis], stop)
+                self.logger.debug(
+                    f'Resizing {path} {dataset.shape} -> {newshape} '
+                    + f'along axis {self.resize_axis}'
+                )
+
+                dataset.resize(newshape, axis=self.resize_axis)
+            else:
+                raise ValueError(
+                    f'Data shape {data.shape} does not match the target slice '
+                    f'shape {dataset[idx].shape}.')
 
         # Write the data to the specified slice
         dataset[idx] = data
@@ -757,7 +864,7 @@ class YAMLWriter(Writer):
         from CHAP.models import CHAPBaseModel
 
         def get_dict(data):
-            if isinstance(data, dict):
+            if isinstance(data, dict) or isinstance(data, list):
                 return data
             if isinstance(data, (BaseModel, CHAPBaseModel)):
                 try:
