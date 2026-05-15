@@ -26,7 +26,7 @@ from CHAP.writer import (
     Writer,
     validate_writer_model,
 )
-from CHAP.common.models import IndexSliceConfig
+from CHAP.common.models.common import IndexSliceConfig
 
 
 
@@ -640,7 +640,7 @@ class NexusValuesWriter(Writer):
         only if the `"idx"` key is not present for an item in the
         newest `PipelineData` item in `data`. Defaults to
         `IndexSliceConfig()`.
-    :vartype idx_slice: CHAP.common.models.IndexSliceConfig, optional
+    :vartype idx_slice: CHAP.common.models.common.IndexSliceConfig, optional
     """
     path_prefix: str = ''
     resize_axis: Union[int, Literal[False]] = False
