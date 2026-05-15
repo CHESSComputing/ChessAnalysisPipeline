@@ -22,6 +22,7 @@ from pydantic import (
 import numpy as np
 
 # Local modules
+from CHAP.common.models.common import IndexSliceConfig
 from CHAP.common.models.map import (
     Detector,
     MapConfig,
@@ -1211,8 +1212,9 @@ class UpdateValuesProcessor(Processor):
     scan_number: conint(gt=0)
     detectors: conlist(item_type=Detector, min_length=1)
     raw_data: Optional[bool] = True
+    idx_slice: Optional[IndexSliceConfig] = IndexSliceConfig()
 
-    def process(self, data, idx_slice=None):
+    def process(self, data):
         """Processes a slice of data for updating values in an existing
         container for a SAXS/WAXS experiment.
 
@@ -1266,18 +1268,16 @@ class UpdateValuesProcessor(Processor):
             pipeline_item.logger.addHandler(handler)
             return pipeline_item
 
-        if idx_slice is None:
-            idx_slice = {'start':0, 'step': 1}
-
         # Read in slice of raw data
         raw_values = set_logger(
             MapSliceProcessor(
                 map_config=self.map_config,
                 detectors=self.detectors,
                 spec_file=str(self.spec_file),
-                scan_number=self.scan_number,
+                scan_numbers=[self.scan_number],
+                idx_slice=self.idx_slice
             )
-        ).process(None, idx_slice=idx_slice)
+        ).process(None)
 
         def _get_detector_data(values, name):
             """Get the detector data."""

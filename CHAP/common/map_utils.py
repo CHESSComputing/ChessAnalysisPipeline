@@ -13,6 +13,7 @@ from pydantic import (
 from typing import Optional
 
 # Local modules
+from CHAP.common.models.common import IndexSliceConfig
 from CHAP.common.models.map import (
     Detector,
     MapConfig,
@@ -65,6 +66,9 @@ class MapSliceProcessor(Processor):
     :ivar scan_numbers: Numbers of scans from which to read slices of
         raw data.
     :vartype scan_numbers: list[int]
+    :ivar idx_slice: Parameters for the slice of each scan to process
+        Defaults to `IndexSliceConfig()`.
+    :vartype idx_slice: CHAP.common.models.common.IndexSliceConfig, optional
     """
 
     pipeline_fields: dict = Field(
@@ -77,9 +81,9 @@ class MapSliceProcessor(Processor):
     spec_file: FilePath
     scan_number: Optional[conint(gt=0)] = None
     scan_numbers: Optional[conlist(item_type=conint(gt=0))] = None
+    idx_slice: Optional[IndexSliceConfig] = IndexSliceConfig()
 
-    def process(self, data,
-                idx_slice={'start': 0, 'step': 1}):
+    def process(self, data):
 
         """Aggregate partial spec and detector data from one or more
         scans in a map, returning results in a format suitable for
@@ -96,11 +100,6 @@ class MapSliceProcessor(Processor):
             has the value `'common.models.map.MapConfig'` for the
             `'schema'` key.
         :type data: list[PipelineData]
-        :param idx_slice: Parameters for the slice of each scan to
-            process (slice parameters are the usual for the python
-            `slice` object: `'start'`, `'stop'`, and `'step'`).
-            Defaults to `{'start': 0, 'step': 1}`.
-        :type idx_slice: dict[str, int], optional
         :return: Slice of map data, ready to be written to a map
              container.
         :rtype: list[dict[str, Any]]
@@ -143,8 +142,8 @@ class MapSliceProcessor(Processor):
         sorted_scan_numbers = sorted(
             self.scan_numbers, key=lambda sn: scan_positions[sn])
 
-        slice_start = idx_slice.get('start', 0)
-        slice_step = idx_slice.get('step', 1)
+        slice_start = self.idx_slice._slice.start
+        slice_step = self.idx_slice._slice.step
 
         # Collect per-scan metadata; assumes uniform npts across scans
         # for index_offset calculation (index_offset = map_pos * npts)
@@ -154,7 +153,8 @@ class MapSliceProcessor(Processor):
             npts_scan = int(scan.spec_scan_npts)
             index_offset = scan_positions[sn] * npts_scan
             # Cap stop at npts_scan so map_indices and data stay in sync
-            slice_stop = min(idx_slice.get('stop', npts_scan), npts_scan)
+            slice_stop = min(self.idx_slice._slice.stop, npts_scan) \
+                if self.idx_slice._slice.stop > 0 else npts_scan
             scan_indices = range(npts_scan)[
                 slice(slice_start, slice_stop, slice_step)]
             map_indices = slice(
