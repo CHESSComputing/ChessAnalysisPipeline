@@ -575,7 +575,7 @@ class SetupResultsProcessor(Processor):
         },
         init_var=True)
     config: PyfaiIntegrationConfig
-    dataset_shape: conlist(item_type=conint(gt=0), min_length=1)
+    dataset_shape: conlist(item_type=conint(ge=0), min_length=1)
     dataset_chunks: Optional[
         Union[
             Literal['auto'],
@@ -704,9 +704,9 @@ class SetupProcessor(Processor):
     # Pipeline to pass validation.
     map_config: MapConfig = None
     pyfai_config: PyfaiIntegrationConfig
-    detectors: conlist(item_type=Detector, min_length=1)
+    detectors: conlist(item_type=Detector, min_length=0)
     dataset_shape: Optional[
-        conlist(item_type=conint(gt=0), min_length=1)] = None
+        conlist(item_type=conint(ge=0), min_length=1)] = None
     dataset_chunks: Optional[
         Union[
             Literal['auto'],
@@ -768,7 +768,8 @@ class SetupProcessor(Processor):
 
         # Get NXroot container for raw data map
         map_processor_kwargs = {
-            'config': self.map_config
+            'config': self.map_config,
+            'remove_constant_dims': False,
         }
         if self.raw_data:
             map_processor_kwargs['detector_config'] = {
@@ -778,13 +779,9 @@ class SetupProcessor(Processor):
             map_processor_kwargs['detector_config'] = {
                 'detectors': []
             }
-        setup_map_processor = set_logger(
-            MapProcessor(
-                **map_processor_kwargs
-                # config=self.map_config,
-                # detector_config={'detectors': self.detectors},
-            )
-        )
+            self.map_config.spec_scans[0].scan_numbers = []
+
+        setup_map_processor = set_logger(MapProcessor(**map_processor_kwargs))
         ddata = [
             PipelineData(
                 data=setup_map_processor.process(
