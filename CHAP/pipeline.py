@@ -88,7 +88,7 @@ class PipelineItem(RunConfig):
             log_handler.setFormatter(logging.Formatter(
                 '{asctime}: {name:20}: {levelname}: {message}',
                 datefmt='%Y-%m-%d %H:%M:%S', style='{'))
-            self.logger.addHandler(log_handler)
+            self.logger.handlers = [log_handler]
         self.logger.setLevel(self.log_level)
         # Optinal, but it's already available in the 'name' field
         #if self.get_schema() is None:
