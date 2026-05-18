@@ -86,7 +86,7 @@ class PipelineItem(RunConfig):
             self.logger.propagate = False
             log_handler = logging.StreamHandler()
             log_handler.setFormatter(logging.Formatter(
-                '{asctime}: {name:20}: {levelname}: {message}',
+                '{asctime}: {name:20} (L{lineno}): {levelname}: {message}',
                 datefmt='%Y-%m-%d %H:%M:%S', style='{'))
             self.logger.handlers = [log_handler]
         self.logger.setLevel(self.log_level)
