@@ -58,9 +58,8 @@ class MapSliceProcessor(Processor):
 
     :ivar map_config: Map configuration.
     :vartype map_config: MapConfig
-    :ivar detectors: Detector configurations.
-    :vartype detectors:
-        list[:class:`~CHAP.common.models.map.Detector`]
+    :ivar detector_config: Detector configurations.
+    :vartype detector_config: :class:`~CHAP.common.models.map.DetectorConfig`
     :ivar spec_file: SPEC file containing scan from which to read a
         slice of raw data.
     :vartype spec_file: pydantic.FilePath
