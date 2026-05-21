@@ -24,12 +24,21 @@ import numpy as np
 # Local modules
 from CHAP.common.models.common import IndexSliceConfig
 from CHAP.common.models.map import (
+    DetectorConfig,
     Detector,
     MapConfig,
 )
 from CHAP.common.models.integration import PyfaiIntegrationConfig
 from CHAP.common.processor import ExpressionProcessor
 from CHAP.processor import Processor
+from CHAP.pipeline import PipelineData
+from CHAP.saxswaxs.models import (
+    CorrectionsConfig,
+    FluxCorrectionConfig,
+    FluxAbsorptionCorrectionConfig,
+    FluxAbsorptionBackgroundCorrectionConfig,
+)
+from CHAP.saxswaxs.utils import dict_to_zarr
 
 
 class CfProcessor(Processor):
@@ -216,7 +225,7 @@ class CfProcessor(Processor):
 
 class FluxCorrectionProcessor(ExpressionProcessor):
     """Processor for flux correction."""
-
+    config: FluxCorrectionConfig
     def process(
             self, data, presample_intensity_reference_rate=None,
             nxprocess=False):
@@ -252,7 +261,7 @@ class FluxCorrectionProcessor(ExpressionProcessor):
             data, name='presample_intensity',
         )
         intensity = self.get_data(
-            data, name='intensity',
+            data, name=self.config.uncorrected_data_name,
         )
         # nxfieldtable = {
         #     'intensity': intensity,
@@ -287,7 +296,7 @@ class FluxCorrectionProcessor(ExpressionProcessor):
 
 class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
     """Processor for flux and absorption correction."""
-
+    config: FluxAbsorptionCorrectionConfig
     def process(
             self, data, presample_intensity_reference_rate=None,
             nxprocess=False):
@@ -316,7 +325,7 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
         :rtype: Any
         """
         intensity = self.get_data(
-            data, name='intensity',
+            data, name=self.config.uncorrected_data_name, #'intensity',
         )
 
         if presample_intensity_reference_rate is None:
@@ -366,7 +375,7 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
 class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
     """Processor for flux, absorption, and background correction as
     well as optional thickness correction."""
-
+    config: FluxAbsorptionBackgroundCorrectionConfig
     def process(
             self, data, presample_intensity_reference_rate=None,
             sample_thickness_cm=None, sample_mu_inv_cm=None, nxprocess=False):
@@ -414,7 +423,7 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
             ))
 
         intensity = self.get_data(
-            data, name='intensity',
+            data, name=self.config.uncorrected_data_name,
         )
 
         if presample_intensity_reference_rate is None:
@@ -543,119 +552,6 @@ class PyfaiIntegrationProcessor(Processor):
         return results
 
 
-class SetupResultsProcessor(Processor):
-    """Processor for creating an intital
-    `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
-    object with empty datasets for filling in by
-    :class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor` and
-    :class:`~CHAP.common.ZarrValuesWriter`.
-
-    :ivar config: Initialization parameters for an instance of
-        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
-    :vartype config: dict
-    :ivar dataset_shape: Shape of the completed dataset that will be
-        processed later on (shape of the measurement itself, _not_
-        including the dimensions of any signals collected at each point
-        in that measurement).
-    :vartype dataset_shape: int or list[int]
-    :ivar dataset_chunks: Extent of chunks along each dimension of the
-        completed dataset / measurement. Choose this according to how
-        you will process your data -- for example, if your
-        `dataset_shape` is `[m, n]`, and you are planning to process
-        each of the `m` rows as chunks, `dataset_chunks` should be
-        `[1, n]`. But if you plan to process each of the `n` columns as
-        chunks, `dataset_chunks` should be `[m, 1]`,
-        defaults to `"auto"`.
-    :vartype dataset_chunks: list[int] or Literal["auto"], optional
-    """
-
-    pipeline_fields: dict = Field(
-        default={
-            'config': 'common.models.integration.PyfaiIntegrationConfig'
-        },
-        init_var=True)
-    config: PyfaiIntegrationConfig
-    dataset_shape: conlist(item_type=conint(ge=0), min_length=1)
-    dataset_chunks: Optional[
-        Union[
-            Literal['auto'],
-            conlist(item_type=conint(gt=0), min_length=1)
-        ]] = 'auto'
-
-    def process(self, data):
-        """Create and return a
-        `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
-        object to hold processed SAXS/WAXS data processed
-        by :class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
-
-        :param data: Input data.
-        :type data: list[PipelineData]
-        :return: Empty structure for filling in SAXS/WAXS data.
-        :rtype: zarr.Group
-        """
-
-        # Get Zarr tree as dict from the PyfaiIntegrationConfig
-        tree = self.config.zarr_tree(self.dataset_shape, self.dataset_chunks)
-
-        # Construct & return the root Zarr group
-        return self.zarr_setup(tree)
-
-    def zarr_setup(self, tree):
-        """Create a
-        `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
-        object based on a dictionary representing a Zarr tree of groups
-        and arrays.
-
-        :param tree: Nested dictionary representing a Zarr tree of
-            groups and arrays.
-        :type tree: dict[str, Any]
-        :return: Zarr group corresponding to the contents of `tree`.
-        :rtype: zarr.Group
-        """
-        # Third party modules
-        # pylint: disable=import-error
-        import zarr
-        from zarr.storage import MemoryStore
-
-        def create_group_or_dataset(node, zarr_parent, indent=0):
-            """Create and return a
-            `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
-            `Zarr dataset <https://zarr.readthedocs.io/en/stable/api/zarr/array/#zarr.Array>`__.
-
-            :param node: Child Zarr tree group.
-            :type node: zarr.Group or zarr.Array
-            :param zarr_parent: Parent Zarr tree group.
-            :type zarr_parent: zarr.Group
-            :param indent: Indentation level, defaults to 0.
-            :type indent: int, optional
-            """
-            # Set attributes if present
-            if 'attributes' in node:
-                for key, value in node['attributes'].items():
-                    zarr_parent.attrs[key] = value
-            # Create children (groups or datasets)
-            if 'children' in node:
-                for name, child in node['children'].items():
-                    if 'shape' in child or 'data' in child:
-                        # It's a dataset
-                        self.logger.debug(f'Adding dset: {name}')
-                        zarr_parent.create_dataset(
-                            name,
-                            **child,
-                        )
-                        # Set dataset attributes
-                        if 'attributes' in child:
-                            for key, value in child['attributes'].items():
-                                zarr_parent[name].attrs[key] = value
-                    else:
-                        # It's a group
-                        group = zarr_parent.create_group(name)
-                        create_group_or_dataset(child, group, indent=indent+2)
-        results = zarr.create_group(store=MemoryStore({}))
-        create_group_or_dataset(tree['root'], results)
-        return results
-
-
 class SetupProcessor(Processor):
     """Convenience Processor for setting up a container for SAXS/WAXS
     experiments.
@@ -666,13 +562,13 @@ class SetupProcessor(Processor):
     :ivar pyfai_config: Initialization parameters for an instance of
         :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
     :vartype pyfai_config: dict, optional
-    :ivar detectors: Detector configurations.
-    :vartype detectors: DetectorConfig
+    :ivar detector_config: Detector configurations.
+    :vartype detector_config: DetectorConfig
     :ivar dataset_shape: Shape of the completed dataset that will be
         processed later on (shape of the measurement itself, _not_
         including the dimensions of any signals collected at each point
-        in that measurement).
-    :vartype dataset_shape: int or list[int]
+        in that measurement). Defaults to `[0]`.
+    :vartype dataset_shape: int or list[int], optional
     :ivar dataset_chunks: Extent of chunks along each dimension of the
         completed dataset / measurement. Choose this according to how
         you will process your data -- for example, if your
@@ -695,7 +591,9 @@ class SetupProcessor(Processor):
     pipeline_fields: dict = Field(
         default={
             'map_config': 'common.models.map.MapConfig',
-            'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig'
+            'detector_config': 'common.models.map.DetectorConfig',
+            'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig',
+            'correction_config': 'saxswaxs.models.CorrectionsConfig',
         },
         init_var=True)
     # map_config needs a default value because the map configuration
@@ -704,9 +602,10 @@ class SetupProcessor(Processor):
     # Pipeline to pass validation.
     map_config: MapConfig = None
     pyfai_config: PyfaiIntegrationConfig
-    detectors: conlist(item_type=Detector, min_length=0)
+    detector_config: DetectorConfig = DetectorConfig(detectors=[])
+    correction_config: CorrectionsConfig
     dataset_shape: Optional[
-        conlist(item_type=conint(ge=0), min_length=1)] = None
+        conlist(item_type=conint(ge=0), min_length=1)] = [0]
     dataset_chunks: Optional[
         Union[
             Literal['auto'],
@@ -742,46 +641,19 @@ class SetupProcessor(Processor):
             NexusToZarrProcessor,
         )
         from CHAP.pipeline import PipelineData
-        #from CHAP.saxswaxs.processor import SetupResultsProcessor
-
-        def set_logger(pipeline_item):
-            """Set the logger and logging handler for given pipeline
-            item.
-
-            :param pipeline_item: Pipeline item.
-            :type pipeline_item: PipelineItem
-            :return: Input Pipeline item, with updated logger and
-                logging handler.
-            :rtype: PipelineItem
-            """
-            pipeline_item.logger = self.logger
-            pipeline_item.logger.name = pipeline_item.__class__.__name__
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter(
-                '{asctime}: {name:20} (from '+ self.__class__.__name__
-                + '): {levelname}: {message}',
-                datefmt='%Y-%m-%d %H:%M:%S', style='{'))
-            pipeline_item.logger.removeHandler(
-                pipeline_item.logger.handlers[0])
-            pipeline_item.logger.addHandler(handler)
-            return pipeline_item
 
         # Get NXroot container for raw data map
         map_processor_kwargs = {
             'config': self.map_config,
+            'detector_config': self.detector_config,
             'remove_constant_dims': False,
         }
-        if self.raw_data:
-            map_processor_kwargs['detector_config'] = {
-                'detectors': self.detectors
-            }
-        else:
-            map_processor_kwargs['detector_config'] = {
-                'detectors': []
-            }
+        if not self.raw_data:
             self.map_config.spec_scans[0].scan_numbers = []
 
-        setup_map_processor = set_logger(MapProcessor(**map_processor_kwargs))
+        setup_map_processor = self.setup_pipelineitem(
+            MapProcessor(**map_processor_kwargs)
+        )
         ddata = [
             PipelineData(
                 data=setup_map_processor.process(
@@ -813,18 +685,124 @@ class SetupProcessor(Processor):
             self.dataset_chunks = [self.dataset_chunks]
 
         # Convert raw data map container to Zarr format
-        ddata_converter = set_logger(NexusToZarrProcessor())
+        ddata_converter = self.setup_pipelineitem(NexusToZarrProcessor())
         zarr_map = ddata_converter.process(ddata, chunks=self.dataset_chunks)
 
-        # Get Zarr container for integration results
-        setup_results_processor = set_logger(
-            SetupResultsProcessor(
-                config=self.pyfai_config,
-                dataset_shape=self.dataset_shape,
-                dataset_chunks=self.dataset_chunks,
-            )
+        # Get paths to independent_dimension arrays
+        dim_paths = [
+            f'{self.map_config.title}/independent_dimensions/{dim.label}'
+            for dim in self.map_config.independent_dimensions
+        ]
+
+        # Get Zarr container for pyfai integrations
+        zarr_pyfai_tree = self.pyfai_config.zarr_tree(
+            self.dataset_shape, self.dataset_chunks,
+            nxlinks=dim_paths
         )
-        zarr_results = setup_results_processor.process(data)
+        zarr_pyfai = dict_to_zarr(zarr_pyfai_tree, logger=self.logger)
+
+
+        # Get zarr container for corrected datasets
+        integration_shapes = {
+            integration.name: integration.result_shape
+            for integration in self.pyfai_config.integrations
+        }
+        intg_by_name = {
+            intg.name: intg for intg in self.pyfai_config.integrations
+        }
+        corr_nxlinks = {
+            corr.name: (
+                dim_paths
+                + [f'{corr.uncorrected_data_name}/data/I']
+                + [
+                    f'{corr.uncorrected_data_name}/data/{coord}'
+                    for coord in intg_by_name[
+                        corr.uncorrected_data_name].result_coords
+                ]
+            )
+            for corr in self.correction_config.corrections
+        }
+        zarr_corr = dict_to_zarr(
+            self.correction_config.zarr_tree(
+                self.dataset_shape, self.dataset_chunks,
+                integration_shapes,
+                nxlinks=corr_nxlinks,
+            ),
+            logger=self.logger,
+        )
+
+        # For corrections that include a background, read and integrate
+        # that background data and store it in zarr_corr
+        for corr_cfg in self.correction_config.corrections:
+            if corr_cfg.background is None:
+                continue
+            if not self.detector_config.detectors:
+                self.logger.warning(
+                    f'No detectors configured; skipping background '
+                    f'processing for correction "{corr_cfg.name}"')
+                continue
+            # Read in background raw detector data
+            self.logger.info(
+                f'Reading background data for correction "{corr_cfg.name}"')
+            idx_slice = corr_cfg.background.idx_slice
+            bg_det_images = {
+                d.get_id(): [] for d in self.detector_config.detectors}
+            for scan_number in corr_cfg.background.scan_numbers:
+                scanparser = corr_cfg.background.get_scanparser(scan_number)
+                npts = int(scanparser.spec_scan_npts)
+                slice_stop = (
+                    min(idx_slice._slice.stop, npts)
+                    if idx_slice._slice.stop > 0 else npts
+                )
+                scan_indices = range(npts)[
+                    slice(idx_slice._slice.start, slice_stop,
+                          idx_slice._slice.step)]
+                for i in scan_indices:
+                    for det in self.detector_config.detectors:
+                        bg_det_images[det.get_id()].append(
+                            scanparser.get_detector_data(det.get_id(), i))
+            # Average all background data to a single frame before
+            # processing with appropriate integration
+            for det_id in bg_det_images:
+                bg_det_images[det_id] = np.mean(
+                    bg_det_images[det_id], axis=0, keepdims=True)
+            self.logger.info(
+                f'Integrating background data for correction '
+                f'"{corr_cfg.name}"')
+            bg_pyfai_input = [
+                PipelineData(name=det_id, data=imgs)
+                for det_id, imgs in bg_det_images.items()
+            ]
+            bg_pyfai_config = self.pyfai_config.model_copy(
+                update={'integrations': [
+                    intg for intg in self.pyfai_config.integrations
+                    if intg.name == corr_cfg.uncorrected_data_name
+                ]}
+            )
+            bg_integrated = self.setup_pipelineitem(
+                PyfaiIntegrationProcessor(config=bg_pyfai_config)
+            ).process(bg_pyfai_input)[0]
+            # Read background scalar data
+            bg_presample = self.map_config.presample_intensity.get_value(
+                corr_cfg.background, scan_number, -1,
+                self.map_config.scalar_data
+            )[idx_slice._slice]
+            bg_postsample = self.map_config.postsample_intensity.get_value(
+                corr_cfg.background, scan_number, -1,
+                self.map_config.scalar_data
+            )[idx_slice._slice]
+            # Fill in placeholder zarr arrays with real background
+            # data
+            data_group = zarr_corr[corr_cfg.name]['data']
+            data_group['I_background'][:] = bg_integrated['data']
+            bg_presample_arr = data_group.create_array(
+                'background_presample_intensity',
+                shape=bg_presample.shape, dtype=bg_presample.dtype)
+            bg_presample_arr[:] = bg_presample
+            bg_postsample_arr = data_group.create_array(
+                'background_postsample_intensity',
+                shape=bg_postsample.shape, dtype=bg_postsample.dtype)
+            bg_postsample_arr[:] = bg_postsample
 
         # Assemble containers for raw & processed data
         zarr_root = zarr.create_group(store=MemoryStore({}))
@@ -842,9 +820,33 @@ class SetupProcessor(Processor):
                 buf = await source_store.get(
                     k, prototype=default_buffer_prototype())
                 await dest_store.set(k, buf)
-        asyncio.run(copy_zarr_store(zarr_map.store, zarr_root.store))
-        asyncio.run(copy_zarr_store(zarr_results.store, zarr_root.store))
+        for zarr_group in (zarr_map, zarr_pyfai, zarr_corr):
+            asyncio.run(copy_zarr_store(zarr_group.store, zarr_root.store))
         return zarr_root
+
+    def setup_pipelineitem(self, pipeline_item):
+        """Convenience method to use a nice logger when this
+        ``Processor`` calls on another ``PipelineItem``. Set the
+        logger and logging handler for given pipeline item.
+
+        :param pipeline_item: Pipeline item.
+        :type pipeline_item: PipelineItem
+        :return: Input Pipeline item, with updated logger and
+            logging handler.
+        :rtype: PipelineItem
+        """
+        import logging
+
+        pipeline_item.logger = logging.getLogger(
+            pipeline_item.__class__.__name__,
+        )
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(
+            '{asctime}: {name:20} (from '+ self.__class__.__name__
+            + ') (L{lineno}): {levelname}: {message}',
+            datefmt='%Y-%m-%d %H:%M:%S', style='{'))
+        pipeline_item.logger.handlers = [handler]
+        return pipeline_item
 
 
 class UnstructuredToStructuredProcessor(Processor):
@@ -1176,18 +1178,19 @@ class UpdateValuesProcessor(Processor):
     :ivar scan_number: Scan number from which to read and process a
         slice of raw data.
     :vartype scan_number: int
-    :ivar detectors: Detector configurations.
-    :vartype detectors: list[CHAP.common.models.map.Detector]
+    :ivar detector_config: Detector configurations.
+    :vartype detector_config: :class:`~CHAP.common.models.map.DetectorConfig`
     :ivar raw_data: Flag to indicate wether or not space for raw
         detector data should be included in the values returned,
         defaults to `True`.
     :vartype raw_data: bool, optional
     """
-
     pipeline_fields: dict = Field(
-        default={
+        {
             'map_config': 'common.models.map.MapConfig',
-            'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig'
+            'detector_config': 'common.models.map.DetectorConfig',
+            'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig',
+            'correction_config': 'saxswaxs.models.CorrectionsConfig',
         },
         init_var=True)
     # map_config needs a default value because the map configuration
@@ -1196,9 +1199,11 @@ class UpdateValuesProcessor(Processor):
     # Pipeline to pass validation.
     map_config: MapConfig = None
     pyfai_config: PyfaiIntegrationConfig
+    detector_config: DetectorConfig = DetectorConfig(detectors=[])
+    correction_config: CorrectionsConfig
     spec_file: FilePath
     scan_number: conint(gt=0)
-    detectors: conlist(item_type=Detector, min_length=1)
+    filename: Optional[str] = None
     raw_data: Optional[bool] = True
     idx_slice: Optional[IndexSliceConfig] = IndexSliceConfig()
 
@@ -1231,36 +1236,17 @@ class UpdateValuesProcessor(Processor):
         # Local modules
         from CHAP.common.map_utils import MapSliceProcessor
         from CHAP.pipeline import PipelineData
-        #from CHAP.saxswaxs.processor import PyfaiIntegrationProcessor
 
+        # Use a copy of input data so we can append to it inside this
+        # Processor without modifying the actual Pipeline's data
+        # unecessarily.
         _data = deepcopy(data)
-        def set_logger(pipeline_item):
-            """Set the logger and logging handler for given pipeline
-            item.
-
-            :param pipeline_item: Pipeline item.
-            :type pipeline_item: PipelineItem
-            :return: Input Pipeline item, with updated logger and
-                logging handler.
-            :rtype: PipelineItem
-            """
-            pipeline_item.logger = self.logger
-            pipeline_item.logger.name = pipeline_item.__class__.__name__
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter(
-                '{asctime}: {name:20} (from '+ self.__class__.__name__
-                + '): {levelname}: {message}',
-                datefmt='%Y-%m-%d %H:%M:%S', style='{'))
-            pipeline_item.logger.removeHandler(
-                pipeline_item.logger.handlers[0])
-            pipeline_item.logger.addHandler(handler)
-            return pipeline_item
 
         # Read in slice of raw data
-        raw_values = set_logger(
+        raw_values = self.setup_pipelineitem(
             MapSliceProcessor(
                 map_config=self.map_config,
-                detectors=self.detectors,
+                detector_config=self.detector_config,
                 spec_file=str(self.spec_file),
                 scan_numbers=[self.scan_number],
                 idx_slice=self.idx_slice
@@ -1275,7 +1261,7 @@ class UpdateValuesProcessor(Processor):
             return None
 
         # Use raw detector data as input to integration
-        for d in self.detectors:
+        for d in self.detector_config.detectors:
             _data.append(
                 PipelineData(
                     name=d.get_id(),
@@ -1283,19 +1269,123 @@ class UpdateValuesProcessor(Processor):
                 )
             )
         # Get integrated data
-        processed_values = set_logger(
+        processed_values = self.setup_pipelineitem(
             PyfaiIntegrationProcessor(config=self.pyfai_config)
         ).process(_data)
 
-        if self.raw_data:
-            return raw_values + processed_values
+        # Get corrected data
+        corrected_values = [
+            {
+                'data': self.setup_pipelineitem(
+                    corr_cfg.processor
+                ).process(
+                    self.get_corrections_input_data(
+                        raw_values, processed_values, corr_cfg
+                    ),
+                    nxprocess=False,
+                ),
+                'path': f'{corr_cfg.name}/data/I_corrected'
+            }
+            for corr_cfg in self.correction_config.corrections
+        ]
 
-        detector_ids = [d.get_id() for d in self.detectors]
+        if self.raw_data:
+            return raw_values + processed_values + corrected_values
+
+        detector_ids = [d.get_id() for d in self.detector_config.detectors]
         scalar_values = [
             d for d in raw_values
             if not os.path.basename(d['path']) in detector_ids
         ]
-        return scalar_values + processed_values
+        return scalar_values + processed_values + corrected_values
+
+    def get_corrections_input_data(self, raw_values, processed_values,
+                                   corr_cfg):
+        corr_data = []
+        for x in ('dwell_time_actual', 'presample_intensity',
+                  'postsample_intensity'):
+            for d in raw_values:
+                if d['path'].endswith(x):
+                    corr_data.append(
+                        PipelineData(data=d['data'], name=x)
+                    )
+                    break
+        for d in processed_values:
+            if d['path'].startswith(f'{corr_cfg.uncorrected_data_name}/'):
+                corr_data.append(
+                    PipelineData(
+                        data=d['data'],
+                        name=corr_cfg.uncorrected_data_name,
+                    )
+                )
+        if corr_cfg.background is not None:
+            if self.filename is None:
+                self.logger.warning(
+                    f'No filename configured; cannot read background '
+                    f'intensities for correction "{corr_cfg.name}"')
+            else:
+                # System modules
+                import os
+                pre_path = (f'{corr_cfg.name}/data/'
+                            'background_presample_intensity')
+                post_path = (f'{corr_cfg.name}/data/'
+                             'background_postsample_intensity')
+                if os.path.splitext(self.filename)[1] in ('.nxs', '.h5',
+                                                          '.hdf5'):
+                    import h5py
+                    with h5py.File(self.filename, 'r') as f:
+                        for path, name in (
+                                (pre_path,
+                                 'background_presample_intensity'),
+                                (post_path,
+                                 'background_postsample_intensity')):
+                            if path in f:
+                                corr_data.append(PipelineData(
+                                    data=np.asarray(f[path]),
+                                    name=name,
+                                ))
+                            else:
+                                self.logger.warning(
+                                    f'{path} not found in {self.filename}')
+                else:
+                    import zarr
+                    zarrfile = zarr.open(self.filename, mode='r')
+                    for path, name in (
+                            (pre_path, 'background_presample_intensity'),
+                            (post_path, 'background_postsample_intensity')):
+                        try:
+                            corr_data.append(PipelineData(
+                                data=np.asarray(zarrfile[path]),
+                                name=name,
+                            ))
+                        except KeyError:
+                            self.logger.warning(
+                                f'{path} not found in {self.filename}')
+        return corr_data
+
+    def setup_pipelineitem(self, pipeline_item):
+        """Convenience method to use a nice logger when this
+        ``Processor`` calls on another ``PipelineItem``. Set the
+        logger and logging handler for given pipeline item.
+
+        :param pipeline_item: Pipeline item.
+        :type pipeline_item: PipelineItem
+        :return: Input Pipeline item, with updated logger and
+            logging handler.
+        :rtype: PipelineItem
+        """
+        import logging
+
+        pipeline_item.logger = logging.getLogger(
+            pipeline_item.__class__.__name__,
+        )
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(
+            '{asctime}: {name:20} (from '+ self.__class__.__name__
+            + ') (L{lineno}): {levelname}: {message}',
+            datefmt='%Y-%m-%d %H:%M:%S', style='{'))
+        pipeline_item.logger.handlers = [handler]
+        return pipeline_item
 
 
 if __name__ == '__main__':
