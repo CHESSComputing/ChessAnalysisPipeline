@@ -15,6 +15,7 @@ from typing import Optional
 # Local modules
 from CHAP.common.models.common import IndexSliceConfig
 from CHAP.common.models.map import (
+    DetectorConfig,
     Detector,
     MapConfig,
 )
@@ -74,10 +75,12 @@ class MapSliceProcessor(Processor):
     pipeline_fields: dict = Field(
         default={
             'map_config': 'common.models.map.MapConfig',
+            'detector_config': 'common.models.map.DetectorConfig'
         },
         init_var=True)
     map_config: MapConfig
-    detectors: conlist(item_type=Detector, min_length=1)
+    detector_config: DetectorConfig
+    detectors: Optional[conlist(item_type=Detector)] = None
     spec_file: FilePath
     scan_number: Optional[conint(gt=0)] = None
     scan_numbers: Optional[conlist(item_type=conint(gt=0))] = None
@@ -231,7 +234,7 @@ class MapSliceProcessor(Processor):
                     ]),
                     'idx': merged_idx,
                 })
-            for det in self.detectors:
+            for det in self.detector_config.detectors:
                 data_points.append({
                     'path': (f'{self.map_config.title}'
                              f'/data/{det.get_id()}'),
@@ -285,7 +288,7 @@ class MapSliceProcessor(Processor):
                         for i in ps['scan_indices']
                     ]),
                     'idx': ps['map_indices'],
-                } for det in self.detectors])
+                } for det in self.detector_config.detectors])
         return data_points
 
     @model_validator(mode='before')
@@ -312,6 +315,21 @@ class MapSliceProcessor(Processor):
            and self.scan_number not in self.scan_numbers:
             self.scan_numbers.append(self.scan_number)
         return self
+
+    @model_validator(mode='before')
+    def fill_detector_config(cls, data):
+        if not isinstance(data, dict):
+            return data
+        if 'detector_config' not in data or data['detector_config'] is None:
+            if data.get('detectors') is not None:
+                data['detector_config'] = DetectorConfig(
+                    detectors=data['detectors']
+                )
+            else:
+                raise ValueError(
+                    'detector_config is required; alternatively, provide detectors'
+                )
+        return data
 
 
 class SpecScanToMapConfigProcessor(Processor):
