@@ -340,8 +340,8 @@ class FluxAbsorptionBackgroundCorrectionConfig(
     correction_type: Literal[
         'flux_absorption_background'] = 'flux_absorption_background'
     background: Background
-    sample_thickness_cm: Optional[confloat(gt=0)]
-    sample_mu_inv_cm: Optional[confloat(gt=0)]
+    sample_thickness_cm: Optional[confloat(gt=0)] = None
+    sample_mu_inv_cm: Optional[confloat(gt=0)] = None
 
     @model_validator(mode='after')
     def validate_thickness(self):
