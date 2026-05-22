@@ -794,7 +794,9 @@ class SetupProcessor(Processor):
             # Fill in placeholder zarr arrays with real background
             # data
             data_group = zarr_corr[corr_cfg.name]['data']
-            data_group['I_background'][:] = bg_integrated['data']
+            data_group['I_background'][:] = np.squeeze(
+                bg_integrated['data'], axis=0
+            )
             bg_presample_arr = data_group.create_array(
                 'background_presample_intensity',
                 shape=bg_presample.shape, dtype=bg_presample.dtype)
