@@ -224,36 +224,41 @@ class CfProcessor(Processor):
 
 
 class FluxCorrectionProcessor(ExpressionProcessor):
-    """Processor for flux correction."""
-    config: FluxCorrectionConfig
-    def process(
-            self, data, presample_intensity_reference_rate=None,
-            nxprocess=False):
-        """Given input data for `'intensity'`, `'presample_intensity'`,
-        and `'dwell_time_actual'`, compute the flux corrected intensity
-        signal.
+    """Processor for applying a flux correction to azimuthally
+    integrated SAXS/WAXS intensity data.
 
-        :param data: Input data list containing items with names
-            `'intensity'`, `'presample_intensity'`, and
-            `'dwell_time_actual'` (if
-            `presample_intensity_reference_rate` is not specified).
+    Normalises the measured intensity by the pre-sample beam monitor
+    counts, referenced to a fixed counting rate configured via
+    :attr:`config`.
+
+    :ivar config: Correction configuration.
+    :vartype config: FluxCorrectionConfig
+    """
+    config: FluxCorrectionConfig
+    def process(self, data, nxprocess=False):
+        """Compute the flux-corrected intensity.
+
+        Requires input data items named ``'intensity'`` (the raw
+        integrated signal) and ``'presample_intensity'`` (beam monitor
+        counts).  When
+        :attr:`~saxswaxs.models.FluxCorrectionConfig.presample_intensity_reference_rate`
+        is not pre-configured in :attr:`config`, an additional item
+        named ``'dwell_time_actual'`` is also required and the
+        reference rate is computed on the fly as
+        ``np.nanmean(presample_intensity / dwell_time_actual)``.
+
+        :param data: Input data list.
         :type data: list[PipelineData]
-        :param presample_intensity_reference_rate: Reference counting
-            rate for the `'presample_intensity'` signal. If not
-            specified, it will  set to
-            `'numpy.nanmean(presample_intensity /
-            dwell_time_actual)'`.
-        :type presample_intensity_reference_rate: float, optional
-        :param nxprocess: Flag to indicate the flux corrected data
-            should be returned as a NeXus style
+        :param nxprocess: Return the result as a NeXus
             `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
-            object. Defaults to `False`.
+            object.  Defaults to ``False``.
         :type nxprocess: bool, optional
-        :returns: Flux corrected version of input `'intensity'` data.
-        :rtype: Any
+        :returns: Flux-corrected intensity array (or NXobject when
+            ``nxprocess`` is ``True``).
+        :rtype: numpy.ndarray or nexusformat.nexus.NXobject
         """
-        if presample_intensity_reference_rate is None:
-            presample_intensity_reference_rate = super().process(
+        if self.config.presample_intensity_reference_rate is None:
+            self.config.presample_intensity_reference_rate = super().process(
                 data,
                 'np.nanmean(presample_intensity / dwell_time_actual)'
             )
@@ -280,7 +285,7 @@ class FluxCorrectionProcessor(ExpressionProcessor):
             )
         symtable = {
             'presample_intensity_reference_rate':
-                presample_intensity_reference_rate,
+                self.config.presample_intensity_reference_rate,
             'intensity': intensity,
             'presample_intensity': presample_intensity
         }
@@ -295,41 +300,47 @@ class FluxCorrectionProcessor(ExpressionProcessor):
 
 
 class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
-    """Processor for flux and absorption correction."""
-    config: FluxAbsorptionCorrectionConfig
-    def process(
-            self, data, presample_intensity_reference_rate=None,
-            nxprocess=False):
-        """Given input data for `'intensity'`, `'presample_intensity'`,
-        `'postsample_intensity'`, `'background_presample_intensity'`,
-        `'background_postsample_intensity'`, and
-        `'dwell_time_actual'`, compute the flux and absorption
-        corrected intensity signal.
+    """Processor for applying combined flux and absorption correction
+    to azimuthally integrated SAXS/WAXS intensity data.
 
-        :param data: Input data list containing all necessary data
-            labelled with their proper names.
+    In addition to flux normalisation (see
+    :class:`FluxCorrectionProcessor`), divides by the sample
+    transmission, which is estimated from the ratio of post-sample to
+    pre-sample intensities for both the sample and a background scan.
+
+    :ivar config: Correction configuration.
+    :vartype config: FluxAbsorptionCorrectionConfig
+    """
+    config: FluxAbsorptionCorrectionConfig
+    def process(self, data, nxprocess=False):
+        """Compute the flux- and absorption-corrected intensity.
+
+        Requires input data items named ``'intensity'``,
+        ``'presample_intensity'``, ``'postsample_intensity'``,
+        ``'background_presample_intensity'``, and
+        ``'background_postsample_intensity'``.  When
+        :attr:`~saxswaxs.models.FluxAbsorptionCorrectionConfig.presample_intensity_reference_rate`
+        is not pre-configured in :attr:`config`, an additional item
+        named ``'dwell_time_actual'`` is also required and the
+        reference rate is computed on the fly as
+        ``np.nanmean(presample_intensity / dwell_time_actual)``.
+
+        :param data: Input data list.
         :type data: list[PipelineData]
-        :param presample_intensity_reference_rate: Reference counting
-            rate for the `'presample_intensity'` signal. If not
-            specified, it will be calculated with
-            `'numpy.nanmean(presample_intensity /
-            dwell_time_actual)'`.
-        :type presample_intensity_reference_rate: float, optional
-        :param nxprocess: Flag to indicate the flux and absorption
-            corrected data should be returned as a NeXus style
+        :param nxprocess: Return the result as a NeXus
             `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
-            object. Defaults to `False`.
+            object.  Defaults to ``False``.
         :type nxprocess: bool, optional
-        :returns: Flux and absorption corrected version of input
-            `'intensity'` data.
-        :rtype: Any
+        :returns: Flux- and absorption-corrected intensity array (or
+            NXobject when ``nxprocess`` is ``True``).
+        :rtype: numpy.ndarray or nexusformat.nexus.NXobject
         """
         intensity = self.get_data(
             data, name=self.config.uncorrected_data_name, #'intensity',
         )
 
-        if presample_intensity_reference_rate is None:
-            presample_intensity_reference_rate = super().process(
+        if self.config.presample_intensity_reference_rate is None:
+            self.config.presample_intensity_reference_rate = super().process(
                 data,
                 'np.nanmean(presample_intensity / dwell_time_actual)'
             )
@@ -356,7 +367,7 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
 
         symtable = {
             'presample_intensity_reference_rate':
-                presample_intensity_reference_rate,
+                self.config.presample_intensity_reference_rate,
             'intensity': intensity,
             'presample_intensity': presample_intensity,
             'tt': tt
@@ -373,61 +384,60 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
 
 
 class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
-    """Processor for flux, absorption, and background correction as
-    well as optional thickness correction."""
+    """Processor for applying combined flux, absorption, and
+    background-subtraction correction to azimuthally integrated
+    SAXS/WAXS intensity data, with optional thickness normalisation.
+
+    Extends :class:`FluxAbsorptionCorrectionProcessor` by subtracting
+    an integrated background signal after flux and absorption
+    correction.  Thickness normalisation is applied when
+    :attr:`~saxswaxs.models.FluxAbsorptionBackgroundCorrectionConfig.sample_thickness_cm`
+    or
+    :attr:`~saxswaxs.models.FluxAbsorptionBackgroundCorrectionConfig.sample_mu_inv_cm`
+    is set in :attr:`config`.
+
+    :ivar config: Correction configuration.
+    :vartype config: FluxAbsorptionBackgroundCorrectionConfig
+    """
     config: FluxAbsorptionBackgroundCorrectionConfig
-    def process(
-            self, data, presample_intensity_reference_rate=None,
-            sample_thickness_cm=None, sample_mu_inv_cm=None, nxprocess=False):
-        """Given input data for `'intensity'`, `'presample_intensity'`,
-        `'postsample_intensity'`, `'background_presample_intensity'`,
-        `'background_postsample_intensity'`, `'background_intensity'`,
-        and `'dwell_time_actual'`, return flux, absorption and
-        background corrected intensity signal.
+    def process(self, data, nxprocess=False):
+        """Compute the flux-, absorption-, and background-corrected
+        intensity, with optional thickness normalisation.
 
-        :param data: Input data list containing all necessary data
-            labelled with their proper names.
+        Requires input data items named ``'intensity'``,
+        ``'presample_intensity'``, ``'postsample_intensity'``,
+        ``'background_presample_intensity'``,
+        ``'background_postsample_intensity'``, and
+        ``'background_intensity'``.  When
+        :attr:`~saxswaxs.models.FluxAbsorptionBackgroundCorrectionConfig.presample_intensity_reference_rate`
+        is not pre-configured in :attr:`config`, an additional item
+        named ``'dwell_time_actual'`` is also required and the
+        reference rate is computed on the fly as
+        ``np.nanmean(presample_intensity / dwell_time_actual)``.
+
+        Thickness normalisation is controlled by :attr:`config`: if
+        ``config.sample_thickness_cm`` is set the corrected signal is
+        divided by that value; if ``config.sample_mu_inv_cm`` is set
+        the effective thickness is derived from the measured
+        transmission; otherwise no thickness normalisation is applied.
+
+        :param data: Input data list.
         :type data: list[PipelineData]
-        :param presample_intensity_reference_rate: Reference counting
-            rate for the `'presample_intensity'` signal. If not
-            specified, it will be calculated with
-            `'numpy.nanmean(presample_intensity /
-            dwell_time_actual)'`.
-        :type presample_intensity_reference_rate: float, optional
-        :param sample_thickness_cm: Sample thickness in
-            centimeters. If specified, this processor will
-            additionally perform thickness correction. Use of this
-            parameter is mutualy exclusive with
-            use of `sample_mu_inv_cm`.
-        :type sample_thickness_cm: float, optional
-        :param sample_mu_inv_cm: Sample linear attenuation coefficient
-            in inverse centimeters. If specified, this processor will
-            additionally perform thickness correction. Use of this
-            parameter is mutualy exclusive with use of
-            `sample_thickness_cm`.
-        :type sample_mu_inv_cm: float, optional
-        :param nxprocess: Flag to indicate the flux, absorption, and
-            background corrected data should be returned as a Nexus
-            style
+        :param nxprocess: Return the result as a NeXus
             `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
-            object. Defaults to `False`.
+            object.  Defaults to ``False``.
         :type nxprocess: bool, optional
-        :returns: Flux, absorption and background corrected version of
-            input `'intensity'` data.
-        :rtype: Any
+        :returns: Flux-, absorption-, and background-corrected
+            intensity array (or NXobject when ``nxprocess`` is
+            ``True``).
+        :rtype: numpy.ndarray or nexusformat.nexus.NXobject
         """
-        if sample_thickness_cm is not None and sample_mu_inv_cm is not None:
-            raise ValueError((
-                'Cannot use sample_thickness_cm and sample_mu_inv_cm'
-                ' at the same time'
-            ))
-
         intensity = self.get_data(
             data, name=self.config.uncorrected_data_name,
         )
 
-        if presample_intensity_reference_rate is None:
-            presample_intensity_reference_rate = super().process(
+        if self.config.presample_intensity_reference_rate is None:
+            self.config.presample_intensity_reference_rate = super().process(
                 data,
                 'np.nanmean(presample_intensity / dwell_time_actual)'
             )
@@ -460,17 +470,17 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         background_intensity = np.broadcast_to(
             background_intensity, intensity.shape)
 
-        if sample_thickness_cm is not None:
-            t = sample_thickness_cm
-        elif sample_mu_inv_cm is not None:
-            t = -np.log(tt / sample_mu_inv_cm)
+        if self.config.sample_thickness_cm is not None:
+            t = self.config.sample_thickness_cm
+        elif self.config.sample_mu_inv_cm is not None:
+            t = -np.log(tt / self.config.sample_mu_inv_cm)
         else:
             t = 1
 
         symtable = {
             't': t,
             'presample_intensity_reference_rate':
-                presample_intensity_reference_rate,
+                self.config.presample_intensity_reference_rate,
             'intensity': intensity,
             'presample_intensity': presample_intensity,
             'tt': tt,

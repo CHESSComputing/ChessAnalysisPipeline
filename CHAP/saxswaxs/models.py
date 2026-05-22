@@ -80,7 +80,7 @@ class CorrectionConfig(CHAPBaseModel):
         correction's group in the output zarr / NeXus tree.
     :vartype name: str
     :ivar uncorrected_data_name: Name of the
-        :class:`~CHAP.common.models.integration.PyfaiIntegratorConfig`
+        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`
         integration whose output serves as the uncorrected input for
         this correction.  Must match the ``name`` field of one of the
         integrations in the associated
