@@ -584,6 +584,9 @@ class PandasReader(Reader):
 class NexusReader(Reader):
     """Reader for `NeXus <https://www.nexusformat.org>`__ files.
 
+    :ivar create_copy: Return a copy of the selected data, resolving
+        any and all linked NeXus objects, defaults to `False`..
+    :vartype create_copy: bool, optional
     :ivar nxpath: Path to a specific location in the NeXus file tree
         to read from, defaults to `'/'`.
     :vartype nxpath: str, optional
@@ -595,10 +598,11 @@ class NexusReader(Reader):
     :vartype nxmemory: int, optional
     """
 
-    nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = '/'
+    create_copy: Optional[bool] = False
     idx: Optional[conint(ge=0)] = None
     mode: Literal['r', 'rw', 'r+', 'w', 'a'] = 'r'
     nxmemory: Optional[conint(gt=0)] = None
+    nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = '/'
 
     def read(self):
         """Return the NeXus Style
@@ -617,11 +621,22 @@ class NexusReader(Reader):
             nxsetconfig,
         )
 
+        # Local modules
+        from CHAP.utils.general import nxcopy
+
         if self.nxmemory is not None:
             nxsetconfig(memory=self.nxmemory)
         if self.idx is not None:
-            return nxload(self.filename, mode=self.mode)[self.nxpath][self.idx]
-        return nxload(self.filename, mode=self.mode)[self.nxpath]
+            nxobject = nxload(
+                self.filename, mode=self.mode)[self.nxpath][self.idx]
+            if self.create_copy:
+                return nxcopy(nxobject)
+            return nxobject
+            #return nxload(self.filename, mode=self.mode)[self.nxpath][self.idx]
+        nxobject = nxload(self.filename, mode=self.mode)[self.nxpath]
+        if self.create_copy:
+            nxobject = nxcopy(nxobject)
+        return nxobject
 
 
 class NXdataReader(Reader):
