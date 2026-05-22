@@ -611,9 +611,9 @@ class SetupProcessor(Processor):
     # the case, then map_config needs SOME value in order for the
     # Pipeline to pass validation.
     map_config: MapConfig = None
-    pyfai_config: PyfaiIntegrationConfig
+    pyfai_config: PyfaiIntegrationConfig = None
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
-    correction_config: CorrectionsConfig
+    correction_config: CorrectionsConfig = CorrectionsConfig(corrections=[])
     dataset_shape: Optional[
         conlist(item_type=conint(ge=0), min_length=1)] = [0]
     dataset_chunks: Optional[
@@ -1342,6 +1342,7 @@ class UpdateValuesProcessor(Processor):
                             'background_presample_intensity')
                 post_path = (f'{corr_cfg.name}/data/'
                              'background_postsample_intensity')
+                intens_path = f'{corr_cfg.name}/data/I_background'
                 if os.path.splitext(self.filename)[1] in ('.nxs', '.h5',
                                                           '.hdf5'):
                     import h5py
@@ -1350,7 +1351,8 @@ class UpdateValuesProcessor(Processor):
                                 (pre_path,
                                  'background_presample_intensity'),
                                 (post_path,
-                                 'background_postsample_intensity')):
+                                 'background_postsample_intensity'),
+                                (intens_path, 'background_intensity')):
                             if path in f:
                                 corr_data.append(PipelineData(
                                     data=np.asarray(f[path]),
@@ -1364,7 +1366,8 @@ class UpdateValuesProcessor(Processor):
                     zarrfile = zarr.open(self.filename, mode='r')
                     for path, name in (
                             (pre_path, 'background_presample_intensity'),
-                            (post_path, 'background_postsample_intensity')):
+                            (post_path, 'background_postsample_intensity'),
+                            (intens_path, 'background_intensity')):
                         try:
                             corr_data.append(PipelineData(
                                 data=np.asarray(zarrfile[path]),
