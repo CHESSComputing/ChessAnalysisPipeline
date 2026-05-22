@@ -12,6 +12,8 @@ from pydantic import (
     confloat,
     conlist,
     model_validator,
+    Field,
+    AliasChoices,
 )
 
 # Local modules
@@ -97,8 +99,9 @@ class CorrectionConfig(CHAPBaseModel):
 
     correction_type: Literal['flux', 'flux_absorption',
                              'flux_absorption_background']
-    name: str
-    uncorrected_data_name: str
+    name: str = Field(validation_alias=AliasChoices('name', 'title'))
+    uncorrected_data_name: str = Field(validation_alias=AliasChoices(
+        'uncorrected_data_name', 'uncorrected_data_title'))
     presample_intensity_reference_rate: Optional[float] = None
     background: Optional[Background] = None
 
