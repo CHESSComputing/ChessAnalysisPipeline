@@ -883,15 +883,17 @@ class StrainAnalysisConfig(MCACalibrationConfig):
         the maximum mean intensity for that detector. Defaults to `0`
         in which case this step is ignored.
     :vartype find_peak_cutoff: float, optional
+    :ivar max_nfev: Maximum number of function evaluations in the
+        the strain analysis peak fitting routine.
+    :vartype max_nfev: int, optional
     :ivar num_proc: Number of processors to be used by the strain
         analysis peak fitting routine.
-    :vartype num_proc: int
+    :vartype num_proc: int, optional
     :ivar rel_height_cutoff: Used to excluded peaks based on the
         `find_peak` parameter as well as for peak fitting exclusion
         of the individual detector spectra (see the strain detector
         configuration
         :class:`~CHAP.edd.models.MCADetectorStrainAnalysis`).
-        Defaults to `None`.
     :vartype rel_height_cutoff: float, optional
     :ivar skip_animation: Skip the animation and plotting of
         the strain analysis fits, defaults to `False`.
@@ -904,6 +906,7 @@ class StrainAnalysisConfig(MCACalibrationConfig):
     #:vartype oversampling: FIX
 
     find_peak_cutoff: Optional[confloat(ge=0.0, allow_inf_nan=False)] = 0.0
+    max_nfev: Optional[conint(gt=0)] = None
     num_proc: Optional[conint(gt=0)] = max(1, os.cpu_count()//4)
     #oversampling: dict = {'num': 10}
     rel_height_cutoff: Optional[

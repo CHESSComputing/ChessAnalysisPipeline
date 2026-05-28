@@ -106,9 +106,9 @@ class FitProcessor(Processor):
             # Refit/continue the fit with possibly updated parameters
             fit = data
             if isinstance(data, FitMap):
-                fit.fit(config=fit_config)
+                fit.fit(config=fit_config, max_nfev=config.get('max_nfev'))
             else:
-                fit.fit(config=fit_config)
+                fit.fit(config=fit_config, max_nfev=config.get('max_nfev'))
                 if fit_config is not None:
                     if fit_config.print_report:
                         fit.print_fit_report()
@@ -145,7 +145,7 @@ class FitProcessor(Processor):
             # Instantiate the Fit or FitMap object and fit the data
             if np.squeeze(nxdata.nxsignal).ndim == 1:
                 fit = Fit(nxdata, fit_config, self.logger)
-                fit.fit()
+                fit.fit(max_nfev=config.get('max_nfev'))
                 if fit_config.print_report:
                     fit.print_fit_report()
                 if fit_config.plot:
@@ -154,8 +154,9 @@ class FitProcessor(Processor):
                 fit = FitMap(nxdata, fit_config, self.logger)
                 fit.fit(
                     rel_height_cutoff=fit_config.rel_height_cutoff,
-                    num_proc=fit_config.num_proc, plot=fit_config.plot,
-                    print_report=fit_config.print_report)
+                    max_nfev=config.get('max_nfev'),
+                    num_proc=fit_config.num_proc,
+                    plot=fit_config.plot, print_report=fit_config.print_report)
         else:
             raise ValueError(f'Invalid input data ({type(data)}: {data})')
 
@@ -2087,12 +2088,12 @@ class Fit:
                 'gtol': 10*FLOAT_EPS,
             }
             if self._method == 'leastsq':
-                lskws['maxfev'] = 64000
+                lskws['maxfev'] = kwarg.get('max_nfev', 64000)
                 result = leastsq(
                     self._residual, pars_init, args=(x, y), full_output=True,
                     **lskws)
             else:
-                lskws['max_nfev'] = 64000
+                lskws['max_nfev'] = kwarg.get('max_nfev', 64000)
                 result = least_squares(
                     self._residual, pars_init, bounds=bounds,
                     method=self._method, args=(x, y), **lskws)
@@ -3089,6 +3090,9 @@ class FitMap(Fit):
 
         # Regular full fit
         result = self._fit_with_bounds_check(n, current_best_values, **kwargs)
+        if result.nfev == kwargs.get('max_nfev'):
+            self._logger.info(
+                f'Hit max_nfev limit for n={n}\n\tnfev: {result.nfev}')
 
         if self._rel_height_cutoff is not None:
             # Check for low heights peaks and refit without them
@@ -3123,6 +3127,9 @@ class FitMap(Fit):
                     # Reset fixed amplitudes back to default
                     self._parameters = deepcopy(parameters_save)
                     self._parameter_bounds = deepcopy(parameters_bounds_save)
+                    if result.nfev == kwargs.get('max_nfev'):
+                        self._logger.info(
+                        f'\nHit max_nfev limit again after refit for n={n}')
 
         if result.redchi >= self._redchi_cutoff:
             result.success = False

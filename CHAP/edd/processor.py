@@ -3379,7 +3379,7 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         from nexusformat.nexus.tree import NXlinkfield
 
         if not isinstance(nxgroup.nxroot, NXroot):
-            self.logger.warning(
+            self.logger.debug(
                 'Skipping linkdims -- type(nxgroup.nxroot) = '
                 + f'{type(nxgroup.nxroot)}'
             )
@@ -3563,7 +3563,8 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
             uniform_results, unconstrained_results = get_spectra_fits(
                 np.squeeze(intensities), energies[mask],
                 peak_locations[use_peaks], detector,
-                num_proc=self.config.num_proc, **self.run_config)
+                num_proc=self.config.num_proc,
+                max_nfev=self.config.max_nfev, **self.run_config)
             if num_points == 1:
                 uniform_results = {k: [v] for k, v in uniform_results.items()}
                 unconstrained_results = {

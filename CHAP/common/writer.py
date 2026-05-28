@@ -29,7 +29,6 @@ from CHAP.writer import (
 from CHAP.common.models.common import IndexSliceConfig
 
 
-
 def validate_model(model):
     """Validate the `model` configuration.
 
