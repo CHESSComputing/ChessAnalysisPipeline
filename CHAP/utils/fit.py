@@ -2087,13 +2087,16 @@ class Fit:
                 'xtol': 1.49012e-08,
                 'gtol': 10*FLOAT_EPS,
             }
+            max_nfev = kwargs.get('max_nfev')
             if self._method == 'leastsq':
-                lskws['maxfev'] = kwarg.get('max_nfev', 64000)
+                if max_nfev is not None:
+                    lskws['maxfev'] = max_nfev
                 result = leastsq(
                     self._residual, pars_init, args=(x, y), full_output=True,
                     **lskws)
             else:
-                lskws['max_nfev'] = kwarg.get('max_nfev', 64000)
+                if max_nfev is not None:
+                    lskws['max_nfev'] = max_nfev
                 result = least_squares(
                     self._residual, pars_init, bounds=bounds,
                     method=self._method, args=(x, y), **lskws)

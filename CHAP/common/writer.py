@@ -897,7 +897,7 @@ class YAMLWriter(Writer):
         self.status = 'written' # Right now does nothing yet, but could
                                 # add a sort of modification flag later
 
-       # Return provenance with the output file name added
+        # Return provenance with the output file name added
         return self._update_provenance(data)
 
 
