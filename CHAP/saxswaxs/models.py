@@ -31,12 +31,59 @@ class Background(SpecScans):
     optional index slice so that only a subset of scan steps is used
     when reading background images.
 
+    Accepts either ``idx_slice`` (a :class:`~CHAP.common.models.common.IndexSliceConfig`
+    dict) or the convenience field ``scan_step_indices`` (a list of
+    integers or a compact string such as ``"0-4, 6"``), but not both.
+    When ``scan_step_indices`` is given it is converted to the
+    equivalent ``idx_slice``; the indices must form a uniformly-spaced
+    sequence expressible as a Python :class:`slice`.
+
     :ivar idx_slice: Index slice selecting which scan steps of the
         background scan(s) to read and average.  Defaults to all steps.
     :vartype idx_slice: IndexSliceConfig
+    :ivar scan_step_indices: Convenience alternative to ``idx_slice``.
+        A list of integer step indices (or a compact string such as
+        ``"0-4, 6"``) that are converted to an ``idx_slice`` during
+        validation.  The indices must be uniformly spaced.  Mutually
+        exclusive with ``idx_slice``.
+    :vartype scan_step_indices: list[int] or str, optional
     """
 
     idx_slice: IndexSliceConfig = IndexSliceConfig()
+    scan_step_indices: Optional[Union[list[int], str]] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def fill_idx_slice(cls, data):
+        scan_step_indices = data.get('scan_step_indices')
+        idx_slice = data.get('idx_slice')
+        if scan_step_indices is not None and idx_slice is not None:
+            raise ValueError(
+                'Specify idx_slice or scan_step_indices, not both.')
+        if scan_step_indices is not None:
+            if isinstance(scan_step_indices, str):
+                from CHAP.utils.general import string_to_list
+                scan_step_indices = string_to_list(scan_step_indices)
+            # scan_step_indices is now list[int]; derive a uniform slice
+            indices = sorted(scan_step_indices)
+            if len(indices) == 1:
+                start, step = indices[0], 1
+            else:
+                step = indices[1] - indices[0]
+                if step <= 0:
+                    raise ValueError(
+                        'scan_step_indices must contain distinct, '
+                        'positive-step values.')
+                diffs = [indices[i+1] - indices[i]
+                         for i in range(len(indices) - 1)]
+                if len(set(diffs)) != 1:
+                    raise ValueError(
+                        'scan_step_indices must be uniformly spaced so '
+                        'they can be expressed as a slice.')
+                start = indices[0]
+            stop = indices[-1] + step
+            data['idx_slice'] = {'start': start, 'stop': stop, 'step': step}
+        return data
 
     def zarr_arrays(self, integration_shape):
         """Return a dictionary describing the zarr array that will hold
