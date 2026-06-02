@@ -768,46 +768,54 @@ class FitConfig(CHAPBaseModel):
     :ivar code: Specifies is lmfit is used to perform the fit or if
         the scipy fit method is called directly, default to `'lmfit'`.
     :vartype code: Literal['lmfit', 'scipy'], optional
+    :ivar max_nfev: Maximum number of function evaluations in the
+        the strain analysis peak fitting routine.
+    :vartype max_nfev: int, optional
+    :ivar memfolder: Folder name for the temporary memory map if
+        multiple processors are used, defaults to `'joblib_memmap'`.
+    :vartype memfolder: str, optional
+    :ivar method: SciPy non-linear fit method, defaults to
+        `"leastsq"`.
+    :vartype method: Literal[
+        'leastsq', 'trf', 'dogbox', 'lm', 'least_squares']
+    :ivar models: The component(s) of the (composite) fit model.
+    :vartype models:
+        list[:attr:`~CHAP.utils.models.FitConfig.models`]
+    :ivar num_proc: The number of processors used in fitting a map
+        of data, defaults to `1`.
+    :vartype num_proc: int, optional
     :ivar parameters: Fit model parameters in addition to those
         implicitly defined through the build-in model functions,
         defaults to `[]`'
     :vartype parameters:
         list[:class:`~CHAP.utils.models.FitParameter`], optional
-    :ivar models: The component(s) of the (composite) fit model.
-    :vartype models:
-        list[:attr:`~CHAP.utils.models.FitConfig.models`]
-    :ivar rel_height_cutoff: Relative peak height cutoff for
-        peak fitting (any peak with a height smaller than
-        `rel_height_cutoff` times the maximum height of all peaks 
-        gets removed from the fit model).
-    :vartype rel_height_cutoff: float, optional
-    :ivar num_proc: The number of processors used in fitting a map
-        of data, defaults to `1`.
-    :vartype num_proc: int, optional
     :ivar plot: Whether a plot of the fit result is generated,
         defaults to `False`.
     :vartype plot: bool, optional.
     :ivar print_report:  Whether to generate a fit result printout,
         defaults to `False`.
     :vartype print_report: bool, optional.
-    :ivar memfolder: Folder name for the temporary memory map if
-        multiple processors are used, defaults to `'joblib_memmap'`.
-    :vartype memfolder: str, optional
+    :ivar rel_height_cutoff: Relative peak height cutoff for
+        peak fitting (any peak with a height smaller than
+        `rel_height_cutoff` times the maximum height of all peaks 
+        gets removed from the fit model).
+    :vartype rel_height_cutoff: float, optional
     """
 
     code: Literal['lmfit', 'scipy'] = 'scipy'
-    parameters: conlist(item_type=FitParameter) = []
+    max_nfev: Optional[conint(gt=0)] = None
+    memfolder: str = 'joblib_memmap'
+    method: Literal[
+        'leastsq', 'trf', 'dogbox', 'lm', 'least_squares'] = 'leastsq'
     models: conlist(item_type=Union[
         Constant, Linear, Quadratic, Exponential, Gaussian, Lorentzian,
         PseudoVoigt, Rectangle, Expression, Multipeak], min_length=1)
-    method: Literal[
-        'leastsq', 'trf', 'dogbox', 'lm', 'least_squares'] = 'leastsq'
-    rel_height_cutoff: Optional[
-        confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
     num_proc: conint(gt=0) = 1
+    parameters: conlist(item_type=FitParameter) = []
     plot: StrictBool = False
     print_report:  StrictBool = False
-    memfolder: str = 'joblib_memmap'
+    rel_height_cutoff: Optional[
+        confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
 
     @field_validator('method')
     @classmethod

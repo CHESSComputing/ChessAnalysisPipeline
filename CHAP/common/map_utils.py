@@ -13,7 +13,9 @@ from pydantic import (
 from typing import Optional
 
 # Local modules
+from CHAP.common.models.common import IndexSliceConfig
 from CHAP.common.models.map import (
+    DetectorConfig,
     Detector,
     MapConfig,
 )
@@ -56,30 +58,34 @@ class MapSliceProcessor(Processor):
 
     :ivar map_config: Map configuration.
     :vartype map_config: MapConfig
-    :ivar detectors: Detector configurations.
-    :vartype detectors:
-        list[:class:`~CHAP.common.models.map.Detector`]
+    :ivar detector_config: Detector configurations.
+    :vartype detector_config: :class:`~CHAP.common.models.map.DetectorConfig`
     :ivar spec_file: SPEC file containing scan from which to read a
         slice of raw data.
     :vartype spec_file: pydantic.FilePath
     :ivar scan_numbers: Numbers of scans from which to read slices of
         raw data.
     :vartype scan_numbers: list[int]
+    :ivar idx_slice: Parameters for the slice of each scan to process
+        Defaults to `IndexSliceConfig()`.
+    :vartype idx_slice: CHAP.common.models.common.IndexSliceConfig, optional
     """
 
     pipeline_fields: dict = Field(
         default={
             'map_config': 'common.models.map.MapConfig',
+            'detector_config': 'common.models.map.DetectorConfig'
         },
         init_var=True)
     map_config: MapConfig
-    detectors: conlist(item_type=Detector, min_length=1)
+    detector_config: DetectorConfig
+    detectors: Optional[conlist(item_type=Detector)] = None
     spec_file: FilePath
     scan_number: Optional[conint(gt=0)] = None
     scan_numbers: Optional[conlist(item_type=conint(gt=0))] = None
+    idx_slice: Optional[IndexSliceConfig] = IndexSliceConfig()
 
-    def process(self, data,
-                idx_slice={'start': 0, 'step': 1}):
+    def process(self, data):
 
         """Aggregate partial spec and detector data from one or more
         scans in a map, returning results in a format suitable for
@@ -96,11 +102,6 @@ class MapSliceProcessor(Processor):
             has the value `'common.models.map.MapConfig'` for the
             `'schema'` key.
         :type data: list[PipelineData]
-        :param idx_slice: Parameters for the slice of each scan to
-            process (slice parameters are the usual for the python
-            `slice` object: `'start'`, `'stop'`, and `'step'`).
-            Defaults to `{'start': 0, 'step': 1}`.
-        :type idx_slice: dict[str, int], optional
         :return: Slice of map data, ready to be written to a map
              container.
         :rtype: list[dict[str, Any]]
@@ -143,8 +144,8 @@ class MapSliceProcessor(Processor):
         sorted_scan_numbers = sorted(
             self.scan_numbers, key=lambda sn: scan_positions[sn])
 
-        slice_start = idx_slice.get('start', 0)
-        slice_step = idx_slice.get('step', 1)
+        slice_start = self.idx_slice._slice.start
+        slice_step = self.idx_slice._slice.step
 
         # Collect per-scan metadata; assumes uniform npts across scans
         # for index_offset calculation (index_offset = map_pos * npts)
@@ -154,7 +155,8 @@ class MapSliceProcessor(Processor):
             npts_scan = int(scan.spec_scan_npts)
             index_offset = scan_positions[sn] * npts_scan
             # Cap stop at npts_scan so map_indices and data stay in sync
-            slice_stop = min(idx_slice.get('stop', npts_scan), npts_scan)
+            slice_stop = min(self.idx_slice._slice.stop, npts_scan) \
+                if self.idx_slice._slice.stop > 0 else npts_scan
             scan_indices = range(npts_scan)[
                 slice(slice_start, slice_stop, slice_step)]
             map_indices = slice(
@@ -231,7 +233,7 @@ class MapSliceProcessor(Processor):
                     ]),
                     'idx': merged_idx,
                 })
-            for det in self.detectors:
+            for det in self.detector_config.detectors:
                 data_points.append({
                     'path': (f'{self.map_config.title}'
                              f'/data/{det.get_id()}'),
@@ -285,7 +287,7 @@ class MapSliceProcessor(Processor):
                         for i in ps['scan_indices']
                     ]),
                     'idx': ps['map_indices'],
-                } for det in self.detectors])
+                } for det in self.detector_config.detectors])
         return data_points
 
     @model_validator(mode='before')
@@ -312,6 +314,21 @@ class MapSliceProcessor(Processor):
            and self.scan_number not in self.scan_numbers:
             self.scan_numbers.append(self.scan_number)
         return self
+
+    @model_validator(mode='before')
+    def fill_detector_config(cls, data):
+        if not isinstance(data, dict):
+            return data
+        if 'detector_config' not in data or data['detector_config'] is None:
+            if data.get('detectors') is not None:
+                data['detector_config'] = DetectorConfig(
+                    detectors=data['detectors']
+                )
+            else:
+                raise ValueError(
+                    'detector_config is required; alternatively, provide detectors'
+                )
+        return data
 
 
 class SpecScanToMapConfigProcessor(Processor):

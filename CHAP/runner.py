@@ -227,9 +227,9 @@ def set_logger(log_level='INFO'):
     logger.setLevel(log_level)
     log_handler = logging.StreamHandler()
     log_handler.setFormatter(logging.Formatter(
-        '{asctime}: {name:20}: {levelname}: {message}',
+        '{asctime}: {name:20} (L{lineno}): {levelname}: {message}',
         datefmt='%Y-%m-%d %H:%M:%S', style='{'))
-    logger.addHandler(log_handler)
+    logger.handlers = [log_handler]
     return logger, log_handler
 
 def run(

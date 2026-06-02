@@ -2209,6 +2209,7 @@ class NexusToZarrProcessor(Processor):
         from nexusformat.nexus import (
             NXfield,
             NXgroup,
+            NXlink,
         )
         # pylint: disable=import-error
         import zarr
@@ -2241,9 +2242,19 @@ class NexusToZarrProcessor(Processor):
                 else:
                     zarr_group.attrs[attr_key] = attr_value.nxvalue
 
-            # Copy datasets and sub-groups
+            # Copy datasets, sub-groups, and links
+            nxlinks = {}
             for key, item in nexus_group.items():
-                if isinstance(item, NXfield):
+                if isinstance(item, NXlink):
+                    self.logger.info(f'Recording link {item.nxpath}')
+                    if item.nxfilename is not None:
+                        nxlinks[key] = {
+                            'target': item.nxtarget,
+                            'file': item.nxfilename,
+                        }
+                    else:
+                        nxlinks[key] = item.nxtarget
+                elif isinstance(item, NXfield):
                     if isinstance(item.nxdata, np.ndarray):
                         try:
                             # Determine chunks
@@ -2278,6 +2289,8 @@ class NexusToZarrProcessor(Processor):
                     # Recursively copy subgroup
                     zarr_subgroup = zarr_group.create_group(key)
                     copy_group(item, zarr_subgroup)
+            if nxlinks:
+                zarr_group.attrs['__nxlinks__'] = nxlinks
 
         copy_group(nexus_group, zarr_group)
         return zarr_group
@@ -3514,9 +3527,10 @@ class ZarrToNexusProcessor(Processor):
                 :type: nexusformat.nexus.NXgroup
                 """
                 self.logger.info(f'Copying {zarr_group.path}')
-                # Copy attributes
+                # Copy attributes (skip the internal link-metadata key)
                 for attr_key, attr_value in zarr_group.attrs.items():
-                    nexus_group.attrs[attr_key] = attr_value
+                    if attr_key != '__nxlinks__':
+                        nexus_group.attrs[attr_key] = attr_value
 
                 # Copy datasets and sub-groups
                 for key, item in zarr_group.members():
@@ -3537,6 +3551,17 @@ class ZarrToNexusProcessor(Processor):
                         # Recursively copy subgroup
                         nexus_subgroup = nexus_group.create_group(key)
                         copy_group(item, nexus_subgroup)
+
+                # Recreate NXlinks
+                for link_name, link_target in \
+                        zarr_group.attrs.get('__nxlinks__', {}).items():
+                    self.logger.info(
+                        f'Creating link {zarr_group.path}/{link_name}')
+                    if isinstance(link_target, dict):
+                        nexus_group[link_name] = h5py.ExternalLink(
+                            link_target['file'], link_target['target'])
+                    else:
+                        nexus_group[link_name] = h5py.SoftLink(link_target)
 
             # Start copying from the root group
             copy_group(zarr_file, nexus_file)

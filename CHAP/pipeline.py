@@ -86,9 +86,9 @@ class PipelineItem(RunConfig):
             self.logger.propagate = False
             log_handler = logging.StreamHandler()
             log_handler.setFormatter(logging.Formatter(
-                '{asctime}: {name:20}: {levelname}: {message}',
+                '{asctime}: {name:20} (L{lineno}): {levelname}: {message}',
                 datefmt='%Y-%m-%d %H:%M:%S', style='{'))
-            self.logger.addHandler(log_handler)
+            self.logger.handlers = [log_handler]
         self.logger.setLevel(self.log_level)
         # Optinal, but it's already available in the 'name' field
         #if self.get_schema() is None:
@@ -416,7 +416,7 @@ class PipelineItem(RunConfig):
         :return: Matching data item.
         :rtype: Any
         """
-        if isinstance(data, list):
+        if isinstance(data, list) and isinstance(data[index], PipelineData):
             if remove:
                 return data.pop(index)['data']
             return data[index]['data']
