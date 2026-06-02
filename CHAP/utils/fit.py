@@ -136,7 +136,7 @@ class FitProcessor(Processor):
                     found_multipeak = True
 
             # Instantiate the Fit or FitMap object and fit the data
-            if np.squeeze(data.nxsignal).ndim == 1:
+            if np.squeeze(y).ndim == 1:
                 fit = Fit(data, self.config, self.logger)
                 fit.fit(max_nfev=self.config.max_nfev)
                 if self.config.print_report:
@@ -149,9 +149,8 @@ class FitProcessor(Processor):
                     rel_height_cutoff=self.config.rel_height_cutoff,
                     max_nfev=self.config.max_nfev,
                     num_proc=self.config.num_proc,
-                    plot=self.config.plot, print_report=self.config.print_report)
-        else:
-            raise ValueError(f'Invalid input data ({type(data)}: {data})')
+                    plot=self.config.plot,
+                    print_report=self.config.print_report)
 
         return fit
 
@@ -2589,12 +2588,16 @@ class FitMap(Fit):
         :rtype: list[str] or dict
         """
         if dims is None:
-            parameters_dict = {}
-            for i, name in enumerate(self._best_parameters):
-                parameters_dict[name] = {
-                    'values': self._best_values[i],
-                    'errors': self._best_errors[i]}
-            return parameters_dict
+            return self._best_parameters
+# FIX use something else, self._best_parameters is "reserved" to get the
+# parameters in the EDD strain analysis and must return the order of the
+# parameters in self.best_values and self.best_errors
+#            parameters_dict = {}
+#            for i, name in enumerate(self._best_parameters):
+#                parameters_dict[name] = {
+#                    'values': self._best_values[i],
+#                    'errors': self._best_errors[i]}
+#            return parameters_dict
         if (not isinstance(dims, (list, tuple))
                 or len(dims) != len(self._map_shape)):
             raise ValueError('Invalid parameter dims ({dims})')

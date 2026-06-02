@@ -1351,7 +1351,7 @@ def get_spectra_fits(
 
     # Perform uniform fit
     # FIX make more generic for fit parameters
-    uniform_fit = FitProcessor.fit(
+    uniform_fit = FitProcessor.run(
         data={'x': energies, 'y': spectra}, config=config, **kwargs)
     uniform_success = uniform_fit.success
     if spectra.ndim == 1:
@@ -1519,8 +1519,8 @@ def get_spectra_fits(
 
     # Perform unconstrained fit
     config['models'][-1]['fit_type'] = 'unconstrained'
-    fit.config = config
-    unconstrained_fit = fit.process(uniform_fit)
+    unconstrained_fit = FitProcessor.run(
+        data=uniform_fit, config=config, **kwargs)
     unconstrained_success = unconstrained_fit.success
     if spectra.ndim == 1:
         if unconstrained_success:
