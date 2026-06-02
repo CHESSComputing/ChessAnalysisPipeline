@@ -99,9 +99,9 @@ class FitProcessor(Processor):
             # Refit/continue the fit with possibly updated parameters
             fit = data
             if isinstance(data, FitMap):
-                fit.fit(config=self.config, max_nfev=config.get('max_nfev'))
+                fit.fit(config=self.config, max_nfev=self.config.max_nfev)
             else:
-                fit.fit(config=self.config, max_nfev=config.get('max_nfev'))
+                fit.fit(config=self.config, max_nfev=self.config.max_nfev)
                 if self.config is not None:
                     if self.config.print_report:
                         fit.print_fit_report()
