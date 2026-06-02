@@ -416,7 +416,7 @@ class PipelineItem(RunConfig):
         :return: Matching data item.
         :rtype: Any
         """
-        if isinstance(data, list):
+        if isinstance(data, list) and isinstance(data[index], PipelineData):
             if remove:
                 return data.pop(index)['data']
             return data[index]['data']

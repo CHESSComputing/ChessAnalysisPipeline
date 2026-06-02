@@ -1627,7 +1627,6 @@ class TomoReduceProcessor(Processor):
                 # Try to get a fit from the bright field
                 row_sum = np.sum(tbf, 1)
                 num = len(row_sum)
-                fit = FitProcessor(**self.run_config)
                 model = {'model': 'rectangle',
                          'parameters': [
                              {'name': 'amplitude',
@@ -1641,11 +1640,10 @@ class TomoReduceProcessor(Processor):
                               'min': 0.0, 'max': num},
                              {'name': 'sigma2', 'value': num/7.0,
                               'min': sys.float_info.min}]}
-                bounds_fit = fit.process(
-                    data=NXdata(
-                        NXfield(row_sum, 'y'),
-                        NXfield(np.array(range(num)), 'x')),
-                    config={'models': [model], 'method': 'trf'})
+                bounds_fit = FitProcessor.run(
+                    data={'x': np.array(range(num)), 'y':row_sum},
+                    config={'models': [model], 'method': 'trf'},
+                    **self.run_config)
                 parameters = bounds_fit.best_values
                 row_low_fit = parameters.get('center1', None)
                 row_upp_fit = parameters.get('center2', None)

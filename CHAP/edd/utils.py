@@ -1314,7 +1314,6 @@ def get_spectra_fits(
     num_proc = kwargs.get('num_proc', 1)
     rel_height_cutoff = detector.rel_height_cutoff
     num_peak = len(peak_locations)
-    nxdata = NXdata(NXfield(spectra, 'y'), NXfield(energies, 'x'))
 
     # Construct the fit model
     models = []
@@ -1350,8 +1349,8 @@ def get_spectra_fits(
 
     # Perform uniform fit
     # FIX make more generic for fit parameters
-    fit = FitProcessor(**kwargs)
-    uniform_fit = fit.process(nxdata, config)
+    uniform_fit = FitProcessor.fit(
+        data={'x': energies, 'y': spectra}, config=config, **kwargs)
     uniform_success = uniform_fit.success
     if spectra.ndim == 1:
         if uniform_success:
@@ -1518,7 +1517,8 @@ def get_spectra_fits(
 
     # Perform unconstrained fit
     config['models'][-1]['fit_type'] = 'unconstrained'
-    unconstrained_fit = fit.process(uniform_fit, config)
+    fit.config = config
+    unconstrained_fit = fit.process(uniform_fit)
     unconstrained_success = unconstrained_fit.success
     if spectra.ndim == 1:
         if unconstrained_success:
