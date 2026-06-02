@@ -735,11 +735,10 @@ class DiffractionVolumeLengthProcessor(_BaseEddProcessor):
                         models.append({'model': model, 'prefix': f'{model}_'})
             models.append({'model': 'gaussian'})
             self.logger.debug('Fitting mean spectrum')
-            fit = FitProcessor(**self.run_config)
-            result = fit.process(
-                NXdata(
-                    NXfield(masked_sum, 'y'), NXfield(x, 'x')),
-                    {'models': models, 'method': 'trf'})
+            result = FitProcessor.run(
+                data={'x': x, 'y': masked_sum},
+                config={'models': models, 'method': 'trf'},
+                **self.run_config)
 
             # Calculate / manually select diffraction volume length
             detector.dvl = float(
@@ -1406,12 +1405,10 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
                  'fwhm_min': detector.fwhm_min,
                  'fwhm_max': detector.fwhm_max})
             self.logger.debug('Fitting spectrum')
-            fit = FitProcessor(**self.run_config)
-            mean_data_fit = fit.process(
-                NXdata(
-                    NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
-                {'models': models, 'method': 'trf'})
-
+            mean_data_fit = FitProcessor.run(
+                data={'x': bins[mask], 'y': mean_data[mask]},
+                config={'models': models, 'method': 'trf'},
+                **self.run_config)
 
             # Extract the fit results for the peaks
             fit_peak_amplitudes = np.asarray([
@@ -1428,12 +1425,10 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
             self.logger.debug(f'Fit peak sigmas: {fit_peak_sigmas}')
 
             # FIX for now stick with a linear energy correction
-            fit = FitProcessor(**self.run_config)
-            energy_fit = fit.process(
-                    NXdata(
-                        NXfield(peak_energies, 'y'),
-                        NXfield(fit_peak_indices, 'x')),
-                    {'models': [{'model': 'linear'}]})
+            energy_fit = FitProcessor.run(
+                data={'x': fit_peak_indices, 'y': peak_energies},
+                config={'models': [{'model': 'linear'}]},
+                **self.run_config)
             a = 0.0
             b = float(energy_fit.best_values['slope'])
             c = float(energy_fit.best_values['intercept'])
@@ -2141,10 +2136,10 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
              'fwhm_max': detector.fwhm_max})
 
         # Perform an unconstrained fit in terms of MCA bin index
-        fit = FitProcessor(**self.run_config)
-        result = fit.process(
-            NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
-            {'models': models, 'method': 'trf'})
+        result = FitProcessor.run(
+            data={'x': bins[mask], 'y': mean_data[mask]},
+            config={'models': models, 'method': 'trf'},
+            **self.run_config)
         best_fit = result.best_fit
         residual = result.residual
 
@@ -2168,10 +2163,10 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             model = 'quadratic'
         else:
             model = 'linear'
-        fit = FitProcessor(**self.run_config)
-        result = fit.process(
-            NXdata(NXfield(e_bragg, 'y'), NXfield(fit_peak_indices, 'x')),
-            {'models': [{'model': model}]})
+        result = FitProcessor.run(
+            data={'x': fit_peak_indices, 'y': e_bragg},
+            config={'models': [{'model': model}]},
+            **self.run_config)
         if quadratic_energy_calibration:
             a_fit = result.best_values['a']
             b_fit = result.best_values['b']
@@ -2298,10 +2293,11 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
                     {'name': 'sigma', 'min': sig_min, 'max': sig_max}]})
 
         # Perform the fit
-        fit = FitProcessor(**self.run_config)
-        result = fit.process(
-            NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
-            {'parameters': parameters, 'models': models, 'method': 'trf'})
+        result = FitProcessor.run(
+            data={'x': bins[mask], 'y': mean_data[mask]},
+            config={
+                'parameters': parameters, 'models': models, 'method': 'trf'},
+            **self.run_config)
 
         # Extract values of interest from the best values
         tth_fit = np.degrees(result.best_values['tth'])
@@ -2333,14 +2329,10 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             'centers_range': b_fit * detector.centers_range,
             'fwhm_min': b_fit * detector.fwhm_min,
             'fwhm_max': b_fit * detector.fwhm_max}]
-        result = fit.process(
-            NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
-            {'parameters': parameters, 'models': models, 'method': 'trf'})
-        fit = FitProcessor(**self.run_config)
-        result = fit.process(
-            NXdata(NXfield(mean_data[mask], 'y'),
-            NXfield(energies[mask], 'x')),
-            {'models': models, 'method': 'trf'})
+        result = FitProcessor.run(
+            data={'x': energies[mask], 'y': mean_data[mask]},
+            config={'models': models, 'method': 'trf'},
+            **self.run_config)
         e_xrf_unconstrained = np.sort(
             [result.best_values[f'peak{i+1}_center']
              for i in range(num_xrf)])

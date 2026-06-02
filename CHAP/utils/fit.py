@@ -14,6 +14,7 @@ from re import sub
 from shutil import rmtree
 from sys import float_info
 #from time import time
+from typing import Optional
 
 # Third party modules
 try:
@@ -24,8 +25,8 @@ try:
     HAVE_JOBLIB = True
 except ImportError:
     HAVE_JOBLIB = False
-from nexusformat.nexus import NXdata
 import numpy as np
+from pydantic import Field
 
 # Local modules
 from CHAP.processor import Processor
@@ -35,6 +36,7 @@ from CHAP.utils.general import (
     index_nearest,
     quick_plot,
 )
+from CHAP.utils.models import FitConfig
 
 FLOAT_MIN = float_info.min
 FLOAT_MAX = float_info.max
@@ -60,103 +62,94 @@ height_factor = {
 
 
 class FitProcessor(Processor):
-    """A processor to perform a fit on a data set or data map. """
+    """A processor to perform a fit on a data set or data map.
 
-    def process(self, data, config=None):
+    :ivar config: Initialization parameters for an instance of
+        :class:`~CHAP.utils.models.FitConfig`.
+    :vartype config: dict, optional
+    """
+
+    pipeline_fields: dict = Field(
+        default = {
+            'config': 'CHAP.utils.models.FitConfig'}, init_var=True)
+    config: Optional[FitConfig] = None
+
+    def process(self, data):
         """Fit the data and return a :class:`~CHAP.utils.fit.Fit` or
         :class:`~CHAP.utils.fit.FitMap` object depending on the
-        dimensionality of the input data. The input data should be or
-        contain a NeXus style
-        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__ 
-        object, with properly defined signal and axis, or a
-        :class:`~CHAP.utils.fit.Fit` or :class:`~CHAP.utils.fit.FitMap`
-        object from a previous fit.
+        dimensionality of the input data. The input data should be an
+        array-like object (tuple, list or numpy.ndarray) or a
+        dictionary with at least a `"y"` field with a value equal to
+        one or a :class:`~CHAP.utils.fit.Fit` or
+        :class:`~CHAP.utils.fit.FitMap` object from a previous fit.
 
-        :param data: Input data containing the
-            nexusformat.nexus.NXdata object to fit.
-        :type data: list[PipelineData] or Fit or FitMap or
-            nexusformat.nexus.NXdata
-        :param config: Fit configuration.
-        :type config: dict, optional
-        :raises ValueError: Invalid input or configuration parameter.
+        :param data: Input data containing the data object to fit.
+        :type data: list[PipelineData] or Fit or FitMap or array-like
         :return: The fitted data object.
         :rtype: Fit or FitMap
         """
         # Local modules
-        from CHAP.utils.models import (
-            FitConfig,
-            Multipeak,
-        )
+        from CHAP.utils.models import Multipeak
 
-        # Unwrap the PipelineData if called as a Pipeline Processor
-        if (not isinstance(data, (Fit, FitMap))
-                and not isinstance(data, NXdata)):
-            data = self.get_pipelinedata_item(data)
-
-        # Get the validated fit configuration
-        fit_config = None
-        if config is not None:
-            try:
-                fit_config = FitConfig(**config)
-            except Exception as exc:
-                raise RuntimeError from exc
+#        # Unwrap the PipelineData if called as a Pipeline Processor
+#        data = self.get_pipelinedata_item(data)
 
         if isinstance(data, (Fit, FitMap)):
 
             # Refit/continue the fit with possibly updated parameters
             fit = data
             if isinstance(data, FitMap):
-                fit.fit(config=fit_config, max_nfev=config.get('max_nfev'))
+                fit.fit(config=self.config, max_nfev=config.get('max_nfev'))
             else:
-                fit.fit(config=fit_config, max_nfev=config.get('max_nfev'))
-                if fit_config is not None:
-                    if fit_config.print_report:
+                fit.fit(config=self.config, max_nfev=config.get('max_nfev'))
+                if self.config is not None:
+                    if self.config.print_report:
                         fit.print_fit_report()
-                    if fit_config.plot:
+                    if self.config.plot:
                         fit.plot(skip_init=True)
 
-        elif isinstance(data, NXdata):
+        else:
 
-            # Get the default NXdata object
+            # Test for the correct input data type
             try:
-                nxdata = data.get_default()
-                assert nxdata is not None
-            except (AssertionError, ValueError) as exc:
-                if nxdata is None or nxdata.nxclass != 'NXdata':
-                    raise ValueError(
-                        'Invalid default pathway to an NXdata '
-                        f'object in ({data})') from exc
+                if isinstance(data, dict):
+                    x = np.asarray(data.get('x'))
+                    y = np.asarray(data.get('y'))
+                else:
+                    y = np.asarray(data)
+            except (ValueError, TypeError) as exc:
+                raise ValueError(f'Invalid input data ({type(data)}\n{data})')
 
             # Expand multipeak model if present
             found_multipeak = False
-            for i, model in enumerate(deepcopy(fit_config.models)):
+            for i, model in enumerate(deepcopy(self.config.models)):
                 if isinstance(model, Multipeak):
                     if found_multipeak:
                         raise ValueError(
-                            f'Invalid parameter models ({fit_config.models}) '
+                            f'Invalid parameter models ({self.config.models}) '
                             '(multiple instances of multipeak not allowed)')
                     parameters, models = self.create_multipeak_model(model)
                     if parameters:
-                        fit_config.parameters += parameters
-                    fit_config.models += models
-                    fit_config.models.pop(i)
+                        self.config.parameters += parameters
+                    self.config.models += models
+                    self.config.models.pop(i)
                     found_multipeak = True
 
             # Instantiate the Fit or FitMap object and fit the data
-            if np.squeeze(nxdata.nxsignal).ndim == 1:
-                fit = Fit(nxdata, fit_config, self.logger)
-                fit.fit(max_nfev=config.get('max_nfev'))
-                if fit_config.print_report:
+            if np.squeeze(data.nxsignal).ndim == 1:
+                fit = Fit(data, self.config, self.logger)
+                fit.fit(max_nfev=self.config.max_nfev)
+                if self.config.print_report:
                     fit.print_fit_report()
-                if fit_config.plot:
+                if self.config.plot:
                     fit.plot(skip_init=True)
             else:
-                fit = FitMap(nxdata, fit_config, self.logger)
+                fit = FitMap(data, self.config, self.logger)
                 fit.fit(
-                    rel_height_cutoff=fit_config.rel_height_cutoff,
-                    max_nfev=config.get('max_nfev'),
-                    num_proc=fit_config.num_proc,
-                    plot=fit_config.plot, print_report=fit_config.print_report)
+                    rel_height_cutoff=self.config.rel_height_cutoff,
+                    max_nfev=self.config.max_nfev,
+                    num_proc=self.config.num_proc,
+                    plot=self.config.plot, print_report=self.config.print_report)
         else:
             raise ValueError(f'Invalid input data ({type(data)}: {data})')
 
@@ -578,11 +571,11 @@ class ModelResult():
 class Fit:
     """Wrapper class for scipy/lmfit."""
 
-    def __init__(self, nxdata, config, logger):
+    def __init__(self, data, config, logger):
         """Initialize Fit.
 
-        :param nxdata: The input data.
-        :type nxdata: nexusformat.nexus.NXdata
+        :param data: The input data.
+        :type data: array-like, or dict
         :param config: Fit configuration.
         :type config: CHAP.utils.models.FitConfig, optional
         :param logger: A python Logger object.
@@ -634,20 +627,20 @@ class Fit:
 #                raise ValueError(
 #                    'Invalid value of keyword argument try_linear_fit '
 #                    f'({self._try_linear_fit})')
-        if nxdata is not None:
-            if isinstance(nxdata.attrs['axes'], str):
-                dim_x = nxdata.attrs['axes']
-            else:
-                dim_x = nxdata.attrs['axes'][-1]
-            self._x = np.asarray(nxdata[dim_x])
-            self._y = np.squeeze(nxdata.nxsignal)
-            if self._x.ndim != 1:
+        if data is not None:
+            try:
+                if isinstance(data, dict):
+                    self._x = np.asarray(data.get('x'))
+                    self._y = np.squeeze(data.get('y'))
+                    assert self._x.size == self._y.size
+                else:
+                    self._y = np.squeeze(data)
+                    self._x = np.arange(self._y.size)
+            except (ValueError, TypeError) as exc:
+                raise ValueError(f'Invalid input data ({type(data)}\n{data})')
+            if self._y.ndim != 1:
                 raise ValueError(
-                    f'Invalid x dimension ({self._x.ndim})')
-            if self._x.size != self._y.size:
-                raise ValueError(
-                    f'Inconsistent x and y dimensions ({self._x.size} vs '
-                    f'{self._y.size})')
+                    f'Invalid input data dimension ({self._y.ndim})')
 #            if 'mask' in kwargs:
 #                self._mask = kwargs.pop('mask')
             if True: #self._mask is None:
@@ -930,14 +923,6 @@ class Fit:
         return getattr(self._result, 'var_names', None)
 
     @property
-    def x(self):
-        """Return the input x-coordinates.
-
-        :type: numpy.ndarray
-        """
-        return self._x
-
-    @property
     def y(self):
         """Return the input y-coordinates.
 
@@ -1217,8 +1202,7 @@ class Fit:
             if name not in new_parameters:
                 name = pprefix+name
                 if name not in new_parameters:
-                    raise ValueError(
-                        f'Unable to match parameter {name}')
+                    raise ValueError(f'Unable to match parameter {name}')
             if parameter.expr is None:
                 self._parameters[name].set(
                     value=parameter.value, min=parameter.min,
@@ -1332,11 +1316,13 @@ class Fit:
         return None
 
     def plot(
-            self, y=None, *, y_title=None, title=None, result=None,
+            self, x=None, y=None, *, y_title=None, title=None, result=None,
             skip_init=False, plot_comp=True, plot_comp_legends=False,
             plot_residual=False, plot_masked_data=True, **kwargs):
         """Plot the best fit.
 
+        :param x: x-coordinates.
+        :type x: array-like, optional
         :param y: y-coordinates.
         :type y: array-like, optional
         :param y_title: y-axis label.
@@ -1373,34 +1359,45 @@ class Fit:
             plot_masked_data = False
         else:
             mask = self._mask
+        if x is not None:
+            if not isinstance(x, (tuple, list, np.ndarray)):
+                self._logger.warning(
+                    'Ignoring invalid parameter x ({type(x)})')
+            if len(x) != len(self._x):
+                self._logger.warning(
+                    'Ignoring parameter x in plot (wrong dimension)')
+                x = None
+        if x is None:
+            x = self._x
         if y is not None:
             if not isinstance(y, (tuple, list, np.ndarray)):
-                self._logger.warning('Ignorint invalid parameter y ({y}')
-            if len(y) != len(self._x):
+                self._logger.warning(
+                    'Ignoring invalid parameter y ({type(y)})')
+            if len(y) != len(x):
                 self._logger.warning(
                     'Ignoring parameter y in plot (wrong dimension)')
                 y = None
         if y is not None:
             if y_title is None or not isinstance(y_title, str):
                 y_title = 'data'
-            plots += [(self._x, y, '.')]
+            plots += [(x, y, '.')]
             legend += [y_title]
         if self._y is not None:
-            plots += [(self._x, np.asarray(self._y), 'b.')]
+            plots += [(x, np.asarray(self._y), 'b.')]
             legend += ['data']
             if plot_masked_data:
-                plots += [(self._x[mask], np.asarray(self._y)[mask], 'bx')]
+                plots += [(x[mask], np.asarray(self._y)[mask], 'bx')]
                 legend += ['masked data']
         if isinstance(plot_residual, bool) and plot_residual:
-            plots += [(self._x[~mask], result.residual, 'r-')]
+            plots += [(x[~mask], result.residual, 'r-')]
             legend += ['residual']
-        plots += [(self._x[~mask], result.best_fit, 'k-')]
+        plots += [(x[~mask], result.best_fit, 'k-')]
         legend += ['best fit']
         if not skip_init and hasattr(result, 'init_fit'):
-            plots += [(self._x[~mask], result.init_fit, 'g-')]
+            plots += [(x[~mask], result.init_fit, 'g-')]
             legend += ['init']
         if plot_comp:
-            components = result.eval_components(x=self._x[~mask])
+            components = result.eval_components(x=x[~mask])
             num_components = len(components)
             if 'tmp_normalization_offset_' in components:
                 num_components -= 1
@@ -1414,8 +1411,8 @@ class Fit:
                     if len(modelname) > 20:
                         modelname = f'{modelname[0:16]} ...'
                     if isinstance(y_comp, (int, float)):
-                        y_comp *= np.ones(self._x[~mask].size)
-                    plots += [(self._x[~mask], y_comp, '--')]
+                        y_comp *= np.ones(x[~mask].size)
+                    plots += [(x[~mask], y_comp, '--')]
                     if plot_comp_legends:
                         if modelname[-1] == '_':
                             legend.append(modelname[:-1])
@@ -2315,11 +2312,11 @@ class Fit:
 class FitMap(Fit):
     """Wrapper to the Fit class to fit data on a N-dimensional map."""
 
-    def __init__(self, nxdata, config, logger):
+    def __init__(self, data, config, logger):
         """Initialize FitMap.
 
-        :param nxdata: The input data.
-        :type nxdata: nexusformat.nexus.NXdata
+        :param data: The input data.
+        :type data: array-like, or dict
         :param config: Fit configuration.
         :type config: CHAP.utils.models.FitConfig, optional
         :param logger: A python Logger object.
@@ -2349,16 +2346,16 @@ class FitMap(Fit):
         # At this point the fastest index should always be the signal
         #     dimension so that the slowest ndim-1 dimensions are the
         #     map dimensions
-        self._x = np.asarray(nxdata[nxdata.attrs['axes'][-1]])
-        self._ymap = np.asarray(nxdata.nxsignal)
-
-        # Check input parameters
-        if self._x.ndim != 1:
-            raise ValueError(f'Invalid x dimension ({self._x.ndim})')
-        if self._x.size != self._ymap.shape[-1]:
-            raise ValueError(
-                f'Inconsistent x and y dimensions ({self._x.size} vs '
-                f'{self._ymap.shape[-1]})')
+        try:
+            if isinstance(data, dict):
+                self._x = np.asarray(data.get('x'))
+                self._ymap = np.asarray(data.get('y'))
+                assert self._x.size == self._ymap.shape[-1]
+            else:
+                self._ymap = np.asarray(data)
+                self._x = np.arange(self._ymap.shape[-1])
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f'Invalid input data ({type(data)}\n{data})')
 
         # Flatten the map
         # Store the flattened map in self._ymap_norm
@@ -2389,7 +2386,7 @@ class FitMap(Fit):
         self._y_range = ymap_max-ymap_min
         if self._y_range > 0.0:
             self._norm = (ymap_min, self._y_range)
-            self._ymap_norm = (self._ymap_norm-self._norm[0]) / self._norm[1]
+            self._ymap_norm = (self._ymap_norm-self._norm[0])/self._norm[1]
         else:
             self._redchi_cutoff *= self._y_range**2
 
@@ -2592,7 +2589,12 @@ class FitMap(Fit):
         :rtype: list[str] or dict
         """
         if dims is None:
-            return self._best_parameters
+            parameters_dict = {}
+            for i, name in enumerate(self._best_parameters):
+                parameters_dict[name] = {
+                    'values': self._best_values[i],
+                    'errors': self._best_errors[i]}
+            return parameters_dict
         if (not isinstance(dims, (list, tuple))
                 or len(dims) != len(self._map_shape)):
             raise ValueError('Invalid parameter dims ({dims})')
@@ -2631,10 +2633,12 @@ class FitMap(Fit):
             self._logger.warning('Could not clean-up automatically.')
 
     def plot(
-            self, dims=None, *, y_title=None, plot_comp_legends=False,
+            self, x=None, dims=None, *, y_title=None, plot_comp_legends=False,
             plot_residual=False, plot_masked_data=True, **kwargs):
         """Plot the best fits.
 
+        :param x: x-coordinates.
+        :type x: array-like, optional
         :param dims: Map indices of the data point to plot,
             defaults to `None` which will plot the first data point.
         :type dims: list or tuple, optional
@@ -2653,6 +2657,16 @@ class FitMap(Fit):
         # Third party modules
         from lmfit.models import ExpressionModel
 
+        if x is not None:
+            if not isinstance(x, (tuple, list, np.ndarray)):
+                self._logger.warning(
+                    'Ignoring invalid parameter x ({type(x)})')
+            if len(x) != len(self._x):
+                self._logger.warning(
+                    'Ignoring parameter x in plot (wrong dimension)')
+                x = None
+        if x is None:
+            x = self._x
         if dims is None:
             dims = [0]*len(self._map_shape)
         if (not isinstance(dims, (list, tuple))
@@ -2667,20 +2681,20 @@ class FitMap(Fit):
         if y_title is None or not isinstance(y_title, str):
             y_title = 'data'
         if self._mask is None:
-            mask = np.zeros(self._x.size).astype(bool)
+            mask = np.zeros(x.size).astype(bool)
             plot_masked_data = False
         else:
             mask = self._mask
-        plots = [(self._x, np.asarray(self._ymap[dims]), 'b.')]
+        plots = [(x, np.asarray(self._ymap[dims]), 'b.')]
         legend = [y_title]
         if plot_masked_data:
             plots += \
-                [(self._x[mask], np.asarray(self._ymap)[(*dims,mask)], 'bx')]
+                [(x[mask], np.asarray(self._ymap)[(*dims,mask)], 'bx')]
             legend += ['masked data']
-        plots += [(self._x[~mask], self.best_fit[dims], 'k-')]
+        plots += [(x[~mask], self.best_fit[dims], 'k-')]
         legend += ['best fit']
         if plot_residual:
-            plots += [(self._x[~mask], self.residual[dims], 'r--')]
+            plots += [(x[~mask], self.residual[dims], 'r--')]
             legend += ['residual']
         # Create current parameters
         parameters = deepcopy(self._parameters)
@@ -2707,10 +2721,10 @@ class FitMap(Fit):
                     modelname = f'{component._name}'
             if len(modelname) > 20:
                 modelname = f'{modelname[0:16]} ...'
-            y = component.eval(params=parameters, x=self._x[~mask])
+            y = component.eval(params=parameters, x=x[~mask])
             if isinstance(y, (int, float)):
-                y *= np.ones(self._x[~mask].size)
-            plots += [(self._x[~mask], y, '--')]
+                y *= np.ones(x[~mask].size)
+            plots += [(x[~mask], y, '--')]
             if plot_comp_legends:
                 legend.append(modelname)
         quick_plot(
@@ -3099,6 +3113,7 @@ class FitMap(Fit):
 
         if self._rel_height_cutoff is not None:
             # Check for low heights peaks and refit without them
+            # FIX make sure to add "height" and "fwhm" to peak-like models
             heights = []
             names = []
             for component in result.components:
