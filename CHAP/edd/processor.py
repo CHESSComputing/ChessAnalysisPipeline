@@ -372,6 +372,8 @@ class _BaseStrainProcessor(_BaseEddProcessor):
             if not found:
                 unique_points.append(point)
                 sum_indices.append([i])
+        if not unique_points:
+            return NXdata(NXfield(np.empty((0, data.shape[-1])), 'detector_data'))
         unique_points = np.asarray(unique_points).T
         mean_data = np.empty((unique_points.shape[1], data.shape[-1]))
         for i in range(unique_points.shape[1]):
