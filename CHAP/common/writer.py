@@ -26,7 +26,7 @@ from CHAP.writer import (
     Writer,
     validate_writer_model,
 )
-from CHAP.common.models import IndexSliceConfig
+from CHAP.common.models.common import IndexSliceConfig
 
 
 
