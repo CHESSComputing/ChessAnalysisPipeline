@@ -50,7 +50,7 @@ class Background(SpecScans):
     """
 
     idx_slice: IndexSliceConfig = IndexSliceConfig()
-    scan_step_indices: Optional[Union[list[int], str]] = None
+    scan_step_indices: Optional[Union[list[int], str]] = Field(default=None, exclude=True)
 
     @model_validator(mode='before')
     @classmethod
