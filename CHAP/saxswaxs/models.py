@@ -126,13 +126,16 @@ class CorrectionConfig(CHAPBaseModel):
     :ivar name: Human-readable name used as the key for this
         correction's group in the output zarr / NeXus tree.
     :vartype name: str
-    :ivar uncorrected_data_name: Name of the
-        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`
-        integration whose output serves as the uncorrected input for
-        this correction.  Must match the ``name`` field of one of the
-        integrations in the associated
-        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
-    :vartype uncorrected_data_name: str
+    :ivar uncorrected_data_name: Name (or list of names) of the data
+        source(s) that serve as uncorrected input to this correction.
+        Each name may be a detector ID, a
+        :class:`~CHAP.common.models.integration.PyfaiIntegratorConfig`
+        integration name, or another correction name.  When a list is
+        given the correction is applied independently to each named
+        source and the results are stored as ``I_corrected_{name}``
+        per source; when a single name is given a single
+        ``I_corrected`` array is stored.
+    :vartype uncorrected_data_name: str or list[str]
     :ivar presample_intensity_reference_rate: Fixed reference counting
         rate for the pre-sample beam intensity monitor.  When ``None``
         the rate is computed from the scan data as
@@ -147,12 +150,20 @@ class CorrectionConfig(CHAPBaseModel):
     correction_type: Literal['flux', 'flux_absorption',
                              'flux_absorption_background']
     name: str = Field(validation_alias=AliasChoices('name', 'title'))
-    uncorrected_data_name: str = Field(validation_alias=AliasChoices(
-        'uncorrected_data_name', 'uncorrected_data_title'))
+    uncorrected_data_name: Union[str, list[str]] = Field(
+        validation_alias=AliasChoices(
+            'uncorrected_data_name', 'uncorrected_data_title'))
+
+    @property
+    def uncorrected_data_names(self) -> list[str]:
+        """Return ``uncorrected_data_name`` always as a list."""
+        if isinstance(self.uncorrected_data_name, list):
+            return self.uncorrected_data_name
+        return [self.uncorrected_data_name]
     presample_intensity_reference_rate: Optional[float] = None
     background: Optional[Background] = None
 
-    def zarr_tree(self, dataset_shape, dataset_chunks, integration_shape,
+    def zarr_tree(self, dataset_shape, dataset_chunks, input_shape,
                   nxlinks=None):
         """Return a dictionary representing the zarr tree for this
         correction's output container.
@@ -170,10 +181,12 @@ class CorrectionConfig(CHAPBaseModel):
         :param dataset_chunks: Chunk shape along the scan dimensions, or
             ``'auto'``.
         :type dataset_chunks: list[int] or str
-        :param integration_shape: Shape of one frame of integration
-            results for the integration named by
-            ``uncorrected_data_name``.
-        :type integration_shape: tuple[int, ...]
+        :param input_shape: Shape of one frame of the uncorrected input,
+            or a mapping from source name to frame shape when
+            ``uncorrected_data_name`` is a list.  Each source's shape
+            is either an integration result shape or a raw detector
+            image shape ``(H, W)``.
+        :type input_shape: tuple[int, ...] or dict[str, tuple[int, ...]]
         :param nxlinks: NeXus path(s) to link into the ``data`` group.
             When the zarr tree is written to a ``.zarr`` file and
             converted to ``.nxs`` with
@@ -197,8 +210,39 @@ class CorrectionConfig(CHAPBaseModel):
         if self.background is None:
             background_arrays = {}
         else:
-            background_arrays = self.background.zarr_arrays(integration_shape)
+            # Use the shape of the first source for background allocation
+            first_shape = (
+                next(iter(input_shape.values()))
+                if isinstance(input_shape, dict) else input_shape
+            )
+            background_arrays = self.background.zarr_arrays(first_shape)
             data_attrs['background'] = str(self.background.model_dump())
+        # Build per-source I_corrected arrays.  When uncorrected_data_name
+        # is a list each source gets its own I_corrected_{src} array; when
+        # it is a single name a single I_corrected array is used.
+        if isinstance(self.uncorrected_data_name, list):
+            corrected_arrays = {
+                f'I_corrected_{src}': {
+                    'attributes': {
+                        'long_name': 'Intensity (a.u)',
+                        'units': 'a.u,'
+                    },
+                    'dtype': 'float64',
+                    'shape': (*dataset_shape, *input_shape[src]),
+                }
+                for src in self.uncorrected_data_name
+            }
+        else:
+            corrected_arrays = {
+                'I_corrected': {
+                    'attributes': {
+                        'long_name': 'Intensity (a.u)',
+                        'units': 'a.u,'
+                    },
+                    'dtype': 'float64',
+                    'shape': (*dataset_shape, *input_shape),
+                }
+            }
         return {
             # NXprocess
             'attributes': {
@@ -212,14 +256,7 @@ class CorrectionConfig(CHAPBaseModel):
                     # NXdata
                     'attributes': data_attrs,
                     'children': {
-                        'I_corrected': {
-                            'attributes': {
-                                'long_name': 'Intensity (a.u)',
-                                'units': 'a.u,'
-                            },
-                            'dtype': 'float64',
-                            'shape': (*dataset_shape, *integration_shape),
-                        },
+                        **corrected_arrays,
                         **background_arrays,
                     }
                 }
@@ -281,7 +318,7 @@ class CorrectionsConfig(CHAPBaseModel):
     corrections: conlist(item_type=CorrectionConfig)
 
     def zarr_tree(self, dataset_shape, dataset_chunks,
-                  integration_shapes, nxlinks=None):
+                  input_shapes, nxlinks=None):
         """Return a dictionary representing the zarr tree for all
         corrections in this configuration.
 
@@ -296,11 +333,12 @@ class CorrectionsConfig(CHAPBaseModel):
         :param dataset_chunks: Chunk shape along the scan dimensions, or
             ``'auto'``.
         :type dataset_chunks: list[int] or str
-        :param integration_shapes: Mapping from integration name to the
-            shape of one integration result frame.  Used to look up the
-            ``integration_shape`` for each correction via
-            :attr:`CorrectionConfig.uncorrected_data_name`.
-        :type integration_shapes: dict[str, tuple[int, ...]]
+        :param input_shapes: Mapping from correction ``name`` to the
+            frame shape(s) of its uncorrected input.  For corrections
+            with a single ``uncorrected_data_name`` the value is a
+            ``tuple``; for corrections with a list of names the value is
+            a ``dict`` mapping each source name to its frame shape.
+        :type input_shapes: dict[str, tuple[int, ...] or dict[str, tuple[int, ...]]]
         :param nxlinks: NeXus links to inject into each correction's
             ``data`` group.  May be a single path string or list of path
             strings (forwarded to every correction), or a dict keyed by
@@ -322,9 +360,7 @@ class CorrectionsConfig(CHAPBaseModel):
             'children': {
                 corr.name: corr.zarr_tree(
                     dataset_shape, dataset_chunks,
-                    integration_shapes.get(
-                        corr.uncorrected_data_name, None
-                    ),
+                    input_shapes.get(corr.name, None),
                     nxlinks=nxlinks.get(corr.name),
                 )
                 for corr in self.corrections
