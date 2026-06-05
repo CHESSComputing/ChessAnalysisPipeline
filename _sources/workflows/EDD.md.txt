@@ -380,6 +380,78 @@ Take for example two scenarios for the detector configuration in the energy cali
 
 The first case will set `baseline` and `mask_range` for each detector to the *same* value specified by the respective values in the `detector_config` configuration. The same happens for `mask_range` in the second case, where its entries for detector 11 and 22 are ignored. Whereas, the `baseline` parameter for detector 0, 11 and 22 is set to `True`, `False` (its default value), and `True` with a smoothness parameter, lam, of $10^{-5}$, respectively.
 
+#### Recommended XPS23 detector configuration
+Below is good configuration for the CHESS XPS23 detector. Use it as a starting point for the XPS23 configuration in your workflow. It can be used either as a `detector_config` parameter directly in your `pipeline.yaml` file and/or as the contents of a separate `detector_config.yaml` file that can be read into the data in your pipeline with a `YAMLReader` and `schema: common.models.map.DetectorConfig`):
+```yaml
+detectors:
+- id: 0
+  attrs:
+    eta: -180.0
+- id: 1
+  attrs:
+    eta: -171.8181818181818
+- id: 2
+  attrs:
+    eta: -163.63636363636363
+- id: 3
+  attrs:
+    eta: -155.45454545454544
+- id: 4
+  attrs:
+    eta: -147.27272727272728
+- id: 5
+  attrs:
+    eta: -139.0909090909091
+- id: 6
+  attrs:
+    eta: -130.9090909090909
+- id: 7
+  attrs:
+    eta: -122.72727272727272
+- id: 8
+  attrs:
+    eta: -114.54545454545455
+- id: 9
+  attrs:
+    eta: -106.36363636363636
+- id: 11
+  attrs:
+    eta: -98.18181818181819
+- id: 10
+  attrs:
+    eta: -90.0
+- id: 12
+  attrs:
+    eta: -81.81818181818181
+- id: 13
+  attrs:
+    eta: -73.63636363636364
+- id: 14
+  attrs:
+    eta: -65.45454545454545
+- id: 15
+  attrs:
+    eta: -57.27272727272728
+- id: 16
+  attrs:
+    eta: -49.09090909090909
+- id: 17
+  attrs:
+    eta: -40.90909090909091
+- id: 18
+  attrs:
+    eta: -32.72727272727272
+- id: 19
+  attrs:
+    eta: -24.54545454545456
+- id: 21
+  attrs:
+    eta: -8.181818181818187
+- id: 22
+  attrs:
+    eta: 0.0
+```
+
 ## Additional notes on energy calibration
 
 As mentioned above a standard EDD experiment needs calibration of the detector channel energies. Experiments have shown that the channel energies $E_j$ vary linearly with the channel index $j$ within the energy range of typical EDD experiments: $E_j = mj+b$, where the slope $m$ and intercept $b$ can be determined in one or a combination of two experiments:

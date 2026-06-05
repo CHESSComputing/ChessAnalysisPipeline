@@ -76,6 +76,9 @@
       <a class="reference internal" href="https://github.com/CHESSComputing/ChessAnalysisPipeline">
         <i class="fa fa-github"></i> GitHub Repository
       </a>
+      <a class="reference internal" href="https://github.com/CHESSComputing/ChessAnalysisPipeline/issues">
+        <i class="fa fa-github"></i> Open or contribute to GitHub issues
+      </a>
     </li>
   </ul>
 
@@ -485,6 +488,79 @@ The same detector selection mechanism is valid for <span class="math notranslate
 </li>
 </ul>
 <p>The first case will set <code class="docutils literal notranslate"><span class="pre">baseline</span></code> and <code class="docutils literal notranslate"><span class="pre">mask_range</span></code> for each detector to the <em>same</em> value specified by the respective values in the <code class="docutils literal notranslate"><span class="pre">detector_config</span></code> configuration. The same happens for <code class="docutils literal notranslate"><span class="pre">mask_range</span></code> in the second case, where its entries for detector 11 and 22 are ignored. Whereas, the <code class="docutils literal notranslate"><span class="pre">baseline</span></code> parameter for detector 0, 11 and 22 is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">False</span></code> (its default value), and <code class="docutils literal notranslate"><span class="pre">True</span></code> with a smoothness parameter, lam, of <span class="math notranslate nohighlight">\(10^{-5}\)</span>, respectively.</p>
+</section>
+<section id="recommended-xps23-detector-configuration">
+<h4>Recommended XPS23 detector configuration<a class="headerlink" href="#recommended-xps23-detector-configuration" title="Link to this heading"></a></h4>
+<p>Below is good configuration for the CHESS XPS23 detector. Use it as a starting point for the XPS23 configuration in your workflow. It can be used either as a <code class="docutils literal notranslate"><span class="pre">detector_config</span></code> parameter directly in your <code class="docutils literal notranslate"><span class="pre">pipeline.yaml</span></code> file and/or as the contents of a separate <code class="docutils literal notranslate"><span class="pre">detector_config.yaml</span></code> file that can be read into the data in your pipeline with a <code class="docutils literal notranslate"><span class="pre">YAMLReader</span></code> and <code class="docutils literal notranslate"><span class="pre">schema:</span> <span class="pre">common.models.map.DetectorConfig</span></code>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">detectors</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-180.0</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-171.8181818181818</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-163.63636363636363</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-155.45454545454544</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-147.27272727272728</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-139.0909090909091</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-130.9090909090909</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-122.72727272727272</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-114.54545454545455</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">9</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-106.36363636363636</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">11</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-98.18181818181819</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-90.0</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-81.81818181818181</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">13</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-73.63636363636364</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">14</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-65.45454545454545</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-57.27272727272728</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-49.09090909090909</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">17</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-40.90909090909091</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">18</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-32.72727272727272</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">19</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-24.54545454545456</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">21</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-8.181818181818187</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">22</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+</pre></div>
+</div>
 </section>
 </section>
 </section>
