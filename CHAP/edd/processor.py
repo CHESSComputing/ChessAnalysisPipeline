@@ -3209,8 +3209,10 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         # Third party modules
         # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
+            NXdata,
             NXdetector,
             NXfield,
+            NXparameters,
             NXprocess,
         )
         # pylint: enable=no-name-in-module
@@ -3233,6 +3235,34 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
             calibration_config.model_dump_json()
         nxprocess.strain_analysis_config = \
             self.config.model_dump_json()
+
+        # Add the Rosette strains fields
+        num_points = self._nxdata_detectors[0].nxsignal.shape[0]
+        nxprocess.strain_rosette = NXparameters()
+        nxprocess.strain_rosette.e_xx = NXdata(
+            NXfield(
+                dtype=np.float64, name='values', shape=(num_points,),
+                maxshape=(None,), chunks=(1,)),
+            NXfield(
+                dtype=np.float64, name='errors', shape=(num_points,),
+                maxshape=(None,), chunks=(1,)),
+        )
+        nxprocess.strain_rosette.e_yy = NXdata(
+            NXfield(
+                dtype=np.float64, shape=(num_points,), maxshape=(None,),
+                chunks=(1,), name='values'),
+            NXfield(
+                dtype=np.float64, shape=(num_points,), maxshape=(None,),
+                chunks=(1,), name='errors'),
+        )
+        nxprocess.strain_rosette.e_xy = NXdata(
+            NXfield(
+                dtype=np.float64, shape=(num_points,), maxshape=(None,),
+                chunks=(1,), name='values'),
+            NXfield(
+                dtype=np.float64, shape=(num_points,), maxshape=(None,),
+                chunks=(1,), name='errors'),
+        )
 
         if len(self._peak_fit_info) == 0:
             # FIX this is a temporary fix to be able to run update
@@ -3482,6 +3512,8 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     'index')
 
         # Loop over the detectors to fill in the results dict
+        normal_strains = []
+        det_angles = []
         for energies, mask, mean_data, nxdata, detector in zip(
                 self._energies, self._masks, self._mean_data,
                 self._nxdata_detectors, self.detector_config.detectors):
@@ -3608,6 +3640,9 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
             if num_points > 1:
                 unconstrained_amplitudes_vary = np.moveaxis(
                     unconstrained_amplitudes_vary, -1, 0)
+            if 'eta' in detector.attrs:
+                normal_strains.append(unconstrained_strain)
+                det_angles.append(detector.attrs['eta'])
 
             # Insert the peaks omitted from the fit due to find_peak_cutoff
             insert_peak_indices = [
@@ -3748,7 +3783,55 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     nxdata, energies[mask], intensities, intensity_norms,
                     unconstrained_results['best_fits'], detector.get_id())
 
+        # Calculate and add the Rosette strains
+        popt, perr = self._fit_strain_rosette(normal_strains, det_angles)
+        if self.json_results:
+            results.update({
+                'strain_rosette/e_xx/values': np.asarray([popt[0]]),
+                'strain_rosette/e_xx/errors': np.asarray([perr[0]]),
+                'strain_rosette/e_yy/values': np.asarray([popt[1]]),
+                'strain_rosette/e_yy/errors': np.asarray([perr[1]]),
+                'strain_rosette/e_xy/values': np.asarray([popt[2]]),
+                'strain_rosette/e_xy/errors': np.asarray([perr[2]]),
+            })
+
         return results
+
+    def _fit_strain_rosette(self, normal_strains, det_angles):
+        # Third party modules
+        from scipy.optimize import curve_fit
+
+        def strain_rosette_calc(angle, e_xx, e_yy, e_xy):
+            # Calculate the xx strain at an angle, given the xx, yy,
+            # and xy strains.
+            # Accept scalar or array `angle` (radians).
+            a = np.asarray(angle)
+            c = np.cos(a)
+            s = np.sin(a)
+            e1 = e_xx * c**2 + e_yy * s**2 + 2.0 * e_xy * c * s
+            return e1
+
+        normal_strains = np.squeeze(normal_strains)
+        assert normal_strains.ndim == 1
+        det_angles = np.asarray(det_angles)
+        assert normal_strains.size == det_angles.size
+        det_angles_rad = np.radians(det_angles)
+        # Use normal strain near 0 degrees as initial guess for e_xx
+        e_xx_guess = normal_strains[np.argmin(np.abs(det_angles - 0))]
+        # Use normal strain near 90 degrees as initial guess for e_yy
+        e_yy_guess = normal_strains[np.argmin(np.abs(det_angles - 90))]
+        e_xy_guess = 0.0
+        bounds_guess = 100*np.max(np.abs(normal_strains))
+        bounds = (
+            [-bounds_guess, -bounds_guess, -bounds_guess],
+            [bounds_guess, bounds_guess, bounds_guess])
+
+        popt, pcov = curve_fit(
+            strain_rosette_calc, det_angles_rad, normal_strains,
+            p0=(e_xx_guess, e_yy_guess, e_xy_guess),
+            bounds=bounds, **{'max_nfev': 10000})
+        perr = np.sqrt(np.diag(pcov))
+        return popt, perr
 
 
 if __name__ == '__main__':
