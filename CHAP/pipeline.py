@@ -269,7 +269,7 @@ class PipelineItem(RunConfig):
         `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
         object or matches a given name or schema. Pick the last item for which
         the `'name'` key matches `name` if set or the `'schema'` key matches
-        `schema` if set, pick the last match for a `NXobjecta` object
+        `schema` if set, pick the last match for a `NXobject` object
         otherwise. Return the data object.
 
         :param data: Input data.
