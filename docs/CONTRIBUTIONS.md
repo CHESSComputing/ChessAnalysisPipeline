@@ -1,8 +1,6 @@
 (contributions)=
 # Contributions
 
-RV CONTRIBUTING.md should be in your root directory
-
 We welcome feedback, suggestions, issues and bug reports.
 
 Feel free to fork the [repository](https://github.com/CHESSComputing/ChessAnalysisPipeline) on GitHub and send a pull request, or to contribute by [submitting an issue](https://github.com/CHESSComputing/ChessAnalysisPipeline/issues). Each contribution helps CHAP grow and improve.
