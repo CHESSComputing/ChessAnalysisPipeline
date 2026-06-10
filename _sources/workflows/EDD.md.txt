@@ -468,7 +468,7 @@ $$
 \frac{1}{d_{hkl}} = \frac{2m\sin(\theta)}{hc} j_{hkl} + \frac{2b\sin(\theta)}{hc} = m'j_{hkl}+b'
 $$
 
-which says that given a set of known Bragg peaks corresponding to lattice spacings $d_{hkl}$ occuring at channel indices $j_{hkl}$, a linear fit will uniquely determine $m'$ and $b'$. For a known takeoff angle $2\theta$, this uniquely determines $m$ and $b$ as well. Note that this also implies that without an accurately known value of $2`theta$, one *cannot* uniquely determine $m$ and $b$ from Bragg diffraction alone!
+which says that given a set of known Bragg peaks corresponding to lattice spacings $d_{hkl}$ occuring at channel indices $j_{hkl}$, a linear fit will uniquely determine $m'$ and $b'$. For a known takeoff angle $2\theta$, this uniquely determines $m$ and $b$ as well. Note that this also implies that without an accurately known value of $2\theta$, one *cannot* uniquely determine $m$ and $b$ from Bragg diffraction alone!
 
 This leads to the above mentioned two-step detector channel energy calibration procedure:
 
