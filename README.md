@@ -19,7 +19,7 @@ Documentation for the latest release version can be found on [this project's git
 ## :handshake: Contributing
 We welcome feedback, suggestions, issues and bug reports. 
 
-Feel free to contribute by [submitting an issue](https://chesscomputing.github.io/ChessAnalysisPipeline/issues). Each contribution helps CHAP grow and improve.
+Feel free to fork the [repository](https://github.com/CHESSComputing/ChessAnalysisPipeline) on GitHub and send a pull request, or to contribute by [submitting an issue](https://github.com/CHESSComputing/ChessAnalysisPipeline/issues). Each contribution helps CHAP grow and improve.
 When submitting an issue, please have a look at the [contribution guidelines](https://chesscomputing.github.io/ChessAnalysisPipeline/contributions.html). Following these guidelines grately helps us to address each issue promptly and effectively.
 
 We appreciate your support!
