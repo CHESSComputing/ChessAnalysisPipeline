@@ -420,24 +420,30 @@ class SpecScanToMapConfigProcessor(Processor):
                      for mne in _scanparser.spec_scan_motor_mnes[1:]]
                 )
             if _scanparser.spec_macro in ('tseries', 'loopscan'):
-                scan_firstline = _scanparser.spec_scan.firstline
-                headers = _scanparser.spec_file._headers
-                useheader_i = -1
-                while useheader_i < len(headers) - 1:
-                    if headers[useheader_i + 1].firstline < scan_firstline:
-                        useheader_i += 1
-                    else:
-                        break
-                    t0 = headers[useheader_i]._epoch
                 return (
-                    [{'label': 'Epoch',
-                      'units': 'seconds',
-                      'data_type': 'expression',
-                      'name': f'Epoch_offset + {t0}'}],
-                    [{'label': 'Epoch_offset',
-                      'units': 'seconds',
-                      'data_type': 'scan_column',
-                      'name': 'Epoch'}])
+                    [
+                        {
+                            'label': 'Epoch',
+                            'units': 'seconds',
+                            'data_type': 'expression',
+                            'name': 'Start_Epoch + Delta_Epoch',
+                        },
+                    ],
+                    [
+                        {
+                            'label': 'Delta_Epoch',
+                            'units': 'seconds',
+                            'data_type': 'scan_column',
+                            'name': 'Epoch',
+                        },
+                        {
+                            'label': 'Start_Epoch',
+                            'units': 'seconds',
+                            'data_type': 'scan_start_time',
+                            'name': 'Start_Epoch',
+                        },
+                    ]
+                )
             if _scanparser.spec_macro == 'flyscan' and \
                  not len(_scanparser.spec_args) == 5:
                 return (
