@@ -615,7 +615,8 @@ class FitModel(CHAPBaseModel):
         self._func = globals()[self.model_type]
         sig = dict(signature(self._func).parameters)
         sig.pop('x')
-        self._func_args = list(sig.keys())
+        self._func_args = [
+            arg for arg in sig.keys() if arg not in self.MODEL_IDENTIFIERS]
 
         # Check input model parameter validity
         par_names = []
@@ -651,6 +652,16 @@ class FitModel(CHAPBaseModel):
         """
         if hasattr(self, '_func'):
             return self._func
+        return None
+
+    @property
+    def func_args(self):
+        """Return the model function arguments
+
+        :type: list[str]
+        """
+        if hasattr(self, '_func_args'):
+            return self._func_args
         return None
 
     @property
@@ -846,6 +857,10 @@ class PseudoVoigtModel(ConstantModel):
 class RectangleModel(ConstantModel):
     """Class representing a Rectangle model component.
 
+    :ivar form: Shape type of the transition edges, defaults to
+        `'linear'`.
+    :vartype form: Literal[
+        'linear', 'atan', 'arctan', 'erf', 'logistic'], optional
     :ivar model_type: Model component base name (a prefix will be
         added if multiple identical model components are added).
     :vartype model_type: Literal['rectangle']
@@ -853,6 +868,7 @@ class RectangleModel(ConstantModel):
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
     MODEL_IDENTIFIERS: ClassVar[list[str]] = ['form']
+    form: Literal['linear', 'atan', 'arctan', 'erf', 'logistic'] = 'linear'
     model_type: Literal['rectangle']
 
     def _validate_parameters(self):
@@ -860,6 +876,10 @@ class RectangleModel(ConstantModel):
         for par in self.parameters:
             if par.name == 'form':
                 assert form in ('linear', 'atan', 'arctan', 'erf', 'logistic')
+            elif par.name == 'sigma1':
+                par.min = 0.0
+            elif par.name == 'sigma2':
+                par.min = 0.0
 
 class ExpressionModel(ConstantModel):
     """Class representing an Expression model component.

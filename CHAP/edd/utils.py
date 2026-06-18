@@ -1321,10 +1321,10 @@ def get_spectra_fits(
     if detector.background is not None:
         if isinstance(detector.background, str):
             models.append(
-                {'model': detector.background, 'prefix': 'bkgd_'})
+                {'model_type': detector.background, 'prefix': 'bkgd_'})
         else:
             for model in detector.background:
-                models.append({'model': model, 'prefix': f'{model}_'})
+                models.append({'model_type': model, 'prefix': f'{model}_'})
     if detector.backgroundpeaks is not None:
         _, backgroundpeaks = FitProcessor.create_multipeak_model(
             detector.backgroundpeaks)
@@ -1332,7 +1332,7 @@ def get_spectra_fits(
             peak.prefix = f'bkgd_{peak.prefix}'
         models += backgroundpeaks
     models.append(
-        {'model': 'multipeak', 'centers': list(peak_locations),
+        {'model_type': 'multipeak', 'centers': list(peak_locations),
          'fit_type': 'uniform', 'peak_models': detector.peak_models,
          'centers_range': detector.centers_range,
          'fwhm_min': detector.fwhm_min, 'fwhm_max': detector.fwhm_max})
@@ -1352,7 +1352,8 @@ def get_spectra_fits(
     # Perform uniform fit
     # FIX make more generic for fit parameters
     uniform_fit = FitProcessor.run(
-        data={'x': energies, 'y': spectra}, config=config, **kwargs)
+        data=[PipelineData(name='signal', data=spectra),
+              PipelineData(name='coordinates', data=energies)],
     uniform_success = uniform_fit.success
     if spectra.ndim == 1:
         if uniform_success:
