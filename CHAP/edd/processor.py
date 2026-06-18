@@ -729,14 +729,17 @@ class DiffractionVolumeLengthProcessor(_BaseEddProcessor):
             if detector.background is not None:
                 if len(detector.background) == 1:
                     models.append(
-                        {'model': detector.background[0], 'prefix': 'bkgd_'})
+                        {'model_type': detector.background[0],
+                         'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
-                        models.append({'model': model, 'prefix': f'{model}_'})
-            models.append({'model': 'gaussian'})
+                        models.append(
+                            {'model_type': model, 'prefix': f'{model}_'})
+            models.append({'model_type': 'gaussian'})
             self.logger.debug('Fitting mean spectrum')
             result = FitProcessor.run(
-                data={'x': x, 'y': masked_sum},
+                data=[PipelineData(name='signal', data=masked_sum),
+                      PipelineData(name='coordinates', data=x)],
                 config={'models': models, 'method': 'trf'},
                 **self.run_config)
 
@@ -1395,18 +1398,21 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
             if detector.background is not None:
                 if len(detector.background) == 1:
                     models.append(
-                        {'model': detector.background[0], 'prefix': 'bkgd_'})
+                        {'model_type': detector.background[0],
+                         'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
-                        models.append({'model': model, 'prefix': f'{model}_'})
+                        models.append(
+                            {'model_type': model, 'prefix': f'{model}_'})
             models.append(
-                {'model': 'multipeak', 'centers': initial_peak_indices,
+                {'model_type': 'multipeak', 'centers': initial_peak_indices,
                  'centers_range': detector.centers_range,
                  'fwhm_min': detector.fwhm_min,
                  'fwhm_max': detector.fwhm_max})
             self.logger.debug('Fitting spectrum')
             mean_data_fit = FitProcessor.run(
-                data={'x': bins[mask], 'y': mean_data[mask]},
+                data=[PipelineData(name='signal', data=mean_data[mask]),
+                      PipelineData(name='coordinates', data=bins[mask])],
                 config={'models': models, 'method': 'trf'},
                 **self.run_config)
 
@@ -1426,8 +1432,9 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
 
             # FIX for now stick with a linear energy correction
             energy_fit = FitProcessor.run(
-                data={'x': fit_peak_indices, 'y': peak_energies},
-                config={'models': [{'model': 'linear'}]},
+                data=[PipelineData(name='signal', data=peak_energies),
+                      PipelineData(name='coordinates', data=fit_peak_indices)],
+                config={'models': [{'model_type': 'linear'}]},
                 **self.run_config)
             a = 0.0
             b = float(energy_fit.best_values['slope'])
@@ -2109,10 +2116,10 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
         if detector.background is not None:
             if len(detector.background) == 1:
                 models.append(
-                    {'model': detector.background[0], 'prefix': 'bkgd_'})
+                    {'model_type': detector.background[0], 'prefix': 'bkgd_'})
             else:
                 for model in detector.background:
-                    models.append({'model': model, 'prefix': f'{model}_'})
+                    models.append({'model_type': model, 'prefix': f'{model}_'})
         if detector.backgroundpeaks is not None:
             backgroundpeaks = deepcopy(detector.backgroundpeaks)
             delta_energy = energies[1]-energies[0]
@@ -2130,14 +2137,15 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
                 peak.prefix = f'bkgd_{peak.prefix}'
             models += backgroundpeaks
         models.append(
-            {'model': 'multipeak', 'centers': centers,
+            {'model_type': 'multipeak', 'centers': centers,
              'centers_range': detector.centers_range,
              'fwhm_min': detector.fwhm_min,
              'fwhm_max': detector.fwhm_max})
 
         # Perform an unconstrained fit in terms of MCA bin index
         result = FitProcessor.run(
-            data={'x': bins[mask], 'y': mean_data[mask]},
+            data=[PipelineData(name='signal', data=mean_data[mask]),
+                  PipelineData(name='coordinates', data=bins[mask])],
             config={'models': models, 'method': 'trf'},
             **self.run_config)
         best_fit = result.best_fit
@@ -2164,8 +2172,9 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
         else:
             model = 'linear'
         result = FitProcessor.run(
-            data={'x': fit_peak_indices, 'y': e_bragg},
-            config={'models': [{'model': model}]},
+            data=[PipelineData(name='signal', data=e_bragg),
+                  PipelineData(name='coordinates', data=fit_peak_indices)],
+            config={'models': [{'model_type': model}]},
             **self.run_config)
         if quadratic_energy_calibration:
             a_fit = result.best_values['a']
@@ -2238,10 +2247,11 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
         if detector.background is not None:
             if isinstance(detector.background, str):
                 bkgd_models.append(
-                    {'model': detector.background, 'prefix': 'bkgd_'})
+                    {'model_type': detector.background, 'prefix': 'bkgd_'})
             else:
                 for model in detector.background:
-                    bkgd_models.append({'model': model, 'prefix': f'{model}_'})
+                    bkgd_models.append(
+                        {'model_type': model, 'prefix': f'{model}_'})
 
         # Add the background peaks in MCA channels
         models = deepcopy(bkgd_models)
@@ -2270,7 +2280,7 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             if quadratic_energy_calibration:
                 expr = '(' + expr + f')*(1.0-a*(({e_peak}-c)/(b*b)))'
             models.append(
-                {'model': 'gaussian', 'prefix': f'xrf{i+1}_',
+                {'model_type': 'gaussian', 'prefix': f'xrf{i+1}_',
                  'parameters': [
                     {'name': 'amplitude', 'min': FLOAT_MIN},
                     {'name': 'center', 'expr': expr},
@@ -2286,7 +2296,7 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
                 expr = '(' + expr \
                        + f')*(1.0-a*((({norm}/sin(0.5*tth))-c)/(b*b)))'
             models.append(
-                {'model': 'gaussian', 'prefix': f'peak{i+1}_',
+                {'model_type': 'gaussian', 'prefix': f'peak{i+1}_',
                  'parameters': [
                     {'name': 'amplitude', 'min': FLOAT_MIN},
                     {'name': 'center', 'expr': expr},
@@ -2294,7 +2304,8 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
 
         # Perform the fit
         result = FitProcessor.run(
-            data={'x': bins[mask], 'y': mean_data[mask]},
+            data=[PipelineData(name='signal', data=mean_data[mask]),
+                  PipelineData(name='coordinates', data=bins[mask])],
             config={
                 'parameters': parameters, 'models': models, 'method': 'trf'},
             **self.run_config)
@@ -2325,12 +2336,13 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
         # Get an unconstrained fit for the fitted energy calibration
         # coefficients
         models = bkgd_models + [{
-            'model': 'multipeak', 'centers': list(e_peak_fit),
+            'model_type': 'multipeak', 'centers': list(e_peak_fit),
             'centers_range': b_fit * detector.centers_range,
             'fwhm_min': b_fit * detector.fwhm_min,
             'fwhm_max': b_fit * detector.fwhm_max}]
         result = FitProcessor.run(
-            data={'x': energies[mask], 'y': mean_data[mask]},
+            data=[PipelineData(name='signal', data=mean_data[mask]),
+                  PipelineData(name='coordinates', data=energies[mask])],
             config={'models': models, 'method': 'trf'},
             **self.run_config)
         e_xrf_unconstrained = np.sort(
