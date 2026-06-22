@@ -290,7 +290,9 @@ class Component():
         #from CHAP.utils.models import MODEL_TYPE_TO_CLASS
 
         self.func = model.func #MODEL_TYPE_TO_CLASS[model.model_type]
-        self.func_args = model._func_args #MODEL_TYPE_TO_CLASS[model.model_type]
+        self.func_args = model.func_args #MODEL_TYPE_TO_CLASS[model.model_type]
+        self.model_identifiers = {
+            k:getattr(model, k) for k in model.MODEL_IDENTIFIERS}
         self.param_names = [f'{prefix}{par.name}' for par in model.parameters]
         self.prefix = prefix
         self._name = model.model_type
@@ -519,7 +521,8 @@ class ModelResult():
                 name = component.prefix
             ppar_values = tuple(
                 par_values[i] for i in component.func_args_indices)
-            result[name] = component.func(x, *ppar_values)
+            result[name] = component.func(
+                x, *ppar_values, **component.model_identifiers)
         return result
 
     def fit_report(self, show_correl=False):
@@ -2321,7 +2324,7 @@ class Fit:
             vvalues = [values[i] for i in component.func_args_indices]
             res += component.func(
 #                x, *tuple(self._res_par_values[n_par:n_par+num_par]))
-                x, *tuple(vvalues))
+                x, *tuple(vvalues), **component.model_identifiers)
             n_par += num_par
         return res - y
 

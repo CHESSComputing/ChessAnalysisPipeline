@@ -1627,7 +1627,7 @@ class TomoReduceProcessor(Processor):
                 # Try to get a fit from the bright field
                 row_sum = np.sum(tbf, 1)
                 num = len(row_sum)
-                model = {'model': 'rectangle',
+                model = {'model_type': 'rectangle',
                          'parameters': [
                              {'name': 'amplitude',
                               'value': row_sum.max()-row_sum.min(),
@@ -1641,7 +1641,9 @@ class TomoReduceProcessor(Processor):
                              {'name': 'sigma2', 'value': num/7.0,
                               'min': sys.float_info.min}]}
                 bounds_fit = FitProcessor.run(
-                    data={'x': np.array(range(num)), 'y':row_sum},
+                    data=[PipelineData(name='signal', data=row_sum),
+                          PipelineData(
+                              name='coordinates', data=np.array(range(num)))],
                     config={'models': [model], 'method': 'trf'},
                     **self.run_config)
                 parameters = bounds_fit.best_values

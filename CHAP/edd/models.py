@@ -33,7 +33,7 @@ from typing_extensions import Annotated
 # Local modules
 from CHAP.models import CHAPBaseModel
 from CHAP.common.models.map import Detector
-from CHAP.utils.models import Multipeak
+from CHAP.utils.models import MultipeakModel
 #from CHAP.utils.parfile import ParFile
 
 # Baseline configuration class
@@ -98,7 +98,7 @@ class _FitConfig(CHAPBaseModel):
     :vartype mask_ranges: list[[int, int]], optional
     :ivar backgroundpeaks: Additional background peaks (their
         associated fit parameters in units of keV).
-    :vartype backgroundpeaks: Multipeak, optional
+    :vartype backgroundpeaks: MultipeakModel, optional
     """
 
     background: Optional[conlist(item_type=constr(
@@ -119,7 +119,7 @@ class _FitConfig(CHAPBaseModel):
             min_length=2,
             max_length=2,
             item_type=conint(ge=0)))] = None
-    backgroundpeaks: Optional[Multipeak] = None
+    backgroundpeaks: Optional[MultipeakModel] = None
 
     @field_validator('background', mode='before')
     @classmethod
