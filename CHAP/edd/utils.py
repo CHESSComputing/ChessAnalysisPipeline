@@ -1309,6 +1309,7 @@ def get_spectra_fits(
     )
 
     # Local modules
+    from CHAP.pipeline import PipelineData
     from CHAP.utils.fit import FitProcessor
 
     num_proc = kwargs.pop('num_proc', 1)
@@ -1354,6 +1355,7 @@ def get_spectra_fits(
     uniform_fit = FitProcessor.run(
         data=[PipelineData(name='signal', data=spectra),
               PipelineData(name='coordinates', data=energies)],
+        config=config)
     uniform_success = uniform_fit.success
     if spectra.ndim == 1:
         if uniform_success:
@@ -1521,7 +1523,8 @@ def get_spectra_fits(
     # Perform unconstrained fit
     config['models'][-1]['fit_type'] = 'unconstrained'
     unconstrained_fit = FitProcessor.run(
-        data=uniform_fit, config=config, **kwargs)
+        data=[PipelineData(data=uniform_fit)],
+        config=config, **kwargs)
     unconstrained_success = unconstrained_fit.success
     if spectra.ndim == 1:
         if unconstrained_success:
