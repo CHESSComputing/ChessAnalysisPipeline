@@ -3542,7 +3542,8 @@ class ZarrToNexusProcessor(Processor):
                             data=item.__array__(),
                             # chunks=item.chunks, # FIXME
                             compression='gzip',
-                            compression_opts=4  # GZIP compression level
+                            compression_opts=4,  # GZIP compression level
+                            maxshape=(None, *item.shape[1:]),
                         )
                         # Copy dataset attributes
                         for attr_key, attr_value in item.attrs.items():
