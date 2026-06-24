@@ -21,7 +21,7 @@ from CHAP import version as chap_version
 from CHAP.models import CHAPBaseModel
 from CHAP.common.models.common import IndexSliceConfig
 from CHAP.common.models.map import SpecScans
-
+from CHAP.utils.fit import FitConfig as GenericFitConfig
 
 class Background(SpecScans):
     """Configuration for background scan data associated with a
@@ -440,3 +440,85 @@ class FluxAbsorptionBackgroundCorrectionConfig(
                 'Use sample_thickness_cm OR sample_mu_inv_cm, not both.'
             )
         return self
+
+
+class FitConfig(GenericFitConfig):
+    """Configuration for a single SAXS/WAXS fit step.
+
+    Extends :class:`~CHAP.utils.models.FitConfig` with a human-readable
+    name and the name of the upstream data source to fit.
+
+    :ivar name: Human-readable name used as the key for this fit's
+        group in the output zarr / NeXus tree.
+    :vartype name: str
+    :ivar input_data_name: Name of the integrated or corrected data
+        source to fit.  Must match the ``name`` of a
+        :class:`~CHAP.common.models.integration.PyfaiIntegratorConfig`
+        integration or a :class:`~CHAP.saxswaxs.models.CorrectionConfig`
+        correction in the same pipeline configuration.
+    :vartype input_data_name: str
+    :ivar signal_shape: Number of points in a single frame of the signal
+        being fit.  When ``None`` the shape is inferred from the data at
+        runtime.
+    :vartype signal_shape: int, optional
+    """
+
+    name: str
+    input_data_name: str
+    signal_shape: Optional[int] = None
+
+
+class FitsConfig(CHAPBaseModel):
+    """Configuration container for an ordered list of SAXS/WAXS fit
+    steps to apply to integrated or corrected detector data.
+
+    :ivar fits: Ordered list of fit configurations.
+    :vartype fits: list[:class:`~CHAP.saxswaxs.models.FitConfig`]
+    """
+
+    fits: list[FitConfig]
+
+    def zarr_tree(self, dataset_shape, dataset_chunks,
+                  input_shapes, nxlinks=None):
+        """Return a dictionary representing the zarr tree for all fits
+        in this configuration.
+
+        Each fit gets its own sub-group keyed by
+        :attr:`FitConfig.name`.  See
+        :meth:`~CHAP.utils.models.FitConfig.zarr_tree` for the
+        structure of each sub-group.
+
+        :param dataset_shape: Shape of the measurement (scan) dimensions,
+            excluding input signal dimensions.
+        :type dataset_shape: tuple[int, ...]
+        :param dataset_chunks: Chunk shape along the scan dimensions, or
+            ``'auto'``.
+        :type dataset_chunks: list[int] or str
+        :param input_shapes: Mapping from fit ``name`` to the frame
+            shape of its input signal.
+        :type input_shapes: dict[str, tuple[int, ...]]
+        :param nxlinks: NeXus links to inject into each fit's ``data``
+            group.  May be a single path string or list of path strings
+            (forwarded to every fit), or a dict keyed by fit name
+            mapping each fit to its own path(s).
+        :type nxlinks: str or list[str] or dict[str, str or list[str]],
+            optional
+        :returns: Nested dict representing the zarr group tree for all
+            fits.
+        :rtype: dict
+        """
+        if not isinstance(nxlinks, dict):
+            nxlinks = {fit.name: nxlinks for fit in self.fits}
+        return {
+            'root': {
+                'attributes': {},
+            },
+            'children': {
+                fit.name: fit.zarr_tree(
+                    dataset_shape, dataset_chunks,
+                    input_shapes.get(fit.name),
+                    nxlinks=nxlinks.get(fit.name),
+                )
+                for fit in self.fits
+            }
+        }
