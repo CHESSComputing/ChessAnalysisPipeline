@@ -273,7 +273,6 @@ class _BaseEddProcessor(Processor):
             else:
                 basename = f'{self.__name__}_baseline'
 
-        baselines = []
         for energies, mean_data, (low, _), nxdata, detector in zip(
                 self._energies, self._mean_data, self._mask_index_ranges,
                 self._nxdata_detectors, self.detector_config.detectors):
@@ -301,7 +300,6 @@ class _BaseEddProcessor(Processor):
                     self._figures.append(
                         (buf, f'{detector.get_id()}_{basename}'))
 
-                baselines.append(baseline)
                 detector.baseline.lam = baseline_config['lambda']
                 detector.baseline.attrs['num_iter'] = \
                     baseline_config['num_iter']
@@ -994,6 +992,9 @@ class LatticeParameterRefinementProcessor(_BaseStrainProcessor):
                 elif raw_detector_data.sum():
                     for k, v in nxdata[detector_id].attrs.items():
                         detector.attrs[k] = v.nxdata
+                    if self.config.abs_height_cutoff is not None:
+                        detector.abs_height_cutoff = \
+                            self.config.abs_height_cutoff
                     if self.config.rel_height_cutoff is not None:
                         detector.rel_height_cutoff = \
                             self.config.rel_height_cutoff
@@ -2792,6 +2793,9 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     # 0-scan map: no spectra yet, include for setup
                     for k, v in nxdata[detector_id].attrs.items():
                         detector.attrs[k] = v.nxdata
+                    if self.config.abs_height_cutoff is not None:
+                        detector.abs_height_cutoff = \
+                            self.config.abs_height_cutoff
                     if self.config.rel_height_cutoff is not None:
                         detector.rel_height_cutoff = \
                             self.config.rel_height_cutoff
@@ -2802,6 +2806,9 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 elif raw_detector_data.sum():
                     for k, v in nxdata[detector_id].attrs.items():
                         detector.attrs[k] = v.nxdata
+                    if self.config.abs_height_cutoff is not None:
+                        detector.abs_height_cutoff = \
+                            self.config.abs_height_cutoff
                     if self.config.rel_height_cutoff is not None:
                         detector.rel_height_cutoff = \
                             self.config.rel_height_cutoff
