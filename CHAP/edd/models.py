@@ -414,6 +414,10 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     """Class representing the configuration to perform a strain
     analysis.
 
+    :ivar abs_height_cutoff: Absolute peak height cutoff for
+        peak fitting (any peak with a height smaller than
+        `abs_height_cutoff` gets removed from the fit model).
+    :vartype abs_height_cutoff: int, optional
     :ivar centers_range: Peak centers range for peak fitting.
         The allowed range for the peak centers will be the initial
         values &pm; `centers_range` (in keV), defaults to `2.0`.
@@ -431,7 +435,7 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     :ivar rel_height_cutoff: Relative peak height cutoff for
         peak fitting (any peak with a height smaller than
         `rel_height_cutoff` times the maximum height of all peaks 
-        gets removed from the fit model), defaults to `None`.
+        gets removed from the fit model).
     :vartype rel_height_cutoff: float, optional
     :ivar tth_map: Map of the 2&theta values.
     :vartype tth_map: numpy.ndarray, optional
@@ -440,6 +444,7 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     #:ivar tth_file: Path to the file with the 2&theta map.
     #:vartype tth_file: FilePath, optional
 
+    abs_height_cutoff: Optional[conint(gt=0)] = None
     centers_range: Optional[confloat(gt=0, allow_inf_nan=False)] = 2
     fwhm_min: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.25
     fwhm_max: Optional[confloat(gt=0, allow_inf_nan=False)] = 2.0
@@ -450,7 +455,7 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
             item_type=Literal['gaussian', 'lorentzian', 'pvoigt']),
         Literal['gaussian', 'lorentzian', 'pvoigt']] = 'gaussian'
     rel_height_cutoff: Optional[
-        confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
+        confloat(gt=0, lt=1, allow_inf_nan=False)] = None
 #    tth_file: Optional[FilePath] = None
     tth_map: Optional[np.ndarray] = None
 
@@ -876,6 +881,12 @@ class StrainAnalysisConfig(MCACalibrationConfig):
     and :class:`~CHAP.edd.processor.StrainAnalysisProcessor`,
     respectively.
 
+    :ivar abs_height_cutoff: Used to excluded peaks based on the
+        `find_peak` parameter as well as for peak fitting exclusion
+        of the individual detector spectra (see the strain detector
+        configuration
+        :class:`~CHAP.edd.models.MCADetectorStrainAnalysis`).
+    :vartype abs_height_cutoff: int, optional
     :ivar find_peak_cutoff: Use scipy.signal.find_peaks to exclude
         peaks for all spectra for a given detector and user specified
         mask. A particular HKL peak is removed from the set of HKLs,
@@ -905,12 +916,13 @@ class StrainAnalysisConfig(MCACalibrationConfig):
     #:ivar oversampling: FIX
     #:vartype oversampling: FIX
 
-    find_peak_cutoff: Optional[confloat(ge=0.0, allow_inf_nan=False)] = 0.0
+    abs_height_cutoff: Optional[conint(gt=0)] = None
+    find_peak_cutoff: Optional[confloat(ge=0, allow_inf_nan=False)] = 0.0
     max_nfev: Optional[conint(gt=0)] = None
     num_proc: Optional[conint(gt=0)] = max(1, os.cpu_count()//4)
     #oversampling: dict = {'num': 10}
     rel_height_cutoff: Optional[
-        confloat(gt=0.0, lt=1.0, allow_inf_nan=False)] = None
+        confloat(gt=0, lt=1, allow_inf_nan=False)] = None
     skip_animation: Optional[bool] = False
     sum_axes: Optional[
         Union[bool, conlist(min_length=1, item_type=str)]] = True

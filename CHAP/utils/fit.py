@@ -50,6 +50,10 @@ fwhm_factor = {
     'voight': '0.2776*fwhm',        # sigma = gamma
     'pvoigt': '0.5*fwhm',           # fraction = 0.5
 }
+# fwhm = sigma_factor*sigma
+sigma_factor = {
+    'gaussian': '2*sigma*sqrt(2*log(2))',
+}
 
 # amplitude = height_factor*height*fwhm
 height_factor = {
@@ -58,6 +62,10 @@ height_factor = {
     'splitlorentzian': 'height*fwhm*0.5*pi',  # sigma = sigma_r
     'voight': '3.334*height*fwhm',            # sigma = gamma
     'pvoigt': '1.268*height*fwhm',            # fraction = 0.5
+}
+# height = amplitude_factor*amplitude/sigma
+amplitude_factor = {
+    'gaussian': 'amplitude/(sigma*sqrt(2*pi))',
 }
 
 
@@ -181,6 +189,7 @@ class FitProcessor(Processor):
             else:
                 fit = FitMap(data[1], self.config, self.logger, x=data[0])
                 fit.fit(
+                    abs_height_cutoff=self.config.abs_height_cutoff,
                     rel_height_cutoff=self.config.rel_height_cutoff,
                     max_nfev=self.config.max_nfev,
                     num_proc=self.config.num_proc,
@@ -2345,6 +2354,7 @@ class FitMap(Fit):
         :type x: array-like, optional
         """
         super().__init__(None, config, logger)
+        self._abs_height_cutoff = None
         self._best_errors = None
         self._best_fit = None
         self._best_parameters = None
@@ -2766,6 +2776,7 @@ class FitMap(Fit):
         num_proc_max = max(1, cpu_count())
         if config is None:
             num_proc = kwargs.pop('num_proc', num_proc_max)
+            self._abs_height_cutoff = kwargs.pop('abs_height_cutoff')
             self._rel_height_cutoff = kwargs.pop('rel_height_cutoff')
             self._try_no_bounds = kwargs.pop('try_no_bounds', False)
             self._redchi_cutoff = kwargs.pop('redchi_cutoff', 0.1)
@@ -2774,6 +2785,7 @@ class FitMap(Fit):
             self._skip_init = kwargs.pop('skip_init', True)
         else:
             num_proc = config.num_proc
+            self._abs_height_cutoff = config.abs_height_cutoff
             self._rel_height_cutoff = config.rel_height_cutoff
 #            self._try_no_bounds = config.try_no_bounds
 #            self._redchi_cutoff = config.redchi_cutoff
@@ -2790,7 +2802,7 @@ class FitMap(Fit):
                 'maximum allowed number of processors, num_proc reduced to '
                 f'{num_proc_max}')
             num_proc = num_proc_max
-        self._logger.debug(f'Using {num_proc} processors to fit the data')
+        self._logger.info(f'Using {num_proc} processors to fit the data')
         self._redchi_cutoff *= self._y_range**2
 
         # Setup the fit
@@ -3108,9 +3120,29 @@ class FitMap(Fit):
         # Do not attempt a fit if the data is zero or entirely below
         # the cutoff
         y_max = self._ymap_norm[n].max()
+#        print(f'\ty_min, y_max: {self._ymap_norm[n].min()}, {y_max}')
+#        if self._normalized:
+#            print(f'\tabs_height_cutoff: {self._abs_height_cutoff} {y_max*self._norm[1] + self._norm[0]}')
+#        print(f'\trel_height_cutoff: {self._rel_height_cutoff}')
+#        print(f'\tcurrent_best_values: {current_best_values}')
+#        # Third party modules
+#        from scipy.signal import find_peaks as find_peaks_scipy
+#        peaks = find_peaks_scipy(
+#            #self._ymap_norm[n], width=5, height=0.05)#, prominence=0.5)
+#            self._ymap_norm[n], width=5, height=0, prominence=0.02)
+#        print(f"\tpeaks {type(peaks)}: {peaks}")
+#        print(f"\tpeak heights {type(peaks[1]['peak_heights'])}: {peaks[1]['peak_heights'].tolist()}")
+#        print(f"\tpeak widths {type(peaks[1]['widths'])}: {peaks[1]['widths'].tolist()}")
+#        print(f"\tpeak centers {type(peaks[0])}: {peaks[0].tolist()}")
+#        print(f"\tpeak centers: {[self._x[v] for v in peaks[0]]}")
+#        quick_plot(self._ymap_norm[n], vlines=peaks[0], block=True)
+#        exit('Done')
         if (y_max == 0.0
+                or (self._normalized and self._abs_height_cutoff is not None
+                    and y_max*self._norm[1] + self._norm[0] < self._abs_height_cutoff)
                 or (self._rel_height_cutoff is not None
                     and y_max < self._rel_height_cutoff)):
+#            print(f'\t------->skipping!!!!!!!!')
             self._logger.debug(f'Skipping fit {n} (rel norm = {y_max:.5f})')
             if self._code == 'scipy':
                 # Local modules
@@ -3138,12 +3170,28 @@ class FitMap(Fit):
             # FIX make sure to add "height" and "fwhm" to peak-like models
             heights = []
             names = []
-            for component in result.components:
-                if component._name in ('gaussian', 'lorentzian'):
-                    for name in component.param_names:
-                        if 'height' in name:
-                            heights.append(result.params[name].value)
-                            names.append(name)
+            if self._code == 'lmfit':
+                for component in result.components:
+                    if component._name in ('gaussian', 'lorentzian'):
+                        for name in component.param_names:
+                            if 'height' in name:
+                                heights.append(result.params[name].value)
+                                names.append(name)
+                                break
+            else:
+                # Third party modules
+                from asteval import Interpreter
+
+                ast = Interpreter()
+                for component in result.components:
+                    if component._name in ('gaussian', 'lorentzian'):
+                        for name in component.param_names:
+                            if 'amplitude' in name:
+                                ast(f'amplitude = {result.params[name].value}')
+                                names.append(name)
+                            elif 'sigma' in name:
+                                ast(f'sigma = {result.params[name].value}')
+                        heights.append(ast(amplitude_factor[component._name]))
             if heights:
                 refit = False
                 max_height = max(heights)
@@ -3151,17 +3199,28 @@ class FitMap(Fit):
                 parameters_bounds_save = deepcopy(self._parameter_bounds)
                 for i, (name, height) in enumerate(zip(names, heights)):
                     if height < self._rel_height_cutoff*max_height:
-                        self._parameters[
-                            name.replace('height', 'amplitude')].set(
+                        if self._code == 'lmfit':
+                            self._parameters[
+                                name.replace('height', 'amplitude')].set(
+                                   value=0.0, min=0.0, vary=False)
+                            self._parameters[
+                                name.replace('height', 'center')].set(
+                                   vary=False)
+                            self._parameters[
+                                name.replace('height', 'sigma')].set(
+                                   value=0.0, min=0.0, vary=False)
+                        else:
+                            self._parameters[name].set(
                                value=0.0, min=0.0, vary=False)
-                        self._parameters[
-                            name.replace('height', 'center')].set(
-                               vary=False)
-                        self._parameters[
-                            name.replace('height', 'sigma')].set(
-                               value=0.0, min=0.0, vary=False)
+                            self._parameters[
+                                name.replace('amplitude', 'center')].set(
+                                   vary=False)
+                            self._parameters[
+                                name.replace('amplitude', 'sigma')].set(
+                                   value=0.0, min=0.0, vary=False)
                         refit = True
                 if refit:
+#                    print(f'\t------->refitting!!!!!!!!')
                     result = self._fit_with_bounds_check(
                         n, current_best_values, **kwargs)
                     # Reset fixed amplitudes back to default
