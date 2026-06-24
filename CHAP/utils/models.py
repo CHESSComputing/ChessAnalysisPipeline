@@ -1002,6 +1002,10 @@ class MultipeakModel(CHAPBaseModel):
 class FitConfig(CHAPBaseModel):
     """Class representing the configuration for the fit processor.
 
+    :ivar abs_height_cutoff: Absolute peak height cutoff for
+        peak fitting (any peak with a height smaller than
+        `abs_height_cutoff` gets removed from the fit model).
+    :vartype abs_height_cutoff: int, optional
     :ivar code: Specifies is lmfit is used to perform the fit or if
         the scipy fit method is called directly, default to `'lmfit'`.
     :vartype code: Literal['lmfit', 'scipy'], optional
@@ -1038,6 +1042,7 @@ class FitConfig(CHAPBaseModel):
     :vartype rel_height_cutoff: float, optional
     """
 
+    abs_height_cutoff: Optional[conint(gt=0)] = None
     code: Literal['lmfit', 'scipy'] = 'scipy'
     max_nfev: Optional[conint(gt=0)] = None
     memfolder: str = 'joblib_memmap'
@@ -1049,7 +1054,7 @@ class FitConfig(CHAPBaseModel):
     plot: StrictBool = False
     print_report:  StrictBool = False
     rel_height_cutoff: Optional[
-        confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
+        confloat(gt=0, lt=1, allow_inf_nan=False)] = None
 
     @field_validator('method')
     @classmethod
