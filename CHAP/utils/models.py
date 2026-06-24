@@ -307,6 +307,11 @@ class FitParameter(CHAPBaseModel):
         value during the fit. To remove a constraint you must
         supply an empty string.
     :vartype expr: str, optional
+    :ivar description: Free-text description of the parameter, defaults
+        to `"unspecified"`.
+    :vartype description: str, optional
+    :ivar units: Units of the parameter, defaults to `"unspecified"`.
+    :vartype units: str, optional
     """
 
     name: constr(strip_whitespace=True, min_length=1)
@@ -315,6 +320,9 @@ class FitParameter(CHAPBaseModel):
     max: Optional[confloat()] = np.inf
     vary: StrictBool = True
     expr: Optional[constr(strip_whitespace=True, min_length=1)] = None
+
+    description: Optional[str] = 'unspecified'
+    units: Optional[str] = 'unspecified'
 
     _default: float = PrivateAttr()
     _init_value: float = PrivateAttr()
@@ -380,6 +388,20 @@ class FitParameter(CHAPBaseModel):
         return None
 
     @property
+    def long_name(self):
+        """Return the fully-qualified parameter name, combining the
+        model prefix (if any) with the parameter name.
+
+        When no prefix is set, returns :attr:`name` unchanged.
+
+        :type: str
+        """
+        prefix = self.prefix
+        if prefix is None:
+            return self.name
+        return f'{self.prefix}_{self.name}'
+
+    @property
     def stderr(self):
         """Return the parameter's uncertainty value.
 
@@ -441,25 +463,133 @@ class FitParameter(CHAPBaseModel):
                 self.value = self.min
             self.expr = None
 
+    def zarr_tree(self, dataset_shape, dataset_chunks, nxlinks=None):
+        """Return a nested dict representing the Zarr group tree for
+        this fit parameter's output container.
 
-class ConstantModel(CHAPBaseModel):
-    """Class representing a Constant model component.
+        The group contains one dataset per parameter attribute
+        (``value``, ``error``, ``initial``, ``min``, ``max``,
+        ``vary``, ``expression``), each shaped to hold one scalar per
+        point in the scan map.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
-    :vartype model_type: Literal['constant']
+        :param dataset_shape: Shape of the measurement (scan) dimensions
+            of the output dataset, excluding the signal dimensions.
+        :type dataset_shape: tuple[int, ...]
+        :param dataset_chunks: Chunk shape along the scan dimensions, or
+            ``'auto'``.
+        :type dataset_chunks: list[int] or str
+        :param nxlinks: NeXus path(s) to link into the ``data`` group.
+            When the zarr tree is written to a ``.zarr`` file and
+            converted to ``.nxs`` with
+            :class:`~CHAP.common.processor.ZarrToNexusProcessor`, each
+            path produces an ``NXlink`` whose name is
+            ``os.path.basename(path)``.  Accepts a single path string or
+            a list of path strings.  All links must be explicit; none are
+            auto-generated.
+        :type nxlinks: str or list[str], optional
+        :returns: Nested dict representing the zarr group tree for this
+            parameter.
+        :rtype: dict
+        """
+        if isinstance(nxlinks, str):
+            nxlinks = [nxlinks]
+        if nxlinks:
+            data_attrs['__nxlinks__'] = {
+                os.path.basename(p): p for p in nxlinks
+            }
+        data_attrs = {
+            'NX_class': 'NXdata',
+            'description': self.description,
+        }
+        if nxlinks:
+            data_attrs['__nxlinks__'] = {
+                os.path.basename(p): p for p in nxlinks
+            }
+        return {
+            'attributes': data_attrs,
+            'children': {
+                'value': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'error': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'initial': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'min': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'max': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'vary': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                    },
+                    'dtype': 'bool',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'expression': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                    },
+                    'dtype': 'str',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+            },
+        }
+
+
+class FitModel(CHAPBaseModel):
+    """Abstract base class representing a generic model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :vartype model: Literal['constant', ...] # FIXME
     :ivar parameters: Function parameters, defaults to those auto
         generated from the function signature (excluding the
         independent variable).
     :vartype parameters: list[FitParameter], optional
-    :ivar prefix: Model prefix, defaults to `''`.
+    :vartype prefix: The model prefix, defaults to `''`.
     :vartype prefix: str, optional
     """
-
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['c']
     MODEL_PARAMETERS: ClassVar[list[str]] = []
     MODEL_IDENTIFIERS: ClassVar[list[str]] = []
-    model_type: Literal['constant']
+    model_type: str
     parameters: Annotated[
         conlist(item_type=FitParameter),
         Field(validate_default=True)] = []
@@ -521,6 +651,101 @@ class ConstantModel(CHAPBaseModel):
         if hasattr(self, '_func'):
             return self._func
         return None
+
+    @property
+    def long_name(self):
+        """Return the fully-qualified model name, combining the model
+        prefix (if any) with :attr:`model_type`.
+
+        :type: str
+        """
+        return f'{self.prefix}{self.model_type}'
+
+    def zarr_tree(self, dataset_shape, dataset_chunks,
+                  signal_shape, nxlinks=None):
+        """Return a nested dict representing the Zarr group tree for
+        this model component's output container.
+
+        The group contains a ``parameters`` sub-group (one entry per
+        parameter, structured by
+        :meth:`~CHAP.utils.models.FitParameter.zarr_tree`) and a
+        ``data`` sub-group with a ``best_fit`` dataset shaped to hold
+        the component's fitted curve for every point in the scan map.
+
+        :param dataset_shape: Shape of the measurement (scan) dimensions
+            of the output dataset, excluding the signal dimensions.
+        :type dataset_shape: tuple[int, ...]
+        :param dataset_chunks: Chunk shape along the scan dimensions, or
+            ``'auto'``.
+        :type dataset_chunks: list[int] or str
+        :param signal_shape: Shape of one frame of the 1-D signal being
+            fit (the signal dimension).
+        :type signal_shape: tuple[int, ...]
+        :param nxlinks: NeXus path(s) to link into the ``data`` group.
+            When the zarr tree is written to a ``.zarr`` file and
+            converted to ``.nxs`` with
+            :class:`~CHAP.common.processor.ZarrToNexusProcessor`, each
+            path produces an ``NXlink`` whose name is
+            ``os.path.basename(path)``.  Accepts a single path string or
+            a list of path strings.  All links must be explicit; none are
+            auto-generated.
+        :type nxlinks: str or list[str], optional
+        :returns: Nested dict representing the zarr group tree for this
+            model component.
+        :rtype: dict
+        """
+        if isinstance(nxlinks, str):
+            nxlinks = [nxlinks]
+        data_attrs = {}
+        if nxlinks:
+            data_attrs['__nxlinks__'] = {
+                os.path.basename(p): p for p in nxlinks
+            }
+        return {
+            'attributes': {
+                'NX_class': 'NXcollection',
+            },
+            'children': {
+                'parameters': {
+                    'attributes': {
+                        'model': self.model_type,
+                        'NX_class': 'NXparameters',
+                    },
+                    'children': {
+                        param.long_name: param.zarr_tree(
+                            dataset_shape, dataset_chunks, nxlinks=nxlinks
+                        ) for param in self.parameters
+                    }
+                },
+                'data': {
+                    'attributes': data_attrs,
+                    'children': {
+                        'best_fit': {
+                            'shape': (*dataset_shape, *signal_shape),
+                            'dtype': 'float64',
+                        }
+                    }
+                }
+            }
+        }
+
+
+class ConstantModel(FitModel):
+    """Class representing a Constant model component.
+
+    :ivar model_type: Model component base name (a prefix will be
+        added if multiple identical model components are added).
+    :vartype model_type: Literal['constant']
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the function signature (excluding the
+        independent variable).
+    :vartype parameters: list[FitParameter], optional
+    :ivar prefix: Model prefix, defaults to `''`.
+    :vartype prefix: str, optional
+    """
+
+    LINEAR_PARAMETERS: ClassVar[list[str]] = ['c']
+    model_type: Literal['constant']
 
 
 class LinearModel(ConstantModel):
@@ -649,6 +874,29 @@ class ExpressionModel(ConstantModel):
     model_type: Literal['expression']
     expr: constr(strip_whitespace=True, min_length=1)
 
+    @model_validator(mode='after')
+    def add_params(self):
+        """Parse :attr:`expr` for free variable names and append a
+        :class:`~CHAP.utils.models.FitParameter` for each one not
+        already present in :attr:`parameters` and not a built-in
+        ``asteval`` symbol or the independent variable ``x``.
+
+        :return: Validated and updated model instance.
+        :rtype: ExpressionModel
+        """
+        from asteval import (
+            Interpreter,
+            get_ast_names,
+        )
+        ast = Interpreter()
+        current_params = [param.name for param in self.parameters]
+        new_params = [
+            name for name in get_ast_names(ast.parse(self.expr))
+            if (name != 'x' and name not in current_params
+                and name not in ast.symtable)]
+        for name in new_params:
+            self.parameters.append(FitParameter(name=name))
+        return self
 
 # Available models for components of the fitting function
 #MODEL_CLASSES = [
@@ -802,3 +1050,97 @@ class FitConfig(CHAPBaseModel):
             method = 'leastsq'
 
         return method
+
+    def zarr_tree(self, dataset_shape, dataset_chunks,
+                  signal_shape, nxlinks=None):
+        """Return a nested dict representing the Zarr group tree for
+        this fit's output container.
+
+        The tree contains a ``data`` group with global fit statistics
+        (``best_fit``, ``chisqr``, ``num_func_eval``, ``redchi``,
+        ``residual``, ``success``) and a ``components`` group with one
+        sub-tree per model component, structured by
+        :meth:`~CHAP.utils.models.FitModel.zarr_tree`.  The paths in
+        this tree correspond to those emitted by
+        :class:`~CHAP.utils.fit.UpdateValuesProcessor`.
+
+        :param dataset_shape: Shape of the measurement (scan) dimensions
+            of the output dataset, excluding the signal dimensions.
+        :type dataset_shape: tuple[int, ...]
+        :param dataset_chunks: Chunk shape along the scan dimensions, or
+            ``'auto'``.
+        :type dataset_chunks: list[int] or str
+        :param signal_shape: Shape of one frame of the 1-D signal being
+            fit (the signal dimension).
+        :type signal_shape: tuple[int, ...]
+        :param nxlinks: NeXus path(s) to link into the ``data`` group.
+            When the zarr tree is written to a ``.zarr`` file and
+            converted to ``.nxs`` with
+            :class:`~CHAP.common.processor.ZarrToNexusProcessor`, each
+            path produces an ``NXlink`` whose name is
+            ``os.path.basename(path)``.  Accepts a single path string or
+            a list of path strings.  All links must be explicit; none are
+            auto-generated.
+        :type nxlinks: str or list[str], optional
+        :returns: Nested dict representing the zarr group tree for this
+            fit.
+        :rtype: dict
+        """
+        if isinstance(nxlinks, str):
+            nxlinks = [nxlinks]
+        data_attrs = {}
+        if nxlinks:
+            data_attrs['__nxlinks__'] = {
+                os.path.basename(p): p for p in nxlinks
+            }
+        return {
+            'attributes': {
+                'description': '''Container for results from
+                CHAP.utils.fit.FitProcessor'''
+            },
+            'children': {
+                'data': {
+                    'attributes': {
+                        'NX_class': 'NXdata',
+                        **data_attrs,
+                    },
+                    'children': {
+                        'best_fit': {
+                            'shape': (*dataset_shape, *signal_shape),
+                            'dtype': 'float64',
+                        },
+                        'chisqr': {
+                            'shape': dataset_shape,
+                            'dtype': 'float64',
+                        },
+                        'num_func_eval': {
+                            'shape': dataset_shape,
+                            'dtype': 'uint64',
+                        },
+                        'redchi': {
+                            'shape': dataset_shape,
+                            'dtype': 'float64',
+                        },
+                        'residual': {
+                            'shape': (*dataset_shape, *signal_shape),
+                            'dtype': 'float64',
+                        },
+                        'success': {
+                            'shape': dataset_shape,
+                            'dtype': 'bool'
+                        },
+                    }
+                },
+                'components': {
+                    'attributes': {
+                        'NX_class': 'NXcollection',
+                    },
+                    'children': {
+                        model.long_name: model.zarr_tree(
+                            dataset_shape, dataset_chunks,
+                            signal_shape, nxlinks=nxlinks
+                        ) for model in self.models
+                    }
+                }
+            }
+        }
