@@ -126,7 +126,7 @@ class CorrectionConfig(CHAPBaseModel):
     :ivar name: Human-readable name used as the key for this
         correction's group in the output zarr / NeXus tree.
     :vartype name: str
-    :ivar uncorrected_data_name: Name (or list of names) of the data
+    :ivar input_data_name: Name (or list of names) of the data
         source(s) that serve as uncorrected input to this correction.
         Each name may be a detector ID, a
         :class:`~CHAP.common.models.integration.PyfaiIntegratorConfig`
@@ -135,7 +135,7 @@ class CorrectionConfig(CHAPBaseModel):
         source and the results are stored as ``I_corrected_{name}``
         per source; when a single name is given a single
         ``I_corrected`` array is stored.
-    :vartype uncorrected_data_name: str or list[str]
+    :vartype input_data_name: str or list[str]
     :ivar presample_intensity_reference_rate: Fixed reference counting
         rate for the pre-sample beam intensity monitor.  When ``None``
         the rate is computed from the scan data as
@@ -150,16 +150,16 @@ class CorrectionConfig(CHAPBaseModel):
     correction_type: Literal['flux', 'flux_absorption',
                              'flux_absorption_background']
     name: str = Field(validation_alias=AliasChoices('name', 'title'))
-    uncorrected_data_name: Union[str, list[str]] = Field(
+    input_data_name: Union[str, list[str]] = Field(
         validation_alias=AliasChoices(
-            'uncorrected_data_name', 'uncorrected_data_title'))
+            'input_data_name', 'uncorrected_data_title'))
 
     @property
-    def uncorrected_data_names(self) -> list[str]:
-        """Return ``uncorrected_data_name`` always as a list."""
-        if isinstance(self.uncorrected_data_name, list):
-            return self.uncorrected_data_name
-        return [self.uncorrected_data_name]
+    def input_data_names(self) -> list[str]:
+        """Return ``input_data_name`` always as a list."""
+        if isinstance(self.input_data_name, list):
+            return self.input_data_name
+        return [self.input_data_name]
     presample_intensity_reference_rate: Optional[float] = None
     background: Optional[Background] = None
 
@@ -183,7 +183,7 @@ class CorrectionConfig(CHAPBaseModel):
         :type dataset_chunks: list[int] or str
         :param input_shape: Shape of one frame of the uncorrected input,
             or a mapping from source name to frame shape when
-            ``uncorrected_data_name`` is a list.  Each source's shape
+            ``input_data_name`` is a list.  Each source's shape
             is either an integration result shape or a raw detector
             image shape ``(H, W)``.
         :type input_shape: tuple[int, ...] or dict[str, tuple[int, ...]]
@@ -217,10 +217,10 @@ class CorrectionConfig(CHAPBaseModel):
             )
             background_arrays = self.background.zarr_arrays(first_shape)
             data_attrs['background'] = str(self.background.model_dump())
-        # Build per-source I_corrected arrays.  When uncorrected_data_name
+        # Build per-source I_corrected arrays.  When input_data_name
         # is a list each source gets its own I_corrected_{src} array; when
         # it is a single name a single I_corrected array is used.
-        if isinstance(self.uncorrected_data_name, list):
+        if isinstance(self.input_data_name, list):
             corrected_arrays = {
                 f'I_corrected_{src}': {
                     'attributes': {
@@ -230,7 +230,7 @@ class CorrectionConfig(CHAPBaseModel):
                     'dtype': 'float64',
                     'shape': (*dataset_shape, *input_shape[src]),
                 }
-                for src in self.uncorrected_data_name
+                for src in self.input_data_name
             }
         else:
             corrected_arrays = {
@@ -335,7 +335,7 @@ class CorrectionsConfig(CHAPBaseModel):
         :type dataset_chunks: list[int] or str
         :param input_shapes: Mapping from correction ``name`` to the
             frame shape(s) of its uncorrected input.  For corrections
-            with a single ``uncorrected_data_name`` the value is a
+            with a single ``input_data_name`` the value is a
             ``tuple``; for corrections with a list of names the value is
             a ``dict`` mapping each source name to its frame shape.
         :type input_shapes: dict[str, tuple[int, ...] or dict[str, tuple[int, ...]]]

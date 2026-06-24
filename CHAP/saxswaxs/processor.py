@@ -266,7 +266,7 @@ class FluxCorrectionProcessor(ExpressionProcessor):
             data, name='presample_intensity',
         )
         intensity = self.get_data(
-            data, name=self.config.uncorrected_data_name,
+            data, name=self.config.input_data_name,
         )
         # nxfieldtable = {
         #     'intensity': intensity,
@@ -336,7 +336,7 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
         :rtype: numpy.ndarray or nexusformat.nexus.NXobject
         """
         intensity = self.get_data(
-            data, name=self.config.uncorrected_data_name, #'intensity',
+            data, name=self.config.input_data_name, #'intensity',
         )
 
         if self.config.presample_intensity_reference_rate is None:
@@ -433,7 +433,7 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         :rtype: numpy.ndarray or nexusformat.nexus.NXobject
         """
         intensity = self.get_data(
-            data, name=self.config.uncorrected_data_name,
+            data, name=self.config.input_data_name,
         )
 
         if self.config.presample_intensity_reference_rate is None:
@@ -736,7 +736,7 @@ class SetupProcessor(Processor):
             if name in intg_by_name:
                 return intg_by_name[name].result_shape
             if name in corr_by_name:
-                src = corr_by_name[name].uncorrected_data_name
+                src = corr_by_name[name].input_data_name
                 if isinstance(src, list):
                     # Multi-source correction: all sources have the same
                     # shape (same detector type); use the first.
@@ -754,7 +754,7 @@ class SetupProcessor(Processor):
             if name in intg_by_name:
                 return name
             if name in corr_by_name:
-                src = corr_by_name[name].uncorrected_data_name
+                src = corr_by_name[name].input_data_name
                 if isinstance(src, list):
                     return _resolve_intg_ancestor(src[0])
                 return _resolve_intg_ancestor(src)
@@ -765,23 +765,23 @@ class SetupProcessor(Processor):
         # corrections it is a dict mapping each source name to its shape.
         input_shapes = {}
         for corr in self.correction_config.corrections:
-            if isinstance(corr.uncorrected_data_name, list):
+            if isinstance(corr.input_data_name, list):
                 input_shapes[corr.name] = {
                     src: _resolve_input_shape(src)
-                    for src in corr.uncorrected_data_name
+                    for src in corr.input_data_name
                 }
             else:
-                input_shapes[corr.name] = _resolve_input_shape(
-                    corr.uncorrected_data_name)
+                input_shapes[proc.name] = _resolve_input_shape(
+                    corr.input_data_name)
 
         corr_nxlinks = {}
         for corr in self.correction_config.corrections:
             # For nxlinks use the first source to find an integration
             # ancestor (all sources in a multi-source correction share
             # the same chain type).
-            first_src = (corr.uncorrected_data_name[0]
-                         if isinstance(corr.uncorrected_data_name, list)
-                         else corr.uncorrected_data_name)
+            first_src = (corr.input_data_name[0]
+                         if isinstance(corr.input_data_name, list)
+                         else corr.input_data_name)
             intg_ancestor = _resolve_intg_ancestor(first_src)
             if intg_ancestor is None:
                 corr_nxlinks[corr.name] = dim_paths
@@ -850,7 +850,7 @@ class SetupProcessor(Processor):
             # Determine whether each source of this correction resolves
             # to a raw detector (store background as images) or to an
             # integration (integrate background first).
-            for src in corr_cfg.uncorrected_data_names:
+            for src in corr_cfg.input_data_names:
                 if _resolve_intg_ancestor(src) is None:
                     # Source is raw detector data: store mean background
                     # image for this detector directly.
@@ -1420,17 +1420,17 @@ class UpdateValuesProcessor(Processor):
             still_pending_corrs = []
             for corr_cfg in pending_corrs:
                 if not all(_input_available(src)
-                           for src in corr_cfg.uncorrected_data_names):
+                           for src in corr_cfg.input_data_names):
                     still_pending_corrs.append(corr_cfg)
                     continue
 
-                multi = isinstance(corr_cfg.uncorrected_data_name, list)
+                multi = isinstance(corr_cfg.input_data_name, list)
                 # Collect corrected output per source name.
                 # image_outputs[corr_cfg.name] aggregates all sources.
                 per_src_corrected = {}  # src_name -> corrected ndarray
                 corr_image_outputs = {}  # det_id -> corrected image ndarray
 
-                for src in corr_cfg.uncorrected_data_names:
+                for src in corr_cfg.input_data_names:
                     if src in integrated_outputs:
                         # Source is an integrated data array; correction
                         # produces another integrated array for this source.
@@ -1474,7 +1474,7 @@ class UpdateValuesProcessor(Processor):
                         integrated_outputs[corr_cfg.name] = next(
                             iter(per_src_corrected.values()))
                 else:
-                    src = corr_cfg.uncorrected_data_names[0]
+                    src = corr_cfg.input_data_names[0]
                     result_data = per_src_corrected[src]
                     if src in integrated_outputs:
                         integrated_outputs[corr_cfg.name] = result_data
@@ -1518,8 +1518,8 @@ class UpdateValuesProcessor(Processor):
         :param corr_cfg: Correction configuration.
         :type corr_cfg: saxswaxs.models.CorrectionConfig
         :param src_name: Source name to look up in ``integrated_outputs``
-            when ``corr_cfg.uncorrected_data_name`` is a list.  Defaults
-            to ``corr_cfg.uncorrected_data_name`` (for single-source
+            when ``corr_cfg.input_data_name`` is a list.  Defaults
+            to ``corr_cfg.input_data_name`` (for single-source
             corrections).
         :type src_name: str, optional
         :returns: List of :class:`~CHAP.pipeline.PipelineData` items
@@ -1529,7 +1529,7 @@ class UpdateValuesProcessor(Processor):
         # Local modules
         from CHAP.pipeline import PipelineData
 
-        lookup = src_name or corr_cfg.uncorrected_data_name
+        lookup = src_name or corr_cfg.input_data_name
         corr_data = []
         for x in ('dwell_time_actual', 'presample_intensity',
                   'postsample_intensity'):
@@ -1601,7 +1601,7 @@ class UpdateValuesProcessor(Processor):
         :meth:`get_corrections_input_data` (``dwell_time_actual``,
         ``presample_intensity``, ``postsample_intensity``), but passes
         raw detector images — named by
-        :attr:`~saxswaxs.models.CorrectionConfig.uncorrected_data_name`
+        :attr:`~saxswaxs.models.CorrectionConfig.input_data_name`
         — as the intensity signal rather than integrated data.
         When a background is configured, per-detector background images
         (``I_background_{det_id}``) and background scalar arrays are
@@ -1633,7 +1633,7 @@ class UpdateValuesProcessor(Processor):
                     break
         # Raw detector images are the "intensity" for this correction
         corr_data.append(
-            PipelineData(data=det_imgs, name=corr_cfg.uncorrected_data_name))
+            PipelineData(data=det_imgs, name=corr_cfg.input_data_name))
         if corr_cfg.background is not None:
             if self.filename is None:
                 self.logger.warning(
