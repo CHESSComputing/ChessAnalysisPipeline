@@ -2271,16 +2271,26 @@ class NexusToZarrProcessor(Processor):
                             else:
                                 _chunks = chunks
                             # Copy dataset
+                            nxdata = item.nxdata
+                            if nxdata.dtype == object:
+                                zarr_dtype = 'str'
+                                nxdata = np.array(
+                                    [v.decode() if isinstance(v, bytes) else v
+                                     for v in nxdata.flat],
+                                    dtype=object,
+                                ).reshape(nxdata.shape)
+                            else:
+                                zarr_dtype = nxdata.dtype
                             zarr_dset = zarr_group.create_array(
                                 name=key,
                                 shape=item.nxdata.shape,
-                                dtype=item.nxdata.dtype,
+                                dtype=zarr_dtype,
                                 attributes={k: v.nxvalue
                                             for k, v in item.attrs.items()},
                                 chunks=_chunks,
                             )
                             self.logger.info(f'Copying {item.nxpath}')
-                            zarr_dset[:] = item.nxdata
+                            zarr_dset[:] = nxdata
                         except Exception as exc:
                             self.logger.error(f'{item.nxpath}: {exc}')
                     else:
@@ -3537,14 +3547,27 @@ class ZarrToNexusProcessor(Processor):
                     if isinstance(item, zarr.Array):
                         self.logger.info(f'Copying {zarr_group.path}/{key}')
                         # Copy dataset
-                        nexus_dset = nexus_group.create_dataset(
-                            name=key,
-                            data=item.__array__(),
-                            # chunks=item.chunks, # FIXME
-                            compression='gzip',
-                            compression_opts=4,  # GZIP compression level
-                            maxshape=(None, *item.shape[1:]),
-                        )
+                        data = item.__array__()
+                        if isinstance(data.dtype, np.dtypes.StringDType):
+                            data = np.array(data.tolist(), dtype=object)
+                            nexus_dset = nexus_group.create_dataset(
+                                name=key,
+                                data=data,
+                                dtype=h5py.string_dtype(),
+                                # chunks=item.chunks, # FIXME
+                                compression='gzip',
+                                compression_opts=4,  # GZIP compression level
+                                maxshape=(None, *item.shape[1:]),
+                            )
+                        else:
+                            nexus_dset = nexus_group.create_dataset(
+                                name=key,
+                                data=data,
+                                # chunks=item.chunks, # FIXME
+                                compression='gzip',
+                                compression_opts=4,  # GZIP compression level
+                                maxshape=(None, *item.shape[1:]),
+                            )
                         # Copy dataset attributes
                         for attr_key, attr_value in item.attrs.items():
                             nexus_dset.attrs[attr_key] = attr_value
