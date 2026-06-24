@@ -24,6 +24,7 @@ jobs:
         sed -i "s/PACKAGE_VERSION/0.0.1/" CHAP/__init__.py
         sed -i "s/PACKAGE_VERSION/0.0.1/" docs/conf.py
         sed -i "s/PACKAGE_VERSION/0.0.1/" docs/installation.md
+        cat setup.py
 
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v3
