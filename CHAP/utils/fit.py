@@ -2469,7 +2469,6 @@ class UpdateValuesProcessor(Processor):
             # FitMap: results are already full map-shaped arrays.
             values = [
                 {'path': 'data/best_fit', 'data': fit.best_fit},
-                {'path': 'data/chisqr', 'data': fit.chisqr}, # FIXME FitMap.chisqr not implemented!
                 {'path': 'data/num_func_eval', 'data': fit.num_func_eval},
                 {'path': 'data/redchi', 'data': fit.redchi},
                 {'path': 'data/residual', 'data': fit.residual},
@@ -2479,7 +2478,6 @@ class UpdateValuesProcessor(Processor):
             # Fit: wrap each result in a list for idx-based writing.
             values = [
                 {'path': 'data/best_fit', 'data': [fit.best_fit]},
-                {'path': 'data/chisqr', 'data': [fit.chisqr]},
                 {'path': 'data/num_func_eval', 'data': [fit.num_func_eval]},
                 {'path': 'data/redchi', 'data': [fit.redchi]},
                 {'path': 'data/residual', 'data': [fit.residual]},

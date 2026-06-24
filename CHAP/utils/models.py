@@ -1058,9 +1058,9 @@ class FitConfig(CHAPBaseModel):
         this fit's output container.
 
         The tree contains a ``data`` group with global fit statistics
-        (``best_fit``, ``chisqr``, ``num_func_eval``, ``redchi``,
-        ``residual``, ``success``) and a ``components`` group with one
-        sub-tree per model component, structured by
+        (``best_fit``, ``num_func_eval``, ``redchi``, ``residual``,
+        ``success``) and a ``components`` group with one sub-tree per
+        model component, structured by
         :meth:`~CHAP.utils.models.FitModel.zarr_tree`.  The paths in
         this tree correspond to those emitted by
         :class:`~CHAP.utils.fit.UpdateValuesProcessor`.
@@ -1108,10 +1108,6 @@ class FitConfig(CHAPBaseModel):
                     'children': {
                         'best_fit': {
                             'shape': (*dataset_shape, *signal_shape),
-                            'dtype': 'float64',
-                        },
-                        'chisqr': {
-                            'shape': dataset_shape,
                             'dtype': 'float64',
                         },
                         'num_func_eval': {
