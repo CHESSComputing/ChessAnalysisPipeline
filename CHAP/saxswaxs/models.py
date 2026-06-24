@@ -248,10 +248,10 @@ class CorrectionConfig(CHAPBaseModel):
             'attributes': {
                 'correction_type': self.correction_type,
                 'default': 'data',
-            },
-            'children': {
                 'program': 'CHAP.saxswaxs',
                 'version': chap_version,
+            },
+            'children': {
                 'data': {
                     # NXdata
                     'attributes': data_attrs,
