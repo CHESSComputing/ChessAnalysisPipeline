@@ -568,13 +568,20 @@ class SetupProcessor(Processor):
     experiments.
 
     :ivar map_config: Map configuration.
-    :vartype map_config: dict, optional
-        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
+    :vartype map_config: :class:`~CHAP.common.models.map.MapConfig`,
+        optional
     :ivar pyfai_config: Initialization parameters for an instance of
         :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
-    :vartype pyfai_config: dict, optional
+    :vartype pyfai_config:
+        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`,
+        optional
     :ivar detector_config: Detector configurations.
-    :vartype detector_config: DetectorConfig
+    :vartype detector_config: :class:`~CHAP.common.models.map.DetectorConfig`
+    :ivar correction_config: Corrections to apply to integrated data.
+    :vartype correction_config:
+        :class:`~CHAP.saxswaxs.models.CorrectionsConfig`
+    :ivar fit_config: Fits to perform on integrated or corrected data.
+    :vartype fit_config: :class:`~CHAP.saxswaxs.models.FitsConfig`
     :ivar dataset_shape: Shape of the completed dataset that will be
         processed later on (shape of the measurement itself, _not_
         including the dimensions of any signals collected at each point
@@ -592,7 +599,7 @@ class SetupProcessor(Processor):
     :ivar num_chunk: Used only if `dataset_chunks` is `"auto"`.
         Preferred number of chunks in the dataset, defaults to `1`.
     :vartype num_chunk: int, optional
-    :ivar raw_data: Flag to indicate wether or not space for raw
+    :ivar raw_data: Flag to indicate whether or not space for raw
         detector data should be included in the returned
         `Zarr group <https://zarr.readthedocs.io/en/latest/api/zarr/group/#zarr.Group>`__,
         defaults to `True`.
@@ -1276,23 +1283,37 @@ class UpdateValuesProcessor(Processor):
     """Processes a slice of data for updating values in an existing
     container for a SAXS/WAXS experiment.
 
-    :ivar map_config: Map Configuration.
-    :vartype map_config: dict dict, optional
+    :ivar map_config: Map configuration.
+    :vartype map_config: :class:`~CHAP.common.models.map.MapConfig`,
+        optional
     :ivar pyfai_config: Initialization parameters for an instance of
         :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
-    :vartype pyfai_config: dict, optional
+    :vartype pyfai_config:
+        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`
+    :ivar detector_config: Detector configurations.
+    :vartype detector_config: :class:`~CHAP.common.models.map.DetectorConfig`
+    :ivar correction_config: Corrections to apply to integrated data.
+    :vartype correction_config:
+        :class:`~CHAP.saxswaxs.models.CorrectionsConfig`
+    :ivar fit_config: Fits to perform on integrated or corrected data.
+    :vartype fit_config: :class:`~CHAP.saxswaxs.models.FitsConfig`
     :ivar spec_file: SPEC file containing the scan from which to read
         and process a slice of raw data.
     :vartype spec_file: str
     :ivar scan_number: Scan number from which to read and process a
         slice of raw data.
     :vartype scan_number: int
-    :ivar detector_config: Detector configurations.
-    :vartype detector_config: :class:`~CHAP.common.models.map.DetectorConfig`
-    :ivar raw_data: Flag to indicate wether or not space for raw
-        detector data should be included in the values returned,
-        defaults to `True`.
+    :ivar filename: Path to an existing output file (Zarr or NeXus)
+        used to read pre-computed background data for corrections that
+        require it.  When ``None`` background intensities are skipped.
+    :vartype filename: str, optional
+    :ivar raw_data: Flag to indicate whether or not raw detector data
+        should be included in the values returned, defaults to `True`.
     :vartype raw_data: bool, optional
+    :ivar idx_slice: Index slice selecting which scan steps to process,
+        defaults to all steps.
+    :vartype idx_slice:
+        :class:`~CHAP.common.models.common.IndexSliceConfig`, optional
     """
     pipeline_fields: dict = Field(
         {
@@ -1322,23 +1343,20 @@ class UpdateValuesProcessor(Processor):
         """Processes a slice of data for updating values in an existing
         container for a SAXS/WAXS experiment.
 
+        Integrations, corrections, and fits are executed in dependency
+        order.  An integration whose ``input_name`` names a correction
+        takes that correction's output as its input; a correction or fit
+        whose ``input_data_name`` names another correction or integration
+        takes that node's output as its input.  Chains of arbitrary
+        depth are supported.
+
         :param data: Input data.
         :type data: list[PipelineData]
-        :param idx_slice: Dictionaries identifying the sliced index at which
-            the output data should be written in a dataset, defaults to
-            `{'start':0, 'step': 1}`.
-        :type idx_slice: dict[str, int], optional
-        :return: Detector data ready for writing with
-            :class:`~CHAP.saxswaxs.ZarrResultsWriter` or
-            :class:`~CHAP.saxswaxs.NexusResultsWriter`.
+        :return: Raw scalar data, integrated intensities, corrected
+            intensities, and fit results ready for writing with a
+            downstream writer.  Each item is a dict with keys ``'path'``
+            (str) and ``'data'`` (array or scalar).
         :rtype: list[dict[str, Any]]
-
-        Corrections and integrations are executed in dependency order.
-        An integration whose ``input_name`` names a correction takes
-        that correction's output as its input; a correction whose
-        ``uncorrected_data_name`` names another correction or
-        integration takes that node's output as its input.  Chains of
-        arbitrary depth are supported.
         """
         # System modules
         from copy import deepcopy
