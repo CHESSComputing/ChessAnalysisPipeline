@@ -2469,7 +2469,7 @@ class UpdateValuesProcessor(Processor):
             # FitMap: results are already full map-shaped arrays.
             values = [
                 {'path': 'data/best_fit', 'data': fit.best_fit},
-                {'path': 'data/chisqr', 'data': fit.chisqr}, # FitMap.chisqr not implemented!
+                {'path': 'data/chisqr', 'data': fit.chisqr}, # FIXME FitMap.chisqr not implemented!
                 {'path': 'data/num_func_eval', 'data': fit.num_func_eval},
                 {'path': 'data/redchi', 'data': fit.redchi},
                 {'path': 'data/residual', 'data': fit.residual},
@@ -2539,7 +2539,7 @@ class UpdateValuesProcessor(Processor):
                     component_model.get('parameters').items()):
                 param_prefix = f'{comp_prefix}/parameters/{parameter_name}'
                 if is_map:
-                    # FIX param_value for any parameters that are part
+                    # FIXME param_value for any parameters that are part
                     # of a component that was excluded from the fit?
                     if parameter_name in map_params_names:
                         param_idx = map_params_names.index(parameter_name)
@@ -2552,7 +2552,7 @@ class UpdateValuesProcessor(Processor):
                         param_error = None
                     init_params = fit.init_parameters
                     param = fit._parameters[parameter_name]
-                    param_initial = [init_params[parameter_name]['value']] * param_value.size
+                    param_initial = [init_params[parameter_name]['value']] * param_value.size # FIXME for params with no initial value
                     param_min = [init_params[parameter_name]['min']] * param_value.size
                     param_max = [init_params[parameter_name]['max']] * param_value.size
                     param_vary = [init_params[parameter_name]['vary']] * param_value.size
@@ -2576,36 +2576,22 @@ class UpdateValuesProcessor(Processor):
                          'data': param_expr},
                     ])
                 else:
-                    _parameter = best_parameters[parameter_name]
+                    param = best_parameters[parameter_name]
                     values.extend([
-                        # {'path': f'{param_prefix}/value',
-                        #  'data': [parameter.get('value')]},
-                        # {'path': f'{param_prefix}/error',
-                        #  'data': [fit.best_errors[parameter_name]]},
-                        # {'path': f'{param_prefix}/initial',
-                        #  'data': [parameter.get('initial_value')]},
-                        # {'path': f'{param_prefix}/min',
-                        #  'data': [parameter.get('min', -np.inf)]},
-                        # {'path': f'{param_prefix}/max',
-                        #  'data': [parameter.get('max', np.inf)]},
-                        # {'path': f'{param_prefix}/vary',
-                        #  'data': [parameter.get('free')]},
-                        # {'path': f'{param_prefix}/expression',
-                        #  'data': [parameter.get('expr')]},
                         {'path': f'{param_prefix}/value',
-                         'data': [_parameter['value']]},
+                         'data': [param['value']]},
                         {'path': f'{param_prefix}/error',
-                         'data': [_parameter['error']]},
+                         'data': [param['error']]},
                         {'path': f'{param_prefix}/initial',
-                         'data': [_parameter['init_value']]},
+                         'data': [param['init_value']]}, # FIXME for params with no initial value
                         {'path': f'{param_prefix}/min',
-                         'data': [_parameter['min']]},
+                         'data': [param['min']]},
                         {'path': f'{param_prefix}/max',
-                         'data': [_parameter['max']]},
+                         'data': [param['max']]},
                         {'path': f'{param_prefix}/vary',
-                         'data': [_parameter['vary']]},
+                         'data': [param['vary']]},
                         {'path': f'{param_prefix}/expression',
-                         'data': [_parameter['expr']]},
+                         'data': [param['expr']]},
                     ])
         return values
 

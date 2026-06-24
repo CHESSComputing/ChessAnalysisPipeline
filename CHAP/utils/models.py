@@ -3,6 +3,7 @@ classes.
 """
 
 # System modules
+import os
 from typing import (
     ClassVar,
     Literal,
@@ -491,16 +492,16 @@ class FitParameter(CHAPBaseModel):
             parameter.
         :rtype: dict
         """
+        data_attrs = {
+            'NX_class': 'NXdata',
+            'description': self.description,
+        }
         if isinstance(nxlinks, str):
             nxlinks = [nxlinks]
         if nxlinks:
             data_attrs['__nxlinks__'] = {
                 os.path.basename(p): p for p in nxlinks
             }
-        data_attrs = {
-            'NX_class': 'NXdata',
-            'description': self.description,
-        }
         if nxlinks:
             data_attrs['__nxlinks__'] = {
                 os.path.basename(p): p for p in nxlinks
