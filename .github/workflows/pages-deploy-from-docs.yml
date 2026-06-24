@@ -1,9 +1,9 @@
-name: Deploy Sphinx documentation to Pages from tagged release
+name: Deploy Sphinx documentation to Pages from docs branch push
 
 on:
   push:
-    tags:
-    - v*.*.*
+    branches:
+    - docs
 
 defaults:
   run:
@@ -20,12 +20,20 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Fetch Latest Tag
+      id: find_tag
+      run: |
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+        CLEAN_VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
+        echo "version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
+
     - name: Update docs configuration with version (tag) name
       run: |
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" setup.py
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" CHAP/__init__.py
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/conf.py
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/installation.md
+        sed -i "s/PACKAGE_VERSION/${{ steps.find_tag.outputs.version}}/" setup.py
+        sed -i "s/PACKAGE_VERSION/${{ steps.find_tag.outputs.version}}/" CHAP/__init__.py
+        sed -i "s/PACKAGE_VERSION/${{ steps.find_tag.outputs.version}}/" docs/conf.py
+        sed -i "s/PACKAGE_VERSION/${{ steps.find_tag.outputs.version}}/" docs/installation.md
+        cat setup.py
 
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v3
