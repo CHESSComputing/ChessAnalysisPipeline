@@ -34,6 +34,7 @@ from CHAP.processor import Processor
 from CHAP.pipeline import PipelineData
 from CHAP.saxswaxs.models import (
     CorrectionsConfig,
+    FitsConfig,
     FluxCorrectionConfig,
     FluxAbsorptionCorrectionConfig,
     FluxAbsorptionBackgroundCorrectionConfig,
@@ -604,6 +605,7 @@ class SetupProcessor(Processor):
             'detector_config': 'common.models.map.DetectorConfig',
             'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig',
             'correction_config': 'saxswaxs.models.CorrectionsConfig',
+            'fit_config': 'saxswaxs.models.FitsConfig',
         },
         init_var=True)
     # map_config needs a default value because the map configuration
@@ -614,6 +616,7 @@ class SetupProcessor(Processor):
     pyfai_config: PyfaiIntegrationConfig = None
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
     correction_config: CorrectionsConfig = CorrectionsConfig(corrections=[])
+    fit_config: FitsConfig = FitsConfig(fits=[])
     dataset_shape: Optional[
         conlist(item_type=conint(ge=0), min_length=1)] = [0]
     dataset_chunks: Optional[
@@ -720,6 +723,12 @@ class SetupProcessor(Processor):
             corr.name: corr
             for corr in self.correction_config.corrections
         }
+        fit_by_name = {
+            fit.name: fit
+            for fit in self.fit_config.fits
+        }
+        proc_by_name = corr_by_name | fit_by_name
+
         # Detector image shapes keyed by detector ID
         ai_shapes = {
             ai.get_id(): ai.ai.detector.shape
@@ -735,10 +744,10 @@ class SetupProcessor(Processor):
             """
             if name in intg_by_name:
                 return intg_by_name[name].result_shape
-            if name in corr_by_name:
-                src = corr_by_name[name].input_data_name
+            if name in proc_by_name:
+                src = proc_by_name[name].input_data_name
                 if isinstance(src, list):
-                    # Multi-source correction: all sources have the same
+                    # Multi-source correction/fit: all sources have the same
                     # shape (same detector type); use the first.
                     return _resolve_input_shape(src[0])
                 return _resolve_input_shape(src)
@@ -753,42 +762,46 @@ class SetupProcessor(Processor):
             """
             if name in intg_by_name:
                 return name
-            if name in corr_by_name:
-                src = corr_by_name[name].input_data_name
+            if name in proc_by_name:
+                src = proc_by_name[name].input_data_name
                 if isinstance(src, list):
                     return _resolve_intg_ancestor(src[0])
                 return _resolve_intg_ancestor(src)
             return None  # raw detector data
 
-        # input_shapes is keyed by corr.name.  For single-source
-        # corrections the value is a shape tuple; for multi-source
-        # corrections it is a dict mapping each source name to its shape.
+        # input_shapes is keyed by Correction/FitConfig.name.  For
+        # single-source corrections/fits the value is a shape tuple;
+        # for multi-source corrections/fits it is a dict mapping each
+        # source name to its shape.
         input_shapes = {}
-        for corr in self.correction_config.corrections:
-            if isinstance(corr.input_data_name, list):
-                input_shapes[corr.name] = {
+        for proc in self.correction_config.corrections + self.fit_config.fits:
+            if isinstance(proc.input_data_name, list):
+                input_shapes[proc.name] = {
                     src: _resolve_input_shape(src)
-                    for src in corr.input_data_name
+                    for src in proc.input_data_name
                 }
             else:
                 input_shapes[proc.name] = _resolve_input_shape(
-                    corr.input_data_name)
+                    proc.input_data_name)
 
-        corr_nxlinks = {}
-        for corr in self.correction_config.corrections:
+        proc_nxlinks = {}
+        for proc in self.correction_config.corrections + self.fit_config.fits:
             # For nxlinks use the first source to find an integration
-            # ancestor (all sources in a multi-source correction share
+            # ancestor (all sources in a multi-source correction/fit share
             # the same chain type).
-            first_src = (corr.input_data_name[0]
-                         if isinstance(corr.input_data_name, list)
-                         else corr.input_data_name)
+            first_src = (proc.input_data_name[0]
+                         if isinstance(proc.input_data_name, list)
+                         else proc.input_data_name)
             intg_ancestor = _resolve_intg_ancestor(first_src)
+            src_signal = 'I' if first_src in intg_by_name \
+                             else 'I_corrected' if first_src in corr_by_name \
+                             else None
             if intg_ancestor is None:
-                corr_nxlinks[corr.name] = dim_paths
+                proc_nxlinks[proc.name] = dim_paths
             else:
-                corr_nxlinks[corr.name] = (
+                proc_nxlinks[proc.name] = (
                     dim_paths
-                    + [f'{intg_ancestor}/data/I']
+                    + [f'{first_src}/data/{src_signal}']
                     + [
                         f'{intg_ancestor}/data/{coord}'
                         for coord in intg_by_name[intg_ancestor].result_coords
@@ -798,7 +811,7 @@ class SetupProcessor(Processor):
             self.correction_config.zarr_tree(
                 self.dataset_shape, self.dataset_chunks,
                 input_shapes,
-                nxlinks=corr_nxlinks,
+                nxlinks=proc_nxlinks,
             ),
             logger=self.logger,
         )
@@ -890,6 +903,16 @@ class SetupProcessor(Processor):
                 shape=bg_postsample.shape, dtype=bg_postsample.dtype)
             bg_postsample_arr[:] = bg_postsample
 
+        # Assemble containers for fit data
+        zarr_fit = dict_to_zarr(
+            self.fit_config.zarr_tree(
+                self.dataset_shape, self.dataset_chunks,
+                input_shapes,
+                nxlinks=proc_nxlinks
+            ),
+            logger=self.logger,
+        )
+
         # Assemble containers for raw & processed data
         zarr_root = zarr.create_group(store=MemoryStore({}))
         async def copy_zarr_store(source_store, dest_store):
@@ -906,7 +929,7 @@ class SetupProcessor(Processor):
                 buf = await source_store.get(
                     k, prototype=default_buffer_prototype())
                 await dest_store.set(k, buf)
-        for zarr_group in (zarr_map, zarr_pyfai, zarr_corr):
+        for zarr_group in (zarr_map, zarr_pyfai, zarr_corr, zarr_fit):
             asyncio.run(copy_zarr_store(zarr_group.store, zarr_root.store))
         return zarr_root
 
