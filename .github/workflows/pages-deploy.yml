@@ -1,4 +1,4 @@
-name: Deploy Sphinx documentation to Pages from tagged release
+name: Deploy Sphinx documentation to Pages
 
 on:
   push:
@@ -14,8 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pages: write
-      id-token: write
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
