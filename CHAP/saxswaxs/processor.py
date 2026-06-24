@@ -1300,6 +1300,7 @@ class UpdateValuesProcessor(Processor):
             'detector_config': 'common.models.map.DetectorConfig',
             'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig',
             'correction_config': 'saxswaxs.models.CorrectionsConfig',
+            'fit_config': 'saxswaxs.models.FitsConfig',
         },
         init_var=True)
     # map_config needs a default value because the map configuration
@@ -1310,6 +1311,7 @@ class UpdateValuesProcessor(Processor):
     pyfai_config: PyfaiIntegrationConfig
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
     correction_config: CorrectionsConfig
+    fit_config: FitsConfig
     spec_file: FilePath
     scan_number: conint(gt=0)
     filename: Optional[str] = None
@@ -1345,6 +1347,10 @@ class UpdateValuesProcessor(Processor):
         # Local modules
         from CHAP.common.map_utils import MapSliceProcessor
         from CHAP.pipeline import PipelineData
+        from CHAP.utils.fit import (
+            FitProcessor as UtilsFitProcessor,
+            UpdateValuesProcessor as UtilsUpdateValuesProcessor,
+        )
 
         # Use a copy of input data so we can append to it inside this
         # Processor without modifying the actual Pipeline's data
@@ -1371,14 +1377,17 @@ class UpdateValuesProcessor(Processor):
                     return v['data']
             return None
 
-        # Execute all corrections and integrations in dependency order.
+        # Execute all corrections, integrations, and fits in dependency order.
         # image_outputs maps node name → {det_id: ndarray} for nodes whose
         #   output is a per-detector image array.
         # integrated_outputs maps node name → ndarray for nodes whose output
         #   is an integrated data array.
+        # coord_outputs maps node name → 1-D coordinate array (x-values for
+        #   fitting) when the node's output has an associated coordinate axis.
         # all_values accumulates result dicts for the return value.
         image_outputs = {}        # name -> {det_id -> image ndarray}
         integrated_outputs = {}   # name -> integrated ndarray
+        coord_outputs = {}        # name -> 1-D coordinate ndarray
         all_values = []
 
         # Seed image_outputs with raw detector data.
@@ -1392,13 +1401,14 @@ class UpdateValuesProcessor(Processor):
         # or integrated_outputs.
         pending_intgs = list(self.pyfai_config.integrations)
         pending_corrs = list(self.correction_config.corrections)
+        pending_fits = list(self.fit_config.fits)
 
         def _input_available(name):
             return name in image_outputs or name in integrated_outputs
 
-        max_passes = len(pending_intgs) + len(pending_corrs) + 1
+        max_passes = len(pending_intgs) + len(pending_corrs) + len(pending_fits) + 1
         for _ in range(max_passes):
-            if not pending_intgs and not pending_corrs:
+            if not pending_intgs and not pending_corrs and not pending_fits:
                 break
 
             # Run any integration whose input is available
@@ -1436,6 +1446,19 @@ class UpdateValuesProcessor(Processor):
                 for r in result:
                     all_values.append(r)
                     integrated_outputs[intg.name] = r['data']
+                # Store the first coordinate axis for this integration so
+                # that downstream fits can use it as x-values.
+                if intg._placeholder_result is None:
+                    ais = {
+                        ai.get_id(): ai
+                        for ai in self.pyfai_config.azimuthal_integrators
+                    }
+                    intg.init_placeholder_results(ais)
+                if intg._placeholder_result is not None:
+                    coords = intg._placeholder_result.get('coords', {})
+                    coord_values = list(coords.values())
+                    if coord_values:
+                        coord_outputs[intg.name] = coord_values[0]['data']
 
             pending_intgs = still_pending_intgs
 
@@ -1482,6 +1505,11 @@ class UpdateValuesProcessor(Processor):
 
                 if corr_image_outputs:
                     image_outputs[corr_cfg.name] = corr_image_outputs
+                # Propagate coordinate from the first available source.
+                for src in corr_cfg.input_data_names:
+                    if src in coord_outputs:
+                        coord_outputs[corr_cfg.name] = coord_outputs[src]
+                        break
                 if multi:
                     # One I_corrected_{src} value per source
                     for src, result_data in per_src_corrected.items():
@@ -1507,10 +1535,37 @@ class UpdateValuesProcessor(Processor):
                     })
 
             pending_corrs = still_pending_corrs
+
+            # Run any fit whose input is available in integrated_outputs
+            still_pending_fits = []
+            for fit_cfg in pending_fits:
+                if fit_cfg.input_data_name not in integrated_outputs:
+                    still_pending_fits.append(fit_cfg)
+                    continue
+                signal = integrated_outputs[fit_cfg.input_data_name]
+                fit_input = [PipelineData(name='signal', data=signal)]
+                coords = coord_outputs.get(fit_cfg.input_data_name)
+                if coords is not None:
+                    fit_input.append(
+                        PipelineData(name='coordinates', data=coords))
+                fit_result = self.setup_pipelineitem(
+                    UtilsFitProcessor(config=fit_cfg)
+                ).process(fit_input)
+                fit_values = self.setup_pipelineitem(
+                    UtilsUpdateValuesProcessor()
+                ).process([PipelineData(name='FitProcessor', data=fit_result)])
+                for v in fit_values:
+                    all_values.append({
+                        'path': f'{fit_cfg.name}/{v["path"]}',
+                        'data': v['data'],
+                    })
+
+            pending_fits = still_pending_fits
         else:
             unresolved = (
                 [i.name for i in pending_intgs]
                 + [c.name for c in pending_corrs]
+                + [f.name for f in pending_fits]
             )
             if unresolved:
                 raise RuntimeError(
