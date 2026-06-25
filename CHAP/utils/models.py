@@ -957,17 +957,6 @@ PEAK_LIKE_MODELS = {
     'pvoigt': PseudoVoigtModel,
 }
 
-#MODEL_TYPE_TO_CLASS = {#v.model_type:v for v in MODEL_CLASSES}
-#    'constant': constant,
-#    'linear': linear,
-#    'parabolic': parabolic,
-#    'exponential': exponential,
-#    'gaussian': gaussian,
-#    'lorentzian': lorentzian,
-#    'pvoigt': pvoigt,
-#    'rectangle': rectangle,
-#}
-
 
 class MultipeakModel(CHAPBaseModel):
     """Class representing a multipeak model.
