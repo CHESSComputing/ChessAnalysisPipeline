@@ -47,25 +47,33 @@ fwhm_factor = {
     'gaussian': 'fwhm/(2*sqrt(2*log(2)))',
     'lorentzian': '0.5*fwhm',
     'splitlorentzian': '0.5*fwhm',  # sigma = sigma_r
-    'voight': '0.2776*fwhm',        # sigma = gamma
+    'voigt': '0.2777*fwhm',         # sigma = gamma
     'pvoigt': '0.5*fwhm',           # fraction = 0.5
 }
 # fwhm = sigma_factor*sigma
 sigma_factor = {
     'gaussian': '2*sigma*sqrt(2*log(2))',
+    'lorentzian': '2*sigma',
+    'splitlorentzian': '2*sigma',   # sigma = sigma_r
+    'voigt': '3.6009*sigma',        # sigma = gamma
+    'pvoigt': '2*sigma',            # fraction = 0.5
 }
 
 # amplitude = height_factor*height*fwhm
 height_factor = {
     'gaussian': 'height*fwhm*0.5*sqrt(pi/log(2))',
     'lorentzian': 'height*fwhm*0.5*pi',
-    'splitlorentzian': 'height*fwhm*0.5*pi',  # sigma = sigma_r
-    'voight': '3.334*height*fwhm',            # sigma = gamma
-    'pvoigt': '1.268*height*fwhm',            # fraction = 0.5
+    'splitlorentzian': 'height*fwhm*0.5*pi',   # sigma = sigma_r
+    'voigt': '1.3306*height*fwhm',             # sigma = gamma
+    'pvoigt': '1.2690*height*fwhm',            # fraction = 0.5
 }
 # height = amplitude_factor*amplitude/sigma
 amplitude_factor = {
     'gaussian': 'amplitude/(sigma*sqrt(2*pi))',
+    'lorentzian': 'amplitude/(sigma*pi)',
+    'splitlorentzian': 'amplitude/(sigma*pi)', # sigma = sigma_r
+    'voigt': '0.2087*amplitude/sigma',         # sigma = gamma
+    'pvoigt': '0.3940*amplitude/sigma',        # fraction = 0.5
 }
 
 
