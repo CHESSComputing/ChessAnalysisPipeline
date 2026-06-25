@@ -573,21 +573,39 @@ class ModelResult():
         # Update the fit parameters with the fit result
         par_names = list(self.params.keys())
         self.var_names = []
-        for i, (value, index) in enumerate(zip(best_pars, res_par_indices)):
-            par = self.params[par_names[index]]
-            par.set(value=value)
-            stderr = None
-            if self.covar is not None:
-                stderr = self.covar[i,i]
-                if stderr is not None:
-                    if stderr < 0.0:
-                        stderr = None
-                    else:
-                        stderr = np.sqrt(stderr)
-            self.var_names.append(par.name)
+        if res_par_indices:
+            def _get_stderr(i):
+                if self.covar is not None:
+                    stderr = self.covar[i,i]
+                    if stderr is not None:
+                        stderr = None if stderr < 0.0 else np.sqrt(stderr)
+                    return stderr
+                return None
+
+            assert len(best_pars) == len(res_par_indices)
+            for i, (value, index) in enumerate(zip(best_pars, res_par_indices)):
+                par = self.params[par_names[index]]
+                par.set(value=value)
+                setattr(par, '_stderr', _get_stderr(i))
+                self.var_names.append(par.name)
         if res_par_exprs:
             # Third party modules
             from sympy import diff
+
+            def _get_stderr_expr(expr):
+                stderr = 0
+                for i, name in enumerate(self.var_names):
+                    d = diff(expr, name)
+                    if not d:
+                        continue
+                    for ii, nname in enumerate(self.var_names):
+                        dd = diff(expr, nname)
+                        if not dd:
+                            continue
+                        stderr += (self._ast.eval(str(d))
+                                   * self._ast.eval(str(dd))
+                                   * self.covar[i,ii])
+                return np.sqrt(stderr)
 
             for value, name in zip(best_pars, res_par_names):
                 self._ast.symtable[name] = value
@@ -597,22 +615,9 @@ class ModelResult():
                 par = self.params[name]
                 par.set(value=self._ast.eval(expr))
                 self._expr_pars[name] = expr
-                stderr = None
-                if self.covar is not None:
-                    stderr = 0
-                    for i, name in enumerate(self.var_names):
-                        d = diff(expr, name)
-                        if not d:
-                            continue
-                        for ii, nname in enumerate(self.var_names):
-                            dd = diff(expr, nname)
-                            if not dd:
-                                continue
-                            stderr += (self._ast.eval(str(d))
-                                       * self._ast.eval(str(dd))
-                                       * self.covar[i,ii])
-                    stderr = np.sqrt(stderr)
-                setattr(par, '_stderr', stderr)
+                setattr(
+                    par, '_stderr',
+                    None if self.covar is None else _get_stderr_expr(expr))
 
     def eval_components(self, x=None, parameters=None):
         """Evaluate each component of a composite model function.
