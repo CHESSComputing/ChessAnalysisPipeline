@@ -255,9 +255,8 @@ class _BaseEddProcessor(Processor):
 
     def _subtract_baselines(self):
         """Get and subtract the detector baselines."""
-        # Local modules
-        from CHAP.edd.models import BaselineConfig
-        from CHAP.common.processor import ConstructBaseline
+        # Third party modules
+        from nexusformat.nexus import NXfield
 
         if self.save_figures:
             if self.__name__ == 'LatticeParameterRefinementProcessor':
@@ -273,41 +272,87 @@ class _BaseEddProcessor(Processor):
             else:
                 basename = f'{self.__name__}_baseline'
 
-        for energies, mean_data, (low, _), nxdata, detector in zip(
-                self._energies, self._mean_data, self._mask_index_ranges,
-                self._nxdata_detectors, self.detector_config.detectors):
+        for i, (energies, mean_data, (low, _), nxdata, detector) in enumerate(
+                zip(self._energies, self._mean_data, self._mask_index_ranges,
+                    self._nxdata_detectors, self.detector_config.detectors)):
             if detector.baseline:
-                if isinstance(detector.baseline, bool):
-                    detector.baseline = BaselineConfig()
-                if self.__name__ in ('DiffractionVolumeLengthProcessor',
-                                     'MCAEnergyCalibrationProcessor'):
-                    x = low + np.arange(mean_data.size)
-                    xlabel = 'Detector Channel (-)'
+                if detector.baseline_type == 'mean':
+                    self._subtract_baseline_mean(
+                        energies, mean_data, low, nxdata, detector, basename)
                 else:
-                    x = energies
-                    xlabel = 'Energy (keV)'
+                    data = self._subtract_baseline_spectrum(
+                        energies, low, nxdata.nxsignal.nxdata.astype(float),
+                        detector)
+                    self._nxdata_detectors[i].nxsignal = NXfield(
+                        data, self._nxdata_detectors[i].signal)
+                    self._mean_data[i] = data.mean(axis=0)
 
-                baseline, baseline_config, buf = \
-                    ConstructBaseline.construct_baseline(
-                        mean_data, x=x, tol=detector.baseline.tol,
-                        lam=detector.baseline.lam,
-                        max_iter=detector.baseline.max_iter,
-                        title=f'Baseline for detector {detector.get_id()}',
-                        xlabel=xlabel, ylabel='Intensity (counts)',
-                        interactive=self.interactive,
-                        return_buf=self.save_figures)
-                if self.save_figures:
-                    self._figures.append(
-                        (buf, f'{detector.get_id()}_{basename}'))
+    def _subtract_baseline_mean(
+            self, energies, mean_data, low, nxdata, detector, basename):
+        """Get and subtract the detector baseline for a given detector
+        based on the mean spectrum.
+        """
+        # Local modules
+        from CHAP.edd.models import BaselineConfig
+        from CHAP.common.processor import ConstructBaseline
 
-                detector.baseline.lam = baseline_config['lambda']
-                detector.baseline.attrs['num_iter'] = \
-                    baseline_config['num_iter']
-                detector.baseline.attrs['error'] = \
-                    baseline_config['error']
+        if isinstance(detector.baseline, bool):
+            detector.baseline = BaselineConfig()
+        if self.__name__ in ('DiffractionVolumeLengthProcessor',
+                             'MCAEnergyCalibrationProcessor'):
+            x = low + np.arange(mean_data.size)
+            xlabel = 'Detector Channel (-)'
+        else:
+            x = energies
+            xlabel = 'Energy (keV)'
 
-                nxdata.nxsignal -= baseline
-                mean_data -= baseline
+        baseline, baseline_config, buf = \
+            ConstructBaseline.construct_baseline(
+                mean_data, x=x, tol=detector.baseline.tol,
+                lam=detector.baseline.lam,
+                max_iter=detector.baseline.max_iter,
+                title=f'Baseline for detector {detector.get_id()}',
+                xlabel=xlabel, ylabel='Intensity (counts)',
+                interactive=self.interactive,
+                return_buf=self.save_figures)
+        if self.save_figures:
+            self._figures.append(
+                (buf, f'{detector.get_id()}_{basename}'))
+
+        detector.baseline.lam = baseline_config['lambda']
+        detector.baseline.attrs['num_iter'] = \
+            baseline_config['num_iter']
+        detector.baseline.attrs['error'] = \
+            baseline_config['error']
+
+        nxdata.nxsignal -= baseline
+        mean_data -= baseline
+
+    def _subtract_baseline_spectrum(self, energies, low, data, detector):
+        """Get and subtract a detector baseline for a given detector
+        for each individual spectrum and recompute the mean.
+        """
+        # Local modules
+        from CHAP.edd.models import BaselineConfig
+        from CHAP.common.processor import ConstructBaseline
+
+        if isinstance(detector.baseline, bool):
+            detector.baseline = BaselineConfig()
+        if self.__name__ in ('DiffractionVolumeLengthProcessor',
+                             'MCAEnergyCalibrationProcessor'):
+            x = low + np.arange(data.shape[1])
+        else:
+            x = energies
+
+        baselines = []
+        for i in range(data.shape[0]):
+            baseline, baseline_config, buf = \
+                ConstructBaseline.construct_baseline(
+                    data[i], x=x, tol=detector.baseline.tol,
+                    lam=detector.baseline.lam,
+                    max_iter=detector.baseline.max_iter)
+            baselines.append(baseline)
+        return data - baselines
 
 
 class _BaseStrainProcessor(_BaseEddProcessor):
