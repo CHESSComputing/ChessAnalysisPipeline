@@ -217,38 +217,17 @@ class FitProcessor(Processor):
             list[:attr:`~CHAP.utils.models.FitConfig.models`]
         """
         # Local modules
-        from CHAP.utils.models import (
-            PEAK_LIKE_MODELS,
-            FitParameter,
-        )
+        from CHAP.utils.models import PEAK_LIKE_MODELS
 
-        peak_model_class = PEAK_LIKE_MODELS[model.peak_models]
-        parameters = []
-        peak_models = []
-        num_peak = len(model.centers)
-        if num_peak == 1 and model.fit_type == 'uniform':
-            model.fit_type = 'unconstrained'
+        def _uniform_model(
+                model, num_peak, peak_model_class, sig_min, sig_max):
+            """Create an uniform multipeak model."""
+            # Local modules
+            from CHAP.utils.models import FitParameter
 
-        sig_min = FLOAT_MIN
-        sig_max = np.inf
-        if (model.fwhm_min is not None
-                or model.fwhm_max is not None):
-            # Third party modules
-            from asteval import Interpreter
-
-            ast = Interpreter()
-
-            if model.fwhm_min is not None:
-                ast(f'fwhm = {model.fwhm_min}')
-                sig_min = ast(fwhm_factor[model.peak_models])
-            if model.fwhm_max is not None:
-                ast(f'fwhm = {model.fwhm_max}')
-                sig_max = ast(fwhm_factor[model.peak_models])
-
-        prefix = ''
-        if model.fit_type == 'uniform':
-            parameters.append(FitParameter(
-                name='scale_factor', value=1.0, min=FLOAT_MIN))
+            parameters = [FitParameter(
+                name='scale_factor', value=1.0, min=FLOAT_MIN)]
+            peak_models = []
             for i, cen in enumerate(model.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
@@ -259,7 +238,12 @@ class FitProcessor(Processor):
                          {'name': 'amplitude', 'min': FLOAT_MIN},
                          {'name': 'center', 'expr': f'scale_factor*{cen}'},
                          {'name': 'sigma', 'min': sig_min, 'max': sig_max}]))
-        else:
+            return parameters, peak_models
+
+        def _unconstrained_model(
+                model, num_peak, peak_model_class, sig_min, sig_max):
+            """Create an unconstrained multipeak model."""
+            peak_models = []
             for i, cen in enumerate(model.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
@@ -288,8 +272,34 @@ class FitProcessor(Processor):
                               'max': cen_max},
                              {'name': 'sigma', 'min': sig_min, 'max': sig_max}
                         ]))
+            return [], peak_models
 
-        return parameters, peak_models
+        peak_model_class = PEAK_LIKE_MODELS[model.peak_models]
+        num_peak = len(model.centers)
+        if num_peak == 1 and model.fit_type == 'uniform':
+            model.fit_type = 'unconstrained'
+
+        sig_min = FLOAT_MIN
+        sig_max = np.inf
+        if (model.fwhm_min is not None
+                or model.fwhm_max is not None):
+            # Third party modules
+            from asteval import Interpreter
+
+            ast = Interpreter()
+            if model.fwhm_min is not None:
+                ast(f'fwhm = {model.fwhm_min}')
+                sig_min = ast(fwhm_factor[model.peak_models])
+            if model.fwhm_max is not None:
+                ast(f'fwhm = {model.fwhm_max}')
+                sig_max = ast(fwhm_factor[model.peak_models])
+
+        prefix = ''
+        if model.fit_type == 'uniform':
+            return _uniform_model(
+                model, num_peak, peak_model_class, sig_min, sig_max)
+        return _unconstrained_model(
+            model, num_peak, peak_model_class, sig_min, sig_max)
 
 
 class Component():
@@ -303,11 +313,8 @@ class Component():
         :param prefix: Model prefix.
         :type prefix: str, optional
         """
-        # Local modules
-        #from CHAP.utils.models import MODEL_TYPE_TO_CLASS
-
-        self.func = model.func #MODEL_TYPE_TO_CLASS[model.model_type]
-        self.func_args = model.func_args #MODEL_TYPE_TO_CLASS[model.model_type]
+        self.func = model.func
+        self.func_args = model.func_args
         self.model_identifiers = {
             k:getattr(model, k) for k in model.MODEL_IDENTIFIERS}
         self.param_names = [f'{prefix}{par.name}' for par in model.parameters]
@@ -3147,7 +3154,8 @@ class FitMap(Fit):
 #        exit('Done')
         if (y_max == 0.0
                 or (self._normalized and self._abs_height_cutoff is not None
-                    and y_max*self._norm[1] + self._norm[0] < self._abs_height_cutoff)
+                    and (y_max*self._norm[1] + self._norm[0]
+                         < self._abs_height_cutoff))
                 or (self._rel_height_cutoff is not None
                     and y_max < self._rel_height_cutoff)):
 #            print(f'\t------->skipping!!!!!!!!')
