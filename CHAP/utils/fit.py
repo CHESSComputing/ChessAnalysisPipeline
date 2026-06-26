@@ -225,6 +225,7 @@ class FitProcessor(Processor):
             # Local modules
             from CHAP.utils.models import FitParameter
 
+            prefix = ''
             parameters = [FitParameter(
                 name='scale_factor', value=1.0, min=FLOAT_MIN)]
             peak_models = []
@@ -243,6 +244,7 @@ class FitProcessor(Processor):
         def _unconstrained_model(
                 model, num_peak, peak_model_class, sig_min, sig_max):
             """Create an unconstrained multipeak model."""
+            prefix = ''
             peak_models = []
             for i, cen in enumerate(model.centers):
                 if num_peak > 1:
@@ -294,7 +296,6 @@ class FitProcessor(Processor):
                 ast(f'fwhm = {model.fwhm_max}')
                 sig_max = ast(fwhm_factor[model.peak_models])
 
-        prefix = ''
         if model.fit_type == 'uniform':
             return _uniform_model(
                 model, num_peak, peak_model_class, sig_min, sig_max)
@@ -484,11 +485,15 @@ class ModelResult():
                 return None
 
             assert len(best_pars) == len(res_par_indices)
+            #print(f'\n{par_names}')
+            #print(f'\n{len(best_pars)} {len(res_par_indices)}\n')
+            #print(f'\n{best_pars.tolist()} {res_par_indices}\n')
             for i, (value, index) in enumerate(zip(best_pars, res_par_indices)):
                 par = self.params[par_names[index]]
                 par.set(value=value)
                 setattr(par, '_stderr', _get_stderr(i))
                 self.var_names.append(par.name)
+            #print(f'\n{self.var_names}')
         if res_par_exprs:
             # Third party modules
             from sympy import diff
@@ -544,10 +549,8 @@ class ModelResult():
                 continue
             par_values = tuple(
                 parameters[par].value for par in component.param_names)
-            if component.prefix == '':
-                name = component._name
-            else:
-                name = component.prefix
+            name = component._name if component.prefix == '' \
+                else component.prefix
             ppar_values = tuple(
                 par_values[i] for i in component.func_args_indices)
             result[name] = component.func(
@@ -595,10 +598,7 @@ class ModelResult():
             if par.init_value is not None:
                 inval = f'(init = {par.init_value:.7g})'
             expr = self._expr_pars.get(name, par.expr)
-            if expr is not None:
-                val = self._ast.eval(expr)
-            else:
-                val = par.value
+            val = par.value if expr is None else self._ast.eval(expr)
             try:
                 val = gformat(par.value)
             except (TypeError, ValueError):
@@ -2106,17 +2106,33 @@ class Fit:
                 least_squares,
             )
 
+            #print(f'\n-------------------- scipy _fit_nonlinear_model --------------------\n')
             assert self._mask is None
             self._ast = Interpreter()
             self._ast.basesymtable = dict(self._ast.symtable.items())
             pars_init = []
+            res_par_indices = []
+            #print(f'\nself._res_num_pars {len(self._res_num_pars)} {sum(self._res_num_pars)}:\n{self._res_num_pars}')
+            #print(f'\nself._res_par_exprs {len(self._res_par_exprs)}:\n{self._res_par_exprs}')
+            #print(f'\nself._res_par_indices {len(self._res_par_indices)}:\n{self._res_par_indices}')
+            #print(f'\nself._res_par_names {len(self._res_par_names)}:\n{self._res_par_names}')
+            ii = 0
             for i, (name, par) in enumerate(self._parameters.items()):
                 setattr(par, '_init_value', par.value)
                 self._res_par_values[i] = par.value
+                #print(f'\t{i} {ii} {name} {par.value} {par.vary} {par.expr}')
                 if par.expr is None:
                     self._ast.symtable[name] = par.value
                     if par.vary:
+                        #print(f'\t\t...varying par')
                         pars_init.append(par.value)
+                        res_par_indices.append(self._res_par_indices[ii])
+                    ii += 1
+                #else:
+                    #print(f'\t\t...expression par')
+            #print(f'\nself._res_par_values {len(self._res_par_values)}:\n{self._res_par_values}')
+            #print(f'\npars_init {len(pars_init)}:\n{pars_init}')
+            #print(f'\nres_par_indices {len(res_par_indices)}:\n{res_par_indices}\n\n')
             if have_bounds:
                 bounds = (
                     [v['min'] for v in self._parameter_bounds.values()],
@@ -2139,18 +2155,24 @@ class Fit:
                 if max_nfev is not None:
                     lskws['maxfev'] = max_nfev
                 result = leastsq(
-                    self._residual, pars_init, args=(x, y), full_output=True,
+                    self._residual, pars_init, args=(x, y, res_par_indices), full_output=True,
                     **lskws)
             else:
                 if max_nfev is not None:
                     lskws['max_nfev'] = max_nfev
                 result = least_squares(
                     self._residual, pars_init, bounds=bounds,
-                    method=self._method, args=(x, y), **lskws)
+                    method=self._method, args=(x, y, res_par_indices), **lskws)
+            #print(f'\nself._res_num_pars {len(self._res_num_pars)} {sum(self._res_num_pars)}:\n{self._res_num_pars}')
+            #print(f'\nself._res_par_exprs {len(self._res_par_exprs)}:\n{self._res_par_exprs}')
+            #print(f'\nself._res_par_indices {len(self._res_par_indices)}:\n{self._res_par_indices}')
+            #print(f'\nself._res_par_names {len(self._res_par_names)}:\n{self._res_par_names}')
+            #print(f'\nself._res_par_values {len(self._res_par_values)}:\n{self._res_par_values}')
+            #print(f'\npars_init {len(pars_init)}:\n{pars_init}\n\n')
             model_result = ModelResult(
                 self._model, self._parameters, x=x, y=y, method=self._method,
                 ast=self._ast, res_par_exprs=self._res_par_exprs,
-                res_par_indices=self._res_par_indices,
+                res_par_indices=res_par_indices,
                 res_par_names=self._res_par_names, result=result)
             model_result.init_params = init_params
             model_result.init_values = {}
@@ -2158,6 +2180,7 @@ class Fit:
                 model_result.init_values[name] = par.value
             model_result.max_nfev = lskws.get('maxfev')
         else:
+            #print(f'\n-------------------- lmfit _fit_nonlinear_model --------------------\n')
             fit_kws = {}
 #            if 'Dfun' in kwargs:
 #                fit_kws['Dfun'] = kwargs.pop('Dfun')
@@ -2336,11 +2359,17 @@ class Fit:
                         if value >= upp:
                             par.set(value=upp)
 
-    def _residual(self, pars, x, y):
+    def _residual(self, pars, x, y, res_par_indices):
         res = np.zeros((x.size))
         n_par = len(self._free_parameters)
-        for par, index in zip(pars, self._res_par_indices):
+        #print(f'\nn_par: {n_par}')
+        #print(f'pars: {len(pars)}\n\t{pars.tolist()}')
+        #print(f'res_par_indices: {len(res_par_indices)}:\n\t{res_par_indices}')
+        #print(f'self._res_par_indices: {len(self._res_par_indices)}')
+        #print(f'self._res_par_values: {len(self._res_par_values)}:\n\t{self._res_par_values}')
+        for par, index in zip(pars, res_par_indices):
             self._res_par_values[index] = par
+        #print(f'self._res_par_values: {len(self._res_par_values)}:\n\t{self._res_par_values}')
         if self._res_par_exprs:
             for par, name in zip(pars, self._res_par_names):
                 self._ast.symtable[name] = par
@@ -2351,10 +2380,12 @@ class Fit:
                 self._model.components, self._res_num_pars):
             values = self._res_par_values[n_par:n_par+num_par]
             vvalues = [values[i] for i in component.func_args_indices]
+            #print(f'\t{component._name} {num_par} {values}')
             res += component.func(
 #                x, *tuple(self._res_par_values[n_par:n_par+num_par]))
                 x, *tuple(vvalues), **component.model_identifiers)
             n_par += num_par
+        #print(f'\n')
         return res - y
 
 
