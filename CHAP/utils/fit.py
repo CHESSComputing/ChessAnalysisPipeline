@@ -1129,194 +1129,189 @@ class Fit:
         :param prefix: Model prefix.
         :type prefix: str
         """
-        # pylint: disable=possibly-used-before-assignment
-        if self._code == 'lmfit':
-            from lmfit.models import (
-                ConstantModel,
-                LinearModel,
-                QuadraticModel,
-#                PolynomialModel,
-                ExponentialModel,
-                GaussianModel,
-                LorentzianModel,
-                PseudoVoigtModel,
-                ExpressionModel,
-#                StepModel,
-                RectangleModel,
-        )
+        def _setup_parameters_and_model(model, prefix, pprefix):
+            def _set_parameter_info_scipy(model, pprefix):
+                new_parameters = []
+                for par in deepcopy(model.parameters):
+                    name = par.name
+                    self._parameters.add(par, pprefix)
+                    if self._parameters[par.name].expr is None:
+                        self._parameters[par.name].set(value=par.default)
+                    new_parameters.append(par.name)
+                    if name in model.LINEAR_PARAMETERS:
+                        self._linear_parameters.append(par.name)
+                    elif name not in model.MODEL_PARAMETERS:
+                        self._nonlinear_parameters.append(par.name)
+                self._res_num_pars += [len(model.parameters)]
+                return new_parameters
 
-        if model.model_type == 'expression':
-            expr = model.expr
-        else:
-            expr = None
-
-        if prefix is None:
-            pprefix = ''
-        else:
-            pprefix = prefix
-        if self._code == 'scipy':
-            new_parameters = []
-            for par in deepcopy(model.parameters):
-                name = par.name
-                self._parameters.add(par, pprefix)
-                if self._parameters[par.name].expr is None:
-                    self._parameters[par.name].set(value=par.default)
-                new_parameters.append(par.name)
-                if name in model.LINEAR_PARAMETERS:
-                    self._linear_parameters.append(par.name)
-                elif name not in model.MODEL_PARAMETERS:
-                    self._nonlinear_parameters.append(par.name)
-            self._res_num_pars += [len(model.parameters)]
-
-        if self._code == 'lmfit':
-            if model.model_type == 'constant':
-                # Par: c
-                newmodel = ConstantModel(prefix=prefix)
-                self._linear_parameters.append(f'{pprefix}c')
-            elif model.model_type == 'linear':
-                # Par: slope, intercept
-                newmodel = LinearModel(prefix=prefix)
-                self._linear_parameters.append(f'{pprefix}slope')
-                self._linear_parameters.append(f'{pprefix}intercept')
-            elif model.model_type == 'parabolic':
-                # Par: a, b, c
-                newmodel = QuadraticModel(prefix=prefix)
-                self._linear_parameters.append(f'{pprefix}a')
-                self._linear_parameters.append(f'{pprefix}b')
-                self._linear_parameters.append(f'{pprefix}c')
-#            elif model.model_type == 'polynomial':
-#                # Par: c0, c1,..., c7
-#                degree = kwargs.get('degree')
-#                if degree is not None:
-#                    kwargs.pop('degree')
-#                if degree is None or not is_int(degree, ge=0, le=7):
-#                    raise ValueError(
-#                        'Invalid parameter degree for build-in step model '
-#                        f'({degree})')
-#                newmodel = PolynomialModel(degree=degree, prefix=prefix)
-#                for i in range(degree+1):
-#                    self._linear_parameters.append(f'{pprefix}c{i}')
-            elif model.model_type == 'exponential':
-                # Par: amplitude, decay
-                newmodel = ExponentialModel(prefix=prefix)
-                self._linear_parameters.append(f'{pprefix}amplitude')
-                self._nonlinear_parameters.append(f'{pprefix}decay')
-            elif model.model_type == 'gaussian':
-                # Par: amplitude, center, sigma (fwhm, height)
-                newmodel = GaussianModel(prefix=prefix)
-                # parameter norms for height and fwhm are needed to
-                #   get correct errors
-                self._linear_parameters.append(f'{pprefix}amplitude')
-                self._nonlinear_parameters.append(f'{pprefix}center')
-                self._nonlinear_parameters.append(f'{pprefix}sigma')
-            elif model.model_type == 'lorentzian':
-                # Par: amplitude, center, sigma (fwhm, height)
-                newmodel = LorentzianModel(prefix=prefix)
-                # parameter norms for height and fwhm are needed to
-                #   get correct errors
-                self._linear_parameters.append(f'{pprefix}amplitude')
-                self._nonlinear_parameters.append(f'{pprefix}center')
-                self._nonlinear_parameters.append(f'{pprefix}sigma')
-            elif model.model_type == 'pvoigt':
-                # Par: amplitude, center, sigma (fwhm, height), fraction
-                newmodel = PseudoVoigtModel(prefix=prefix)
-                # parameter norms for height and fwhm are needed to
-                #   get correct errors
-                self._linear_parameters.append(f'{pprefix}amplitude')
-                self._linear_parameters.append(f'{pprefix}fraction')
-                self._nonlinear_parameters.append(f'{pprefix}center')
-                self._nonlinear_parameters.append(f'{pprefix}sigma')
-#            elif model.model_type == 'step':
-#                # Par: amplitude, center, sigma
-#                form = kwargs.get('form')
-#                if form is not None:
-#                    kwargs.pop('form')
-#                if (form is None or form not in
-#                        ('linear', 'atan', 'arctan', 'erf', 'logistic')):
-#                    raise ValueError(
-#                        'Invalid parameter form for build-in step model '
-#                        f'({form})')
-#                newmodel = StepModel(prefix=prefix, form=form)
-#                self._linear_parameters.append(f'{pprefix}amplitude')
-#                self._nonlinear_parameters.append(f'{pprefix}center')
-#                self._nonlinear_parameters.append(f'{pprefix}sigma')
-            elif model.model_type == 'rectangle':
-                # Par: amplitude, center1, center2, sigma1, sigma2
-                form = 'atan' #kwargs.get('form')
-                #if form is not None:
-                #    kwargs.pop('form')
-                # RV: Implement and test other forms when needed
-                if (form is None or form not in
-                        ('linear', 'atan', 'arctan', 'erf', 'logistic')):
-                    raise ValueError(
-                        'Invalid parameter form for build-in rectangle model '
-                        f'({form})')
-                newmodel = RectangleModel(prefix=prefix, form=form)
-                self._linear_parameters.append(f'{pprefix}amplitude')
-                self._nonlinear_parameters.append(f'{pprefix}center1')
-                self._nonlinear_parameters.append(f'{pprefix}center2')
-                self._nonlinear_parameters.append(f'{pprefix}sigma1')
-                self._nonlinear_parameters.append(f'{pprefix}sigma2')
-            elif model.model_type == 'expression':
-                # FIX move to a validator
+            def _set_parameter_info_lmfit(model, prefix, pprefix):
                 # Third party modules
-                from asteval import (
-                    Interpreter,
-                    get_ast_names,
+                from lmfit.models import (
+                    ConstantModel,
+                    LinearModel,
+                    QuadraticModel,
+#                    PolynomialModel,
+                    ExponentialModel,
+                    GaussianModel,
+                    LorentzianModel,
+                    PseudoVoigtModel,
+                    ExpressionModel,
+#                    StepModel,
+                    RectangleModel,
                 )
 
-                for par in model.parameters:
-                    if par.expr is not None:
-                        raise KeyError(
-                            f'Invalid "expr" key ({par.expr}) in '
-                            f'parameter ({par}) for an expression model')
-                ast = Interpreter()
-                expr_parameters = [
-                    name for name in get_ast_names(ast.parse(expr))
-                    if (name != 'x' and name not in self._parameters
-                        and name not in ast.symtable)]
-                if prefix is None:
-                    newmodel = ExpressionModel(expr=expr)
-                else:
-                    for name in expr_parameters:
-                        expr = sub(rf'\b{name}\b', f'{prefix}{name}', expr)
+                if model.model_type == 'constant':
+                    # Par: c
+                    newmodel = ConstantModel(prefix=prefix)
+                    self._linear_parameters.append(f'{pprefix}c')
+                elif model.model_type == 'linear':
+                    # Par: slope, intercept
+                    newmodel = LinearModel(prefix=prefix)
+                    self._linear_parameters.append(f'{pprefix}slope')
+                    self._linear_parameters.append(f'{pprefix}intercept')
+                elif model.model_type == 'parabolic':
+                    # Par: a, b, c
+                    newmodel = QuadraticModel(prefix=prefix)
+                    self._linear_parameters.append(f'{pprefix}a')
+                    self._linear_parameters.append(f'{pprefix}b')
+                    self._linear_parameters.append(f'{pprefix}c')
+#                elif model.model_type == 'polynomial':
+#                    # Par: c0, c1,..., c7
+#                    degree = kwargs.get('degree')
+#                    if degree is not None:
+#                        kwargs.pop('degree')
+#                    if degree is None or not is_int(degree, ge=0, le=7):
+#                        raise ValueError(
+#                            'Invalid parameter degree for build-in step model '
+#                            f'({degree})')
+#                    newmodel = PolynomialModel(degree=degree, prefix=prefix)
+#                    for i in range(degree+1):
+#                        self._linear_parameters.append(f'{pprefix}c{i}')
+                elif model.model_type == 'exponential':
+                    # Par: amplitude, decay
+                    newmodel = ExponentialModel(prefix=prefix)
+                    self._linear_parameters.append(f'{pprefix}amplitude')
+                    self._nonlinear_parameters.append(f'{pprefix}decay')
+                elif model.model_type == 'gaussian':
+                    # Par: amplitude, center, sigma (fwhm, height)
+                    newmodel = GaussianModel(prefix=prefix)
+                    # parameter norms for height and fwhm are needed to
+                    #   get correct errors
+                    self._linear_parameters.append(f'{pprefix}amplitude')
+                    self._nonlinear_parameters.append(f'{pprefix}center')
+                    self._nonlinear_parameters.append(f'{pprefix}sigma')
+                elif model.model_type == 'lorentzian':
+                    # Par: amplitude, center, sigma (fwhm, height)
+                    newmodel = LorentzianModel(prefix=prefix)
+                    # parameter norms for height and fwhm are needed to
+                    #   get correct errors
+                    self._linear_parameters.append(f'{pprefix}amplitude')
+                    self._nonlinear_parameters.append(f'{pprefix}center')
+                    self._nonlinear_parameters.append(f'{pprefix}sigma')
+                elif model.model_type == 'pvoigt':
+                    # Par: amplitude, center, sigma (fwhm, height), fraction
+                    newmodel = PseudoVoigtModel(prefix=prefix)
+                    # parameter norms for height and fwhm are needed to
+                    #   get correct errors
+                    self._linear_parameters.append(f'{pprefix}amplitude')
+                    self._linear_parameters.append(f'{pprefix}fraction')
+                    self._nonlinear_parameters.append(f'{pprefix}center')
+                    self._nonlinear_parameters.append(f'{pprefix}sigma')
+#                elif model.model_type == 'step':
+#                    # Par: amplitude, center, sigma
+#                    form = kwargs.get('form')
+#                    if form is not None:
+#                        kwargs.pop('form')
+#                    if (form is None or form not in
+#                            ('linear', 'atan', 'arctan', 'erf', 'logistic')):
+#                        raise ValueError(
+#                            'Invalid parameter form for build-in step model '
+#                            f'({form})')
+#                    newmodel = StepModel(prefix=prefix, form=form)
+#                    self._linear_parameters.append(f'{pprefix}amplitude')
+#                    self._nonlinear_parameters.append(f'{pprefix}center')
+#                    self._nonlinear_parameters.append(f'{pprefix}sigma')
+                elif model.model_type == 'rectangle':
+                    # Par: amplitude, center1, center2, sigma1, sigma2
+                    form = 'atan' #kwargs.get('form')
+                    #if form is not None:
+                    #    kwargs.pop('form')
+                    # RV: Implement and test other forms when needed
+                    if (form is None or form not in
+                            ('linear', 'atan', 'arctan', 'erf', 'logistic')):
+                        raise ValueError(
+                            'Invalid parameter form for build-in rectangle model '
+                            f'({form})')
+                    newmodel = RectangleModel(prefix=prefix, form=form)
+                    self._linear_parameters.append(f'{pprefix}amplitude')
+                    self._nonlinear_parameters.append(f'{pprefix}center1')
+                    self._nonlinear_parameters.append(f'{pprefix}center2')
+                    self._nonlinear_parameters.append(f'{pprefix}sigma1')
+                    self._nonlinear_parameters.append(f'{pprefix}sigma2')
+                elif model.model_type == 'expression':
+                    # FIX move to a validator
+                    # Third party modules
+                    from asteval import (
+                        Interpreter,
+                        get_ast_names,
+                    )
+                    from sympy import diff
+
+                    expr = model.expr
+                    for par in model.parameters:
+                        if par.expr is not None:
+                            raise KeyError(
+                                f'Invalid "expr" key ({par.expr}) in '
+                                f'parameter ({par}) for an expression model')
+                    ast = Interpreter()
                     expr_parameters = [
-                        f'{prefix}{name}' for name in expr_parameters]
-                newmodel = ExpressionModel(expr=expr, name=model.model_type)
-                # Remove already existing names
-                for name in newmodel.param_names.copy():
-                    if name not in expr_parameters:
-                        newmodel._func_allargs.remove(name)
-                        newmodel._param_names.remove(name)
-            else:
-                raise ValueError(f'Unknown fit model ({model.model_type})')
-
-        # Add the new model to the current one
-        if self._code == 'scipy':
-            if self._model is None:
-                self._model = Components()
-            self._model |= {
-                f'{prefix}{model.model_type}': Component(model, prefix)}
-        else:
-            if self._model is None:
-                self._model = newmodel
-            else:
-                self._model += newmodel
-            new_parameters = newmodel.make_params()
-            self._parameters += new_parameters
-
-        # Check linearity of expression model parameters
-        if self._code == 'lmfit' and isinstance(newmodel, ExpressionModel):
-            # Third party modules
-            from sympy import diff
-
-            for name in newmodel.param_names:
-                if not diff(newmodel.expr, name, name):
-                    if name not in self._linear_parameters:
-                        self._linear_parameters.append(name)
+                        name for name in get_ast_names(ast.parse(expr))
+                        if (name != 'x' and name not in self._parameters
+                            and name not in ast.symtable)]
+                    if prefix is not None:
+                        for name in expr_parameters:
+                            expr = sub(rf'\b{name}\b', f'{prefix}{name}', expr)
+                        expr_parameters = [
+                            f'{prefix}{name}' for name in expr_parameters]
+                    newmodel = ExpressionModel(expr=expr, name=model.model_type)
+                    # Remove already existing names
+                    for name in newmodel.param_names.copy():
+                        if name not in expr_parameters:
+                            newmodel._func_allargs.remove(name)
+                            newmodel._param_names.remove(name)
+                    # Check linearity of expression model parameters
+                    for name in newmodel.param_names:
+                        if not diff(newmodel.expr, name, name):
+                            if name not in self._linear_parameters:
+                                self._linear_parameters.append(name)
+                        else:
+                            if name not in self._nonlinear_parameters:
+                                self._nonlinear_parameters.append(name)
                 else:
-                    if name not in self._nonlinear_parameters:
-                        self._nonlinear_parameters.append(name)
+                    raise ValueError(f'Unknown fit model ({model.model_type})')
+                return newmodel
+
+            if self._code == 'scipy':
+                new_parameters = _set_parameter_info_scipy(model, pprefix)
+                if self._model is None:
+                    self._model = Components()
+                self._model |= {
+                    f'{prefix}{model.model_type}': Component(model, prefix)}
+            else:
+                newmodel = _set_parameter_info_lmfit(model, prefix, pprefix)
+                if self._model is None:
+                    self._model = newmodel
+                else:
+                    self._model += newmodel
+                new_parameters = newmodel.make_params()
+                self._parameters += new_parameters
+            return new_parameters
+
+        pprefix = '' if prefix is None else prefix
+
+        # Setup the parameter info and add the new model
+        new_parameters = _setup_parameters_and_model(model, prefix, pprefix)
 
         # Scale the default initial model parameters
         if self._norm is not None:
@@ -1324,10 +1319,7 @@ class Fit:
                 if name in self._linear_parameters:
                     par = self._parameters.get(name)
                     if par.expr is None:
-                        if self._code == 'scipy':
-                            value = par.default
-                        else:
-                            value = None
+                        value = par.default if self._code == 'scipy' else None
                         if value is None:
                             value = par.value
                         _min = par.min
