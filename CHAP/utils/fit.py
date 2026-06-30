@@ -1027,84 +1027,61 @@ class Fit:
         :param prefix: Model prefix.
         :type prefix: str
         """
-        def _setup_parameters_and_model(model, prefix, pprefix):
-            def _set_parameter_info_scipy(model, pprefix):
-                new_parameters = []
-                for par in deepcopy(model.parameters):
-                    name = par.name
-                    self._parameters.add(par, pprefix)
-                    if self._parameters[par.name].expr is None:
-                        self._parameters[par.name].set(value=par.default)
-                    new_parameters.append(par.name)
-                    if name in model.LINEAR_PARAMETERS:
-                        self._linear_parameters.append(par.name)
-                    elif name in model.MODEL_PARAMETERS:
-                        self._model_parameters.append(par.name)
-                    elif name not in model.MODEL_IDENTIFIERS:
-                        self._nonlinear_parameters.append(par.name)
-                self._res_num_pars += [len(model.parameters)]
-                return new_parameters
-
-            def _set_parameter_info_lmfit(model, prefix, pprefix):
-                if model.model_type == 'expression':
-                    newmodel = model.lmfit_model(
-                        prefix=prefix, parameters=self._parameters)
-                    # Remove already existing names
-                    for name in newmodel.param_names.copy():
-                        if name not in expr_parameters:
-                            newmodel._func_allargs.remove(name)
-                            newmodel._param_names.remove(name)
-                    # Check linearity of expression model parameters
-                    for name in newmodel.param_names:
-                        if not diff(newmodel.expr, name, name):
-                            if name not in self._linear_parameters:
-                                self._linear_parameters.append(name)
-                        else:
-                            if name not in self._nonlinear_parameters:
-                                self._nonlinear_parameters.append(name)
-                else:
-                    kwargs = {}
-                    if model.model_type == 'rectangle':
-                        kwargs['form'] = 'atan'
-                    newmodel = model.LMFITMODEL(prefix=prefix, **kwargs)
-                    for par in model.parameters:
-                        name = par.name
-                        nname = f'{pprefix}{name}'
-                        if name in model.LINEAR_PARAMETERS:
-                            self._linear_parameters.append(nname)
-                        elif name in model.MODEL_PARAMETERS:
-                            self._model_parameters.append(nname)
-                        elif name not in model.MODEL_IDENTIFIERS:
-                            self._nonlinear_parameters.append(nname)
-#                    self._linear_parameters.extend(
-#                            model.linear_parameters(pprefix))
-#                    self._nonlinear_parameters.extend(
-#                        model.nonlinear_parameters(pprefix))
-                return newmodel
-
-            if self._code == 'scipy':
-                new_parameters = _set_parameter_info_scipy(model, pprefix)
-                if self._model is None:
-                    self._model = Components()
-                self._model |= {
-                    f'{prefix}{model.model_type}': Component(model, prefix)}
-            else:
-                newmodel = _set_parameter_info_lmfit(model, prefix, pprefix)
-                if self._model is None:
-                    self._model = newmodel
-                else:
-                    self._model += newmodel
-                new_parameters = newmodel.make_params()
-                self._parameters += new_parameters
+        def _set_parameter_info_scipy(model, pprefix):
+            new_parameters = []
+            for par in deepcopy(model.parameters):
+                name = par.name
+                self._parameters.add(par, pprefix)
+                if self._parameters[par.name].expr is None:
+                    self._parameters[par.name].set(value=par.default)
+                new_parameters.append(par.name)
+                if name in model.LINEAR_PARAMETERS:
+                    self._linear_parameters.append(par.name)
+                elif name in model.MODEL_PARAMETERS:
+                    self._model_parameters.append(par.name)
+                elif name not in model.MODEL_IDENTIFIERS:
+                    self._nonlinear_parameters.append(par.name)
+            self._res_num_pars += [len(model.parameters)]
             return new_parameters
 
-        pprefix = '' if prefix is None else prefix
+        def _set_parameter_info_lmfit(model, prefix, pprefix):
+            if model.model_type == 'expression':
+                newmodel = model.lmfit_model(
+                    prefix=prefix, parameters=self._parameters)
+                # Remove already existing names
+                for name in newmodel.param_names.copy():
+                    if name not in expr_parameters:
+                        newmodel._func_allargs.remove(name)
+                        newmodel._param_names.remove(name)
+                # Check linearity of expression model parameters
+                for name in newmodel.param_names:
+                    if not diff(newmodel.expr, name, name):
+                        if name not in self._linear_parameters:
+                            self._linear_parameters.append(name)
+                    else:
+                        if name not in self._nonlinear_parameters:
+                            self._nonlinear_parameters.append(name)
+            else:
+                kwargs = {}
+                if model.model_type == 'rectangle':
+                    kwargs['form'] = 'atan'
+                newmodel = model.LMFITMODEL(prefix=prefix, **kwargs)
+                for par in model.parameters:
+                    name = par.name
+                    nname = f'{pprefix}{name}'
+                    if name in model.LINEAR_PARAMETERS:
+                        self._linear_parameters.append(nname)
+                    elif name in model.MODEL_PARAMETERS:
+                        self._model_parameters.append(nname)
+                    elif name not in model.MODEL_IDENTIFIERS:
+                        self._nonlinear_parameters.append(nname)
+#                self._linear_parameters.extend(
+#                        model.linear_parameters(pprefix))
+#                self._nonlinear_parameters.extend(
+#                    model.nonlinear_parameters(pprefix))
+            return newmodel
 
-        # Setup the parameter info and add the new model
-        new_parameters = _setup_parameters_and_model(model, prefix, pprefix)
-
-        # Scale the default initial model parameters
-        if self._norm is not None:
+        def _set_default_initial_parameters(new_parameters):
             for name in new_parameters:
                 if name in self._linear_parameters:
                     par = self._parameters.get(name)
@@ -1122,32 +1099,57 @@ class Fit:
                             _max *= self._norm[1]
                         par.set(value=value, min=_min, max=_max)
 
-        # Initialize the model parameters
-        for parameter in deepcopy(model.parameters):
-            name = parameter.name
-            if name not in new_parameters:
-                name = pprefix+name
+        def _initialize_model_parameters(model, new_parameters, pprefix):
+            for parameter in deepcopy(model.parameters):
+                name = parameter.name
                 if name not in new_parameters:
-                    raise ValueError(f'Unable to match parameter {name}')
-            if parameter.expr is None:
-                self._parameters[name].set(
-                    value=parameter.value, min=parameter.min,
-                    max=parameter.max, vary=parameter.vary)
+                    name = pprefix+name
+                    if name not in new_parameters:
+                        raise ValueError(f'Unable to match parameter {name}')
+                if parameter.expr is None:
+                    self._parameters[name].set(
+                        value=parameter.value, min=parameter.min,
+                        max=parameter.max, vary=parameter.vary)
+                else:
+                    if parameter.value is not None:
+                        self._logger.warning(
+                            'Ignoring input "value" for expression parameter'
+                            f'{name} = {parameter.expr}')
+                    if not np.isinf(parameter.min):
+                        self._logger.warning(
+                            'Ignoring input "min" for expression parameter'
+                            f'{name} = {parameter.expr}')
+                    if not np.isinf(parameter.max):
+                        self._logger.warning(
+                            'Ignoring input "max" for expression parameter'
+                            f'{name} = {parameter.expr}')
+                    self._parameters[name].set(
+                        value=None, min=-np.inf, max=np.inf,
+                        expr=parameter.expr)
+
+        # Set model parameter info
+        pprefix = '' if prefix is None else prefix
+        if self._code == 'scipy':
+            new_parameters = _set_parameter_info_scipy(model, pprefix)
+            if self._model is None:
+                self._model = Components()
+            self._model |= {
+                f'{prefix}{model.model_type}': Component(model, prefix)}
+        else:
+            newmodel = _set_parameter_info_lmfit(model, prefix, pprefix)
+            if self._model is None:
+                self._model = newmodel
             else:
-                if parameter.value is not None:
-                    self._logger.warning(
-                        'Ignoring input "value" for expression parameter'
-                        f'{name} = {parameter.expr}')
-                if not np.isinf(parameter.min):
-                    self._logger.warning(
-                        'Ignoring input "min" for expression parameter'
-                        f'{name} = {parameter.expr}')
-                if not np.isinf(parameter.max):
-                    self._logger.warning(
-                        'Ignoring input "max" for expression parameter'
-                        f'{name} = {parameter.expr}')
-                self._parameters[name].set(
-                    value=None, min=-np.inf, max=np.inf, expr=parameter.expr)
+                self._model += newmodel
+            new_parameters = newmodel.make_params()
+            self._parameters += new_parameters
+
+        # Scale default initial model parameters
+        if self._norm is not None:
+            _set_default_initial_parameters(new_parameters)
+
+        # Initialize the model parameters
+        _initialize_model_parameters(model, new_parameters, pprefix)
 
     def eval(self, x, result=None):
         """Evaluate the best fit.
