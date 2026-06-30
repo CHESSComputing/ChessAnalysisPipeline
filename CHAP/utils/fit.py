@@ -1046,13 +1046,9 @@ class Fit:
                 return new_parameters
 
             def _set_parameter_info_lmfit(model, prefix, pprefix):
-                kwargs = {}
-                if model.model_type == 'rectangle':
-                    kwargs['form'] = 'atan'
-                elif model.model_type == 'expression':
-                    kwargs['parameters'] = self._parameters
-                newmodel = model.lmfit_model(prefix=prefix, **kwargs)
                 if model.model_type == 'expression':
+                    newmodel = model.lmfit_model(
+                        prefix=prefix, parameters=self._parameters)
                     # Remove already existing names
                     for name in newmodel.param_names.copy():
                         if name not in expr_parameters:
@@ -1067,6 +1063,10 @@ class Fit:
                             if name not in self._nonlinear_parameters:
                                 self._nonlinear_parameters.append(name)
                 else:
+                    kwargs = {}
+                    if model.model_type == 'rectangle':
+                        kwargs['form'] = 'atan'
+                    newmodel = model.LMFITMODEL(prefix=prefix, **kwargs)
                     for par in model.parameters:
                         name = par.name
                         nname = f'{pprefix}{name}'
