@@ -45,9 +45,14 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  
               <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../CONTRIBUTIONS.html">Contributions</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Installation</span></p>
 <ul>
@@ -69,6 +74,18 @@
 <li class="toctree-l1"><a class="reference internal" href="../api_documentation.html">CHAP</a></li>
 </ul>
 
+  <p class="caption"><span class="caption-text">External Links</span></p>
+  <ul>
+    <li class="toctree-l1">
+      <a class="reference internal" href="https://github.com/CHESSComputing/ChessAnalysisPipeline">
+        <i class="fa fa-github"></i> GitHub Repository
+      </a>
+      <a class="reference internal" href="https://github.com/CHESSComputing/ChessAnalysisPipeline/issues">
+        <i class="fa fa-github"></i> Open or contribute to GitHub issues
+      </a>
+    </li>
+  </ul>
+
         </div>
       </div>
     </nav>
@@ -84,8 +101,10 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
       <li class="breadcrumb-item active">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</li>
-      <li class="wy-breadcrumbs-aside">
-      </li>
+  <li class="wy-breadcrumbs-aside">
+    <a href="https://github.com/CHESSComputing/ChessAnalysisPipeline" class="fa fa-github"> GitHub</a>
+  </li>
+
   </ul>
   <hr/>
 </div>
@@ -319,7 +338,7 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">interactive</span></code>: Allows for user interactions, defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code>: The <a class="reference external" href="https://docs.python.org/3/library/logging.html#levels">Python logging level</a>.</p></li>
 </ul>
-<p>The remainder of the file contains the actual workflow pipeline, in this example it consists of four blocks, <code class="docutils literal notranslate"><span class="pre">energy</span></code>, <code class="docutils literal notranslate"><span class="pre">tththeta</span></code>, <code class="docutils literal notranslate"><span class="pre">map</span></code>, and <code class="docutils literal notranslate"><span class="pre">strain</span></code>, which can be executed individually or all at once <a class="reference internal" href="../pipeline.html#chap-pipeline"><span class="std std-ref">as described here</span></a>. In addition to the readers and writers of the intermediate results, nine toplevel processes get executed successively in the combined four pipeline blocks:</p>
+<p>The remainder of the file contains the actual workflow pipeline, in this example it consists of four blocks, <code class="docutils literal notranslate"><span class="pre">energy</span></code>, <code class="docutils literal notranslate"><span class="pre">twotheta</span></code>, <code class="docutils literal notranslate"><span class="pre">map</span></code>, and <code class="docutils literal notranslate"><span class="pre">strain</span></code>, which can be executed individually or all at once <a class="reference internal" href="../pipeline.html#chap-pipeline"><span class="std std-ref">as described here</span></a>. In addition to the readers and writers of the intermediate results, nine toplevel processes get executed successively in the combined four pipeline blocks:</p>
 <ul class="simple">
 <li><p>The EDD/XRF energy calibration consists of two processes:</p>
 <ul>
@@ -348,6 +367,206 @@
 </li>
 </ul>
 <p>Note that the energy calibration can also be obtained ahead of time and used for multiple strain analyses. In this case remove the first two blocks in the pipeline and read the detector channel energy/<span class="math notranslate nohighlight">\(2\theta\)</span> calibration info in what is now the third block in the pipeline, labelled <code class="docutils literal notranslate"><span class="pre">map</span></code>.</p>
+<section id="creating-the-chess-stype-strain-analysis-map-without-a-par-file">
+<h3>Creating the CHESS stype strain analysis map without a par-file<a class="headerlink" href="#creating-the-chess-stype-strain-analysis-map-without-a-par-file" title="Link to this heading"></a></h3>
+<p>The above strain analysis workflow example can also be executed without availablity of a CHESS style experiment par-file, by reading the raw data information directly from the SPEC log file. In this case the map construction part description of the workflow in the <code class="docutils literal notranslate"><span class="pre">pipeline.yaml</span></code> file must be replaced by the following:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">map</span><span class="p">:</span>
+
+<span class="w">  </span><span class="c1"># Create a CHESS style map</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.MapProcessor</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">config</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;experiment title&gt;</span><span class="w"> </span><span class="c1"># Enter an appropriate name (like the BTR)</span>
+<span class="w">        </span><span class="nt">station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">id1a3</span>
+<span class="w">        </span><span class="nt">experiment_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EDD</span>
+<span class="w">        </span><span class="nt">sample</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;sample name&gt;</span><span class="w">     </span><span class="c1"># Enter the sample name</span>
+<span class="w">          </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;&#39;</span>
+<span class="w">        </span><span class="nt">spec_scans</span><span class="p">:</span><span class="w">         </span><span class="c1"># Edit both SPEC log file path and EDD scan numbers</span>
+<span class="w">                            </span><span class="c1"># Path can be relative to inputdir or absolute</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">spec_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your_raw_data_directory&gt;/spec.log</span>
+<span class="w">            </span><span class="nt">scan_numbers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1-4</span>
+<span class="w">        </span><span class="nt">scalar_data</span><span class="p">:</span><span class="w">        </span><span class="c1"># Add or modify as appropriate</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SCAN_N</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">smb_par</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SCAN_N</span><span class="w">      </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="nt">independent_dimensions</span><span class="p">:</span>
+<span class="w">                            </span><span class="c1"># Add or modify as appropriate</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">labx</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mm</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">smb_par</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">labx</span><span class="w">        </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">laby</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mm</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">smb_par</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">laby</span><span class="w">        </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">labz</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mm</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">smb_par</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">labz</span><span class="w">        </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="nt">presample_intensity</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">presample_intensity</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">counts</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scan_column</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">a3ic1</span><span class="w">       </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="nt">dwell_time_actual</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dwell_time_actual</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scan_column</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sec</span><span class="w">         </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="nt">postsample_intensity</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postsample_intensity</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">counts</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scan_column</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">diode</span><span class="w">       </span><span class="c1"># Change as needed</span>
+<span class="w">      </span><span class="nt">detector_config</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">detectors</span><span class="p">:</span><span class="w">          </span><span class="c1"># Use available detector elements when omitted</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">11</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">22</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusWriter</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">map.nxs</span><span class="w">     </span><span class="c1"># NeXus map output filename</span>
+<span class="w">      </span><span class="nt">force_overwrite</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+</section>
+<section id="specifying-the-detector-configuration-in-the-edd-workflow">
+<h3>Specifying the detector configuration in the EDD workflow<a class="headerlink" href="#specifying-the-detector-configuration-in-the-edd-workflow" title="Link to this heading"></a></h3>
+<section id="selecting-detectors-for-detector-calibration">
+<h4>Selecting detectors for detector calibration<a class="headerlink" href="#selecting-detectors-for-detector-calibration" title="Link to this heading"></a></h4>
+<p>In the example above, the raw data for both the energy and the <span class="math notranslate nohighlight">\(2\theta\)</span> calibration is read by the <code class="docutils literal notranslate"><span class="pre">common.SpecReader</span></code> pipeline item, while which detectors to include in the calibration is specified in the <code class="docutils literal notranslate"><span class="pre">detectors</span></code> field under <code class="docutils literal notranslate"><span class="pre">detector_config</span></code> in the <code class="docutils literal notranslate"><span class="pre">edd.MCAEnergyCalibrationProcessor</span></code> and <code class="docutils literal notranslate"><span class="pre">edd.MCATthCalibrationProcessor</span></code> pipeline items, respectively.
+However, this is not the only way to specify the detectors to use. As can be seen from the documentation for <a class="reference external" href="https://chesscomputing.github.io/ChessAnalysisPipeline/CHAP.common.html#CHAP.common.reader.SpecReader"><code class="docutils literal notranslate"><span class="pre">SpecReader</span></code></a>, the detectors for which raw data is read can also be specified by adding a <code class="docutils literal notranslate"><span class="pre">detector_config</span></code> field to the <code class="docutils literal notranslate"><span class="pre">SpecReader</span></code>. For example, by using the following in the pipeline file for the EDD workflow above:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.SpecReader</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">config</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">id1a3</span><span class="w">      </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="nt">experiment_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EDD</span>
+<span class="w">        </span><span class="nt">spec_scans</span><span class="p">:</span><span class="w">         </span><span class="c1"># Edit both SPEC log file path and EDD scan numbers</span>
+<span class="w">                            </span><span class="c1"># Path can be relative to inputdir (line 3) or absolute</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">spec_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your_raw_ceria_data_directory&gt;/spec.log</span>
+<span class="w">            </span><span class="nt">scan_numbers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">      </span><span class="nt">detector_config</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">detectors</span><span class="p">:</span><span class="w">          </span><span class="c1"># Choose the detectors</span>
+<span class="w">                            </span><span class="c1"># Use all available detector elements when omitted</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">11</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">22</span>
+</pre></div>
+</div>
+<p>When the <code class="docutils literal notranslate"><span class="pre">detector_config</span></code> or <code class="docutils literal notranslate"><span class="pre">detectors</span></code> field is omitted in the <code class="docutils literal notranslate"><span class="pre">MCAEnergyCalibrationProcessor</span></code> configuration, the energy calibration will be performed for all detectors for which raw data is read. With the <code class="docutils literal notranslate"><span class="pre">detectors</span></code> field specified, the energy calibration is performed for only <em>those detectors</em> that are selected there that are <em>also</em> read by <code class="docutils literal notranslate"><span class="pre">SpecReader</span></code>. Any detector selected in the <code class="docutils literal notranslate"><span class="pre">MCAEnergyCalibrationProcessor</span></code> configuration that is not read by <code class="docutils literal notranslate"><span class="pre">SpecReader</span></code> will be <em>omitted</em> (resulting in a “no raw data” warning).
+The same detector selection mechanism is valid for <span class="math notranslate nohighlight">\(2\theta\)</span> calibration, with the added feature that any detector selected during the energy calibration will be included automatically during <span class="math notranslate nohighlight">\(2\theta\)</span> calibration, <em>irrespective</em> of it being selected in the <code class="docutils literal notranslate"><span class="pre">MCATthCalibrationProcessor</span></code> configuration (contingent upon the reading of the appropriate raw data by the preceeding <code class="docutils literal notranslate"><span class="pre">SpecReader</span></code>).</p>
+</section>
+<section id="selecting-detectors-for-strain-analysis">
+<h4>Selecting detectors for Strain analysis<a class="headerlink" href="#selecting-detectors-for-strain-analysis" title="Link to this heading"></a></h4>
+<p>A similar detector selection approach is available for the strain analysis among the <code class="docutils literal notranslate"><span class="pre">MapProcessor</span></code> and the <code class="docutils literal notranslate"><span class="pre">StrainAnalysisProcessor</span></code> configurations and the availablity of calibrated detector data. When the <code class="docutils literal notranslate"><span class="pre">detector_config</span></code> or <code class="docutils literal notranslate"><span class="pre">detectors</span></code> field is omitted in the <code class="docutils literal notranslate"><span class="pre">StrainAnalysisProcessor</span></code> configuration, the strain analysis will be performed for all detectors for which both raw data is read by <code class="docutils literal notranslate"><span class="pre">MapProcessor</span></code> and for which calibrated detector data is read by the <code class="docutils literal notranslate"><span class="pre">common.YAMLReader</span></code> pipeline item under the <code class="docutils literal notranslate"><span class="pre">strain</span></code> block in the pipeline file above. With the <code class="docutils literal notranslate"><span class="pre">detectors</span></code> field specified, the detectors that are used are further restricted to only those that are listed in its field under the <code class="docutils literal notranslate"><span class="pre">edd.StrainAnalysisProcessor</span></code> pipeline item. Any detector selected in the <code class="docutils literal notranslate"><span class="pre">StrainAnalysisProcessor</span></code> configuration for which raw data from <code class="docutils literal notranslate"><span class="pre">MapProcessor</span></code> is missing is skipped accompanied by a “no raw data” warning. Similarly, any selected detector for which detector calibration input is missing is skipped accompanied by a “no calibration data” warning.</p>
+</section>
+<section id="selecting-other-parameters-in-the-detector-configuration">
+<h4>Selecting other parameters in the detector configuration<a class="headerlink" href="#selecting-other-parameters-in-the-detector-configuration" title="Link to this heading"></a></h4>
+<p>In addition to which detectors to include, the user also has the choice to pick many other parameters that affect the detector configuration and the EDD workflow. Some are specific to certain processors in the EDD workflow, but a certain set, those in the <a class="reference external" href="https://chesscomputing.github.io/ChessAnalysisPipeline/CHAP.edd.html#CHAP.edd.model.FitConfig"><code class="docutils literal notranslate"><span class="pre">FitConfig</span></code></a> configuration class, can be specified both on a <em>per-detector-basis</em> as well as on a <em>for-all-detectors basis</em>. This is evident from the fact that both <a class="reference external" href="https://chesscomputing.github.io/ChessAnalysisPipeline/CHAP.edd.html#CHAP.edd.model.MCADetectorConfig"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig</span></code></a> as well the list entries in its <code class="docutils literal notranslate"><span class="pre">detectors</span></code> field are derived from <code class="docutils literal notranslate"><span class="pre">FitConfig</span></code>. The generic behavior for each of these parameters is that those specified on the <em>for-all-detector</em> level, i.e. as items of the <code class="docutils literal notranslate"><span class="pre">detector_config</span></code> fields, superseed those that are specified on a <em>per-detector-basis</em>.</p>
+<p>Take for example two scenarios for the detector configuration in the energy calibration step:</p>
+<ul>
+<li><p>as specified in the pipeline file above:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="w">  </span><span class="nt">detector_config</span><span class="p">:</span>
+<span class="w">     </span><span class="nt">baseline</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">     </span><span class="nt">mask_ranges</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[[</span><span class="nv">650</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">850</span><span class="p p-Indicator">]]</span>
+<span class="w">     </span><span class="nt">detectors</span><span class="p">:</span>
+<span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">11</span>
+<span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">22</span>
+</pre></div>
+</div>
+</li>
+<li><p>or specified as follows:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="w">  </span><span class="nt">detector_config</span><span class="p">:</span>
+<span class="w">     </span><span class="nt">mask_ranges</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[[</span><span class="nv">650</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">850</span><span class="p p-Indicator">]]</span>
+<span class="w">     </span><span class="nt">detectors</span><span class="p">:</span>
+<span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">         </span><span class="nt">baseline</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">11</span>
+<span class="w">         </span><span class="nt">mask_ranges</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[[</span><span class="nv">600</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">850</span><span class="p p-Indicator">]]</span>
+<span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">22</span>
+<span class="w">         </span><span class="nt">baseline</span><span class="p">:</span>
+<span class="w">           </span><span class="nt">lam</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.e-5</span>
+<span class="w">         </span><span class="nt">mask_ranges</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[[</span><span class="nv">650</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">900</span><span class="p p-Indicator">]]</span>
+</pre></div>
+</div>
+</li>
+</ul>
+<p>The first case will set <code class="docutils literal notranslate"><span class="pre">baseline</span></code> and <code class="docutils literal notranslate"><span class="pre">mask_range</span></code> for each detector to the <em>same</em> value specified by the respective values in the <code class="docutils literal notranslate"><span class="pre">detector_config</span></code> configuration. The same happens for <code class="docutils literal notranslate"><span class="pre">mask_range</span></code> in the second case, where its entries for detector 11 and 22 are ignored. Whereas, the <code class="docutils literal notranslate"><span class="pre">baseline</span></code> parameter for detector 0, 11 and 22 is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">False</span></code> (its default value), and <code class="docutils literal notranslate"><span class="pre">True</span></code> with a smoothness parameter, lam, of <span class="math notranslate nohighlight">\(10^{-5}\)</span>, respectively.</p>
+</section>
+<section id="recommended-xps23-detector-configuration">
+<h4>Recommended XPS23 detector configuration<a class="headerlink" href="#recommended-xps23-detector-configuration" title="Link to this heading"></a></h4>
+<p>Below is good configuration for the CHESS XPS23 detector. Use it as a starting point for the XPS23 configuration in your workflow. It can be used either as a <code class="docutils literal notranslate"><span class="pre">detector_config</span></code> parameter directly in your <code class="docutils literal notranslate"><span class="pre">pipeline.yaml</span></code> file and/or as the contents of a separate <code class="docutils literal notranslate"><span class="pre">detector_config.yaml</span></code> file that can be read into the data in your pipeline with a <code class="docutils literal notranslate"><span class="pre">YAMLReader</span></code> and <code class="docutils literal notranslate"><span class="pre">schema:</span> <span class="pre">common.models.map.DetectorConfig</span></code>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">detectors</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-180.0</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-171.8181818181818</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-163.63636363636363</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-155.45454545454544</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-147.27272727272728</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-139.0909090909091</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-130.9090909090909</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-122.72727272727272</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-114.54545454545455</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">9</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-106.36363636363636</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">11</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-98.18181818181819</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-90.0</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-81.81818181818181</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">13</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-73.63636363636364</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">14</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-65.45454545454545</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-57.27272727272728</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-49.09090909090909</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">17</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-40.90909090909091</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">18</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-32.72727272727272</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">19</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-24.54545454545456</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">21</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-8.181818181818187</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">22</span>
+<span class="w">  </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">eta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 <section id="additional-notes-on-energy-calibration">
 <h2>Additional notes on energy calibration<a class="headerlink" href="#additional-notes-on-energy-calibration" title="Link to this heading"></a></h2>
@@ -364,7 +583,7 @@
 \[
 \frac{1}{d_{hkl}} = \frac{2m\sin(\theta)}{hc} j_{hkl} + \frac{2b\sin(\theta)}{hc} = m'j_{hkl}+b'
 \]</div>
-<p>which says that given a set of known Bragg peaks corresponding to lattice spacings <span class="math notranslate nohighlight">\(d_{hkl}\)</span> occuring at channel indices <span class="math notranslate nohighlight">\(j_{hkl}\)</span>, a linear fit will uniquely determine <span class="math notranslate nohighlight">\(m'\)</span> and <span class="math notranslate nohighlight">\(b'\)</span>. For a known takeoff angle <span class="math notranslate nohighlight">\(2\theta\)</span>, this uniquely determines <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span> as well. Note that this also implies that without an accurately known value of <span class="math notranslate nohighlight">\(2`theta\)</span>, one <em>cannot</em> uniquely determine <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span> from Bragg diffraction alone!</p>
+<p>which says that given a set of known Bragg peaks corresponding to lattice spacings <span class="math notranslate nohighlight">\(d_{hkl}\)</span> occuring at channel indices <span class="math notranslate nohighlight">\(j_{hkl}\)</span>, a linear fit will uniquely determine <span class="math notranslate nohighlight">\(m'\)</span> and <span class="math notranslate nohighlight">\(b'\)</span>. For a known takeoff angle <span class="math notranslate nohighlight">\(2\theta\)</span>, this uniquely determines <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span> as well. Note that this also implies that without an accurately known value of <span class="math notranslate nohighlight">\(2\theta\)</span>, one <em>cannot</em> uniquely determine <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span> from Bragg diffraction alone!</p>
 <p>This leads to the above mentioned two-step detector channel energy calibration procedure:</p>
 <ol class="arabic simple">
 <li><p>Get nominal values for <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span>, by performing an EDD/XRF experiment on a Ce02 sample and fitting a set of fluorescence peak centers with known energies vs detector channel index.</p></li>
