@@ -1,6 +1,8 @@
 (contributions)=
 # Contributions
 
+A small change to debug deployment
+
 We welcome feedback, suggestions, issues and bug reports.
 
 Feel free to fork the [repository](https://github.com/CHESSComputing/ChessAnalysisPipeline) on GitHub and send a pull request, or to contribute by [submitting an issue](https://github.com/CHESSComputing/ChessAnalysisPipeline/issues). Each contribution helps CHAP grow and improve.
