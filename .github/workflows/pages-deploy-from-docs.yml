@@ -65,7 +65,8 @@ jobs:
       run: |
         pwd
         ls -lha
-        find ./docs/_build/html -type f
+        ls -lha ./docs/_build/html
+        cat ./docs/_build/html/index.html
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
