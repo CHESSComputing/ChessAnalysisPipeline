@@ -533,6 +533,29 @@ class ConstantModel(CHAPBaseModel):
             return self._func_args
         return None
 
+    def lmfit_model(self, prefix=None):
+        """Return the corresponding lmfit model.
+
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        :returns: Corresponding lmfit model.
+        :rtype: lmfit.models.ConstantModel
+        """
+        # Third party modules
+        from lmfit.models import ConstantModel as LmfitModel
+
+        return LmfitModel(prefix=prefix)
+
+#    def linear_parameters(self, prefix=''):
+#        """Return the linear parameters.
+#
+#        :param prefix: Model prefix.
+#        :type prefix: str, optional
+#        :returns: The list of linear function parameters.
+#        :rtype: list[str]
+#        """
+#        return [f'{prefix}{v}' for v in self.LINEAR_PARAMETERS]
+
 
 class LinearModel(ConstantModel):
     """Class representing a Linear model component.
@@ -544,6 +567,19 @@ class LinearModel(ConstantModel):
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['slope', 'intercept']
     model_type: Literal['linear']
+
+    def lmfit_model(self, prefix=None):
+        """Return the corresponding lmfit model.
+
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        :returns: Corresponding lmfit model.
+        :rtype: lmfit.models.LinearModel
+        """
+        # Third party modules
+        from lmfit.models import LinearModel as LmfitModel
+
+        return LmfitModel(prefix=prefix)
 
 
 class QuadraticModel(ConstantModel):
@@ -557,6 +593,19 @@ class QuadraticModel(ConstantModel):
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['a', 'b', 'c']
     model_type: Literal['parabolic']
 
+    def lmfit_model(self, prefix=None):
+        """Return the corresponding lmfit model.
+
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        :returns: Corresponding lmfit model.
+        :rtype: lmfit.models.QuadraticModel
+        """
+        # Third party modules
+        from lmfit.models import QuadraticModel as LmfitModel
+
+        return LmfitModel(prefix=prefix)
+
 
 class ExponentialModel(ConstantModel):
     """Class representing an Exponential model component.
@@ -568,6 +617,19 @@ class ExponentialModel(ConstantModel):
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
     model_type: Literal['exponential']
+
+    def lmfit_model(self, prefix=None):
+        """Return the corresponding lmfit model.
+
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        :returns: Corresponding lmfit model.
+        :rtype: lmfit.models.ExponentialModel
+        """
+        # Third party modules
+        from lmfit.models import ExponentialModel as LmfitModel
+
+        return LmfitModel(prefix=prefix)
 
 
 class GaussianModel(ConstantModel):
@@ -587,6 +649,19 @@ class GaussianModel(ConstantModel):
             if par.name == 'sigma':
                 par.min = 0.0
 
+    def lmfit_model(self, prefix=None):
+        """Return the corresponding lmfit model.
+
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        :returns: Corresponding lmfit model.
+        :rtype: lmfit.models.GaussianModel
+        """
+        # Third party modules
+        from lmfit.models import GaussianModel as LmfitModel
+
+        return LmfitModel(prefix=prefix)
+
 
 class LorentzianModel(ConstantModel):
     """Class representing a Lorentzian model component.
@@ -604,6 +679,19 @@ class LorentzianModel(ConstantModel):
         for par in self.parameters:
             if par.name == 'sigma':
                 par.min = 0.0
+
+    def lmfit_model(self, prefix=None):
+        """Return the corresponding lmfit model.
+
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        :returns: Corresponding lmfit model.
+        :rtype: lmfit.models.LorentzianModel
+        """
+        # Third party modules
+        from lmfit.models import LorentzianModel as LmfitModel
+
+        return LmfitModel(prefix=prefix)
 
 
 class PseudoVoigtModel(ConstantModel):
@@ -626,6 +714,19 @@ class PseudoVoigtModel(ConstantModel):
                 par.max = 1.0
             elif par.name == 'sigma':
                 par.min = 0.0
+
+    def lmfit_model(self, prefix=None):
+        """Return the corresponding lmfit model.
+
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        :returns: Corresponding lmfit model.
+        :rtype: lmfit.models.PseudoVoigtModel
+        """
+        # Third party modules
+        from lmfit.models import PseudoVoigtModel as LmfitModel
+
+        return LmfitModel(prefix=prefix)
 
 
 class RectangleModel(ConstantModel):
@@ -655,6 +756,20 @@ class RectangleModel(ConstantModel):
             elif par.name == 'sigma2':
                 par.min = 0.0
 
+    def lmfit_model(self, prefix=None):
+        """Return the corresponding lmfit model.
+
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        :returns: Corresponding lmfit model.
+        :rtype: lmfit.models.RectangleModel
+        """
+        # Third party modules
+        from lmfit.models import RectangleModel as LmfitModel
+
+        return LmfitModel(prefix=prefix)
+
+
 class ExpressionModel(ConstantModel):
     """Class representing an Expression model component.
 
@@ -668,6 +783,43 @@ class ExpressionModel(ConstantModel):
 
     model_type: Literal['expression']
     expr: constr(strip_whitespace=True, min_length=1)
+
+    def lmfit_model(self, prefix=None, parameters=None):
+        """Return the corresponding lmfit model.
+
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        :returns: Corresponding lmfit model.
+        :rtype: lmfit.models.ExpressionModel
+        """
+        # Third party modules
+        from asteval import (
+            Interpreter,
+            get_ast_names,
+        )
+        from lmfit.models import ExpressionModel as LmfitModel
+        from sympy import diff
+
+        if parameters is None:
+            parameters = []
+        for par in self.parameters:
+            if par.expr is not None:
+                raise KeyError(
+                    f'Invalid "expr" key ({par.expr}) in '
+                    f'parameter ({par}) for an expression model')
+        ast = Interpreter()
+        expr = self.expr
+        expr_parameters = [
+            name for name in get_ast_names(ast.parse(expr))
+            if (name != 'x' and name not in parameters
+                and name not in ast.symtable)]
+        if prefix is not None:
+            for name in expr_parameters:
+                expr = sub(rf'\b{name}\b', f'{prefix}{name}', expr)
+            expr_parameters = [
+                f'{prefix}{name}' for name in expr_parameters]
+
+        return LmfitModel(expr=expr, name=self.model_type)
 
 
 # Available models for components of the fitting function
