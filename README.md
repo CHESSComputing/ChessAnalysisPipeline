@@ -16,10 +16,4 @@ There are several subpackages within CHAP that contain specialized items to hand
 ## :books: Documentation
 Documentation for the latest release version can be found on [this project's github pages site](https://chesscomputing.github.io/ChessAnalysisPipeline/).
 
-## :handshake: Contributing
-We welcome feedback, suggestions, issues and bug reports. 
-
-Feel free to fork the [repository](https://github.com/CHESSComputing/ChessAnalysisPipeline) on GitHub and send a pull request, or to contribute by [submitting an issue](https://github.com/CHESSComputing/ChessAnalysisPipeline/issues). Each contribution helps CHAP grow and improve.
-When submitting an issue, please have a look at the [contribution guidelines](https://chesscomputing.github.io/ChessAnalysisPipeline/CONTRIBUTIONS.html). Following these guidelines grately helps us to address each issue promptly and effectively.
-
 We appreciate your support!
