@@ -8,11 +8,14 @@ from typing import (
     ClassVar,
     Literal,
     Optional,
+    Type,
     Union,
 )
 
 # Third party imports
+import lmfit.models as lmfit_models
 from pydantic import (
+    BaseModel,
     Field,
     PrivateAttr,
     StrictBool,
@@ -588,6 +591,7 @@ class FitModel(CHAPBaseModel):
     :vartype prefix: str, optional
     """
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['c']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.ConstantModel
     MODEL_PARAMETERS: ClassVar[list[str]] = []
     MODEL_IDENTIFIERS: ClassVar[list[str]] = []
     model_type: str
@@ -663,19 +667,6 @@ class FitModel(CHAPBaseModel):
         if hasattr(self, '_func_args'):
             return self._func_args
         return None
-
-    def lmfit_model(self, prefix=None):
-        """Return the corresponding lmfit model.
-
-        :param prefix: Model prefix.
-        :type prefix: str, optional
-        :returns: Corresponding lmfit model.
-        :rtype: lmfit.models.ConstantModel
-        """
-        # Third party modules
-        from lmfit.models import ConstantModel as LmfitModel
-
-        return LmfitModel(prefix=prefix)
 
 #    def linear_parameters(self, prefix=''):
 #        """Return the linear parameters.
@@ -792,20 +783,8 @@ class LinearModel(ConstantModel):
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['slope', 'intercept']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.LinearModel
     model_type: Literal['linear']
-
-    def lmfit_model(self, prefix=None):
-        """Return the corresponding lmfit model.
-
-        :param prefix: Model prefix.
-        :type prefix: str, optional
-        :returns: Corresponding lmfit model.
-        :rtype: lmfit.models.LinearModel
-        """
-        # Third party modules
-        from lmfit.models import LinearModel as LmfitModel
-
-        return LmfitModel(prefix=prefix)
 
 
 class QuadraticModel(ConstantModel):
@@ -817,20 +796,8 @@ class QuadraticModel(ConstantModel):
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['a', 'b', 'c']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.QuadraticModel
     model_type: Literal['parabolic']
-
-    def lmfit_model(self, prefix=None):
-        """Return the corresponding lmfit model.
-
-        :param prefix: Model prefix.
-        :type prefix: str, optional
-        :returns: Corresponding lmfit model.
-        :rtype: lmfit.models.QuadraticModel
-        """
-        # Third party modules
-        from lmfit.models import QuadraticModel as LmfitModel
-
-        return LmfitModel(prefix=prefix)
 
 
 class ExponentialModel(ConstantModel):
@@ -842,20 +809,8 @@ class ExponentialModel(ConstantModel):
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.ExponentialModel
     model_type: Literal['exponential']
-
-    def lmfit_model(self, prefix=None):
-        """Return the corresponding lmfit model.
-
-        :param prefix: Model prefix.
-        :type prefix: str, optional
-        :returns: Corresponding lmfit model.
-        :rtype: lmfit.models.ExponentialModel
-        """
-        # Third party modules
-        from lmfit.models import ExponentialModel as LmfitModel
-
-        return LmfitModel(prefix=prefix)
 
 
 class GaussianModel(ConstantModel):
@@ -867,6 +822,7 @@ class GaussianModel(ConstantModel):
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.GaussianModel
     model_type: Literal['gaussian']
 
     def _validate_parameters(self):
@@ -874,19 +830,6 @@ class GaussianModel(ConstantModel):
         for par in self.parameters:
             if par.name == 'sigma':
                 par.min = 0.0
-
-    def lmfit_model(self, prefix=None):
-        """Return the corresponding lmfit model.
-
-        :param prefix: Model prefix.
-        :type prefix: str, optional
-        :returns: Corresponding lmfit model.
-        :rtype: lmfit.models.GaussianModel
-        """
-        # Third party modules
-        from lmfit.models import GaussianModel as LmfitModel
-
-        return LmfitModel(prefix=prefix)
 
 
 class LorentzianModel(ConstantModel):
@@ -898,6 +841,7 @@ class LorentzianModel(ConstantModel):
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.LorentzianModel
     model_type: Literal['lorentzian']
 
     def _validate_parameters(self):
@@ -905,19 +849,6 @@ class LorentzianModel(ConstantModel):
         for par in self.parameters:
             if par.name == 'sigma':
                 par.min = 0.0
-
-    def lmfit_model(self, prefix=None):
-        """Return the corresponding lmfit model.
-
-        :param prefix: Model prefix.
-        :type prefix: str, optional
-        :returns: Corresponding lmfit model.
-        :rtype: lmfit.models.LorentzianModel
-        """
-        # Third party modules
-        from lmfit.models import LorentzianModel as LmfitModel
-
-        return LmfitModel(prefix=prefix)
 
 
 class PseudoVoigtModel(ConstantModel):
@@ -929,6 +860,7 @@ class PseudoVoigtModel(ConstantModel):
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.PseudoVoigtModel
     MODEL_PARAMETERS: ClassVar[list[str]] = ['fraction']
     model_type: Literal['pvoigt']
 
@@ -940,19 +872,6 @@ class PseudoVoigtModel(ConstantModel):
                 par.max = 1.0
             elif par.name == 'sigma':
                 par.min = 0.0
-
-    def lmfit_model(self, prefix=None):
-        """Return the corresponding lmfit model.
-
-        :param prefix: Model prefix.
-        :type prefix: str, optional
-        :returns: Corresponding lmfit model.
-        :rtype: lmfit.models.PseudoVoigtModel
-        """
-        # Third party modules
-        from lmfit.models import PseudoVoigtModel as LmfitModel
-
-        return LmfitModel(prefix=prefix)
 
 
 class RectangleModel(ConstantModel):
@@ -968,6 +887,7 @@ class RectangleModel(ConstantModel):
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.RectangleModel
     MODEL_IDENTIFIERS: ClassVar[list[str]] = ['form']
     form: Literal['linear', 'atan', 'arctan', 'erf', 'logistic'] = 'linear'
     model_type: Literal['rectangle']
@@ -981,19 +901,6 @@ class RectangleModel(ConstantModel):
                 par.min = 0.0
             elif par.name == 'sigma2':
                 par.min = 0.0
-
-    def lmfit_model(self, prefix=None):
-        """Return the corresponding lmfit model.
-
-        :param prefix: Model prefix.
-        :type prefix: str, optional
-        :returns: Corresponding lmfit model.
-        :rtype: lmfit.models.RectangleModel
-        """
-        # Third party modules
-        from lmfit.models import RectangleModel as LmfitModel
-
-        return LmfitModel(prefix=prefix)
 
 
 class ExpressionModel(ConstantModel):
@@ -1070,7 +977,7 @@ class ExpressionModel(ConstantModel):
                 f'{prefix}{name}' for name in expr_parameters]
 
         return lmfit_models.ExpressionModel(expr=expr, name=self.model_type)
-    
+
 
 # Available models for components of the fitting function
 #MODEL_CLASSES = [
