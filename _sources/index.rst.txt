@@ -9,12 +9,6 @@ Chess Analysis Pipeline (CHAP)
 
 .. toctree::
    :titlesonly:
-   :caption: Contributions
-
-   CONTRIBUTIONS
-
-.. toctree::
-   :titlesonly:
    :caption: Installation
 
    installation
