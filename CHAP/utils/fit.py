@@ -160,14 +160,10 @@ class FitProcessor(Processor):
         :return: The fitted data object.
         :rtype: Fit or FitMap
         """
-        # Local modules
-        from CHAP.utils.models import MultipeakModel
-
         # Unwrap the PipelineData
         data = self._get_pipelinedata_item(data)
 
         if isinstance(data, (Fit, FitMap)):
-
             # Refit/continue the fit with possibly updated parameters
             fit = data
             fit.fit(config=self.config, max_nfev=self.config.max_nfev)
@@ -176,8 +172,9 @@ class FitProcessor(Processor):
                     fit.print_fit_report()
                 if self.config.plot:
                     fit.plot(skip_init=True)
-
         else:
+            # Local modules
+            from CHAP.utils.models import MultipeakModel
 
             # Expand multipeak model if present
             found_multipeak = False
@@ -1278,15 +1275,6 @@ class Fit:
             self._logger.error('Undefined fit model')
             return None
         self._mask = kwargs.pop('mask', None)
-        guess = kwargs.pop('guess', False)
-        if not isinstance(guess, bool):
-            raise ValueError(
-                f'Invalid value of keyword argument guess ({guess})')
-        if self._result is not None:
-            if guess:
-                self._logger.warning(
-                    'Ignoring input parameter guess during refitting')
-                guess = False
 #        if 'try_linear_fit' in kwargs:
 #            raise RuntimeError('try_linear_fit needs testing')
 #            try_linear_fit = kwargs.pop('try_linear_fit')
@@ -1302,7 +1290,7 @@ class Fit:
 #                self._try_linear_fit = try_linear_fit
 
         # Setup the fit
-        self._setup_fit(config, guess)
+        self._setup_fit(config)
 
         # Check if model is linear
         try:
@@ -1558,8 +1546,7 @@ class Fit:
         return height, center, fwhm
 
     def _create_prefixes(self, models):
-        """Create model prefixes."""
-        # Check for duplicate model names and create prefixes
+        """Check for duplicate model names and create prefixes."""
         names = []
         prefixes = []
         for model in models:
@@ -1577,10 +1564,10 @@ class Fit:
         return prefixes
 
     def _setup_fit_model(self, parameters, models):
+        """Setup the fit model."""
         # Local modules
         from CHAP.utils.models import PEAK_LIKE_MODELS
 
-        """Setup the fit model."""
         # Check for duplicate model names and create prefixes
         prefixes = self._create_prefixes(models)
 
@@ -1616,89 +1603,14 @@ class Fit:
                                 raise RuntimeError('not updated and tested')
                                 if diff(expr, nnname, nnname):
                                     if name not in self._nonlinear_parameters:
-                                        self._nonlinear_parameters.insert(0, name)
+                                        self._nonlinear_parameters.insert(
+                                            0, name)
                                 elif name not in self._linear_parameters:
                                     self._linear_parameters.insert(0, name)
 
-    def _setup_fit(self, config, guess=False):
+    def _setup_fit(self, config):
         """Setup the fit."""
-        # Apply mask if supplied:
-        if self._mask is not None:
-            raise RuntimeError('mask needs testing')
-            self._mask = np.asarray(self._mask).astype(bool)
-            if self._x.size != self._mask.size:
-                raise ValueError(
-                    f'Inconsistent x and mask dimensions ({self._x.size} vs '
-                    f'{self._mask.size})')
-
-        # Estimate initial parameters
-        if guess and not isinstance(self, FitMap):
-            raise RuntimeError('Estimate initial parameters needs testing')
-            if self._mask is None:
-                xx = self._x
-                yy = self._y
-            else:
-                xx = self._x[~self._mask]
-                yy = np.asarray(self._y)[~self._mask]
-            try:
-                # Try with the build-in lmfit guess method
-                # (only implemented for a single model)
-                self._parameters = self._model.guess(yy, x=xx)
-            except Exception:
-                # Third party modules
-                from asteval import Interpreter
-                from lmfit.models import GaussianModel
-
-                ast = Interpreter()
-                # Should work for other peak-like models,
-                #   but will need tests first
-                for component in self._model.components:
-                    if isinstance(component, GaussianModel):
-                        center = self._parameters[
-                            f"{component.prefix}center"].value
-                        height_init, cen_init, fwhm_init = \
-                            self.guess_init_peak(
-                                xx, yy, center_guess=center,
-                                use_max_for_center=False)
-#                        if (self._fwhm_min is not None
-#                                and fwhm_init < self._fwhm_min):
-#                            fwhm_init = self._fwhm_min
-#                        elif (self._fwhm_max is not None
-#                                and fwhm_init > self._fwhm_max):
-#                            fwhm_init = self._fwhm_max
-                        ast(f'fwhm = {fwhm_init}')
-                        ast(f'height = {height_init}')
-                        sig_init = ast(fwhm_factor[component._name])
-                        amp_init = ast(height_factor[component._name])
-                        par = self._parameters[
-                            f"{component.prefix}amplitude"]
-                        if par.vary:
-                            par.set(value=amp_init)
-                        par = self._parameters[
-                            f"{component.prefix}center"]
-                        if par.vary:
-                            par.set(value=cen_init)
-                        par = self._parameters[
-                            f"{component.prefix}sigma"]
-                        if par.vary:
-                            par.set(value=sig_init)
-
-        # Add constant offset for a normalized model
-        if self._result is None and self._norm is not None and self._norm[0]:
-            # Local modules
-            from CHAP.utils.models import ConstantModel
-
-            model = ConstantModel(
-                model_type='constant',
-                parameters=[{
-                    'name': 'c',
-                    'value': -self._norm[0],
-                    'vary': False,
-                }])
-            self.add_model(model, 'tmp_normalization_offset_')
-
-        # Adjust existing parameters for refit:
-        if config is not None:
+        def _setup_parameters_refit(config):
             # Local modules
             from CHAP.utils.models import (
                 FitConfig,
@@ -1782,7 +1694,34 @@ class Fit:
                 ppar.set(
                     value=value, min=par.min, max=par.max, vary=par.vary)
 
-        # Set parameters configuration
+        # Apply mask if supplied:
+        if self._mask is not None:
+            raise RuntimeError('mask needs testing')
+            self._mask = np.asarray(self._mask).astype(bool)
+            if self._x.size != self._mask.size:
+                raise ValueError(
+                    f'Inconsistent x and mask dimensions ({self._x.size} vs '
+                    f'{self._mask.size})')
+
+        # Add constant offset for a normalized model
+        if self._result is None and self._norm is not None and self._norm[0]:
+            # Local modules
+            from CHAP.utils.models import ConstantModel
+
+            model = ConstantModel(
+                model_type='constant',
+                parameters=[{
+                    'name': 'c',
+                    'value': -self._norm[0],
+                    'vary': False,
+                }])
+            self.add_model(model, 'tmp_normalization_offset_')
+
+        # Adjust existing parameters for refit:
+        if config is not None:
+            _setup_parameters_refit(config)
+
+        # Set scipy parameters configuration
         if self._code == 'scipy':
             self._res_par_exprs = []
             self._res_par_indices = []
@@ -2064,24 +2003,7 @@ class Fit:
 
     def _fit_nonlinear_model(self, x, y, **kwargs):
         """Perform a nonlinear fit with spipy or lmfit."""
-        # Check bounds and prevent initial values at boundaries
-        have_bounds = False
-        self._parameter_bounds = {}
-        for name, par in self._parameters.items():
-            if par.vary:
-                self._parameter_bounds[name] = {
-                    'min': par.min, 'max': par.max}
-                if not have_bounds and (
-                        not np.isinf(par.min) or not np.isinf(par.max)):
-                    have_bounds = True
-        if have_bounds:
-            self._reset_par_at_boundary()
-
-        # Perform the fit
-        if self._mask is not None:
-            x = x[~self._mask]
-            y = np.asarray(y)[~self._mask]
-        if self._code == 'scipy':
+        def _fit_scipy(x, y, have_bounds, **kwargs):
             # Third party modules
             from asteval import Interpreter
             from scipy.optimize import (
@@ -2089,7 +2011,6 @@ class Fit:
                 least_squares,
             )
 
-            assert self._mask is None
             self._ast = Interpreter()
             self._ast.basesymtable = dict(self._ast.symtable.items())
             pars_init = []
@@ -2126,8 +2047,8 @@ class Fit:
                 if max_nfev is not None:
                     lskws['maxfev'] = max_nfev
                 result = leastsq(
-                    self._residual, pars_init, args=(x, y, res_par_indices), full_output=True,
-                    **lskws)
+                    self._residual, pars_init, args=(x, y, res_par_indices),
+                    full_output=True, **lskws)
             else:
                 if max_nfev is not None:
                     lskws['max_nfev'] = max_nfev
@@ -2144,15 +2065,35 @@ class Fit:
             for name, par in init_params.items():
                 model_result.init_values[name] = par.value
             model_result.max_nfev = lskws.get('maxfev')
-        else:
-            fit_kws = {}
-#            if 'Dfun' in kwargs:
-#                fit_kws['Dfun'] = kwargs.pop('Dfun')
-            model_result = self._model.fit(
-                y, self._parameters, x=x, method=self._method, fit_kws=fit_kws,
-                **kwargs)
+            return model_result
 
-        return model_result
+        # Check bounds and prevent initial values at boundaries
+        have_bounds = False
+        self._parameter_bounds = {}
+        for name, par in self._parameters.items():
+            if par.vary:
+                self._parameter_bounds[name] = {
+                    'min': par.min, 'max': par.max}
+                if not have_bounds and (
+                        not np.isinf(par.min) or not np.isinf(par.max)):
+                    have_bounds = True
+        if have_bounds:
+            self._reset_par_at_boundary()
+
+        # Perform the fit
+        if self._mask is not None:
+            x = x[~self._mask]
+            y = np.asarray(y)[~self._mask]
+        if self._code == 'scipy':
+            #FIX mask not implemented and tested
+            assert self._mask is None
+            return _fit_scipy(x, y, have_bounds, **kwargs)
+#        fit_kws = {}
+#        if 'Dfun' in kwargs:
+#            fit_kws['Dfun'] = kwargs.pop('Dfun')
+        return self._model.fit(
+            y, self._parameters, x=x, method=self._method, #fit_kws=fit_kws,
+            **kwargs)
 
     def _normalize(self):
         """Normalize the data and initial parameters."""
@@ -2169,9 +2110,6 @@ class Fit:
             for name in self._linear_parameters:
                 par = self._parameters[name]
                 if par.expr is None:
-                    # FIX not quite safe if fraction occurs in non pvoigt
-                    if 'fraction' in name:
-                        raise RuntimeError('must check, should not be here')
                     value = par.value/self._norm[1]
                     _min = par.min
                     _max = par.max
@@ -2190,9 +2128,6 @@ class Fit:
         for name in self._linear_parameters:
             par = self._parameters[name]
             if par.expr is None:
-                # FIX not quite safe if fraction occurs in non pvoigt
-                if 'fraction' in name:
-                    raise RuntimeError('must check, should not be here')
                 value = par.value*self._norm[1]
                 _min = par.min
                 _max = par.max
@@ -2207,14 +2142,6 @@ class Fit:
             self._result.best_fit*self._norm[1] + self._norm[0])
         for name, par in self._result.params.items():
             if name in self._linear_parameters:
-                # FIX not quite safe if fraction occurs in non pvoigt
-                if 'fraction' in name:
-                    raise RuntimeError('must check, should not be here')
-                    if self._code == 'scipy':
-                        if par.stderr is not None:
-                            setattr(par, '_stderr', par.stderr)
-                        if par.expr is None and par.init_value is not None:
-                            setattr(par, '_init_value',par.init_value)
                 if par.stderr is not None:
                     if self._code == 'scipy':
                         setattr(
@@ -2242,9 +2169,7 @@ class Fit:
         if hasattr(self._result, 'init_values'):
             init_values = {}
             for name, value in self._result.init_values.items():
-                if name in self._linear_parameters and 'fraction' in name:
-                    raise RuntimeError('must check, should not be here')
-                if name in self._linear_parameters:# and 'fraction' not in name:
+                if name in self._linear_parameters:
                     init_values[name] = value*self._norm[1]
                 else:
                     init_values[name] = value
@@ -2253,9 +2178,6 @@ class Fit:
                 and self._result.init_params is not None):
             for name, par in self._result.init_params.items():
                 if par.expr is None and name in self._linear_parameters:
-                    # FIX not quite safe if fraction occurs in non pvoigt
-                    if 'fraction' in name:
-                        raise RuntimeError('must check, should not be here')
                     value = par.value*self._norm[1]
                     _min = par.min
                     _max = par.max
