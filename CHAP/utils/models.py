@@ -380,7 +380,7 @@ class FitParameter(CHAPBaseModel):
         """
         if hasattr(self, '_prefix'):
             return self._prefix
-        return None
+        return ''
 
     @property
     def stderr(self):
@@ -448,8 +448,7 @@ class FitParameter(CHAPBaseModel):
 class ConstantModel(CHAPBaseModel):
     """Class representing a Constant model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['constant']
     :ivar parameters: Function parameters, defaults to those auto
         generated from the function signature (excluding the
@@ -551,8 +550,7 @@ class ConstantModel(CHAPBaseModel):
 class LinearModel(ConstantModel):
     """Class representing a Linear model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['linear']
     """
 
@@ -564,8 +562,7 @@ class LinearModel(ConstantModel):
 class QuadraticModel(ConstantModel):
     """Class representing a Quadratic model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['parabolic']
     """
 
@@ -577,8 +574,7 @@ class QuadraticModel(ConstantModel):
 class ExponentialModel(ConstantModel):
     """Class representing an Exponential model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['exponential']
     """
 
@@ -590,8 +586,7 @@ class ExponentialModel(ConstantModel):
 class GaussianModel(ConstantModel):
     """Class representing a Gaussian model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['gaussian']
     """
 
@@ -609,8 +604,7 @@ class GaussianModel(ConstantModel):
 class LorentzianModel(ConstantModel):
     """Class representing a Lorentzian model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['lorentzian']
     """
 
@@ -628,8 +622,7 @@ class LorentzianModel(ConstantModel):
 class PseudoVoigtModel(ConstantModel):
     """Class representing a PseudoVoigt model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['pvoigt']
     """
 
@@ -655,8 +648,7 @@ class RectangleModel(ConstantModel):
         `'linear'`.
     :vartype form: Literal[
         'linear', 'atan', 'arctan', 'erf', 'logistic'], optional
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['rectangle']
     """
 
@@ -680,8 +672,7 @@ class RectangleModel(ConstantModel):
 class ExpressionModel(ConstantModel):
     """Class representing an Expression model component.
 
-    :ivar model_type: The model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['expression']
     :ivar expr: Mathematical expression to represent the model
         component.
@@ -771,8 +762,7 @@ PEAK_LIKE_MODELS = {
 class MultipeakModel(CHAPBaseModel):
     """Class representing a multipeak model.
 
-    :ivar model_type: The model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['expression']
     :ivar centers: Peak centers.
     :vartype center: list[float]
