@@ -77,10 +77,8 @@ class PipelineItem(RunConfig):
         # System modules
         from inspect import signature
 
-        if self.name is None:
-            self.__name__ = self.__class__.__name__
-        else:
-            self.__name__ = self.name
+        self.__name__ = self.__class__.__name__ \
+            if self.name is None else self.name
         if self.logger is None:
             self.logger = logging.getLogger(self.__name__)
             self.logger.propagate = False
