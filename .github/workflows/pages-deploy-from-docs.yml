@@ -1,7 +1,9 @@
-name: Manually deploy Sphinx documentation to Pages
+name: Deploy Sphinx documentation to Pages from docs branch push
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+    - docs
 
 defaults:
   run:
@@ -63,11 +65,11 @@ jobs:
       run: |
         pwd
         ls -lha
-        find ./docs/_build/html -type f
+        ls -lha ./docs/_build/html
+        cat ./docs/_build/html/index.html
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./docs/_build/html
-

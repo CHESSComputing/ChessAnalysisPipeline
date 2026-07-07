@@ -4,10 +4,6 @@ on:
   push:
     tags:
     - v*.*.*
-#on:
-#  push:
-#    branches:
-#    - docs
 
 defaults:
   run:
@@ -18,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pages: write
+      id-token: write
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -27,7 +25,7 @@ jobs:
         sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" setup.py
         sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" CHAP/__init__.py
         sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/conf.py
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/installation.md
+        cat setup.py
 
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v3
