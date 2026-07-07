@@ -336,8 +336,7 @@ class ConstructBaseline(Processor):
             if subtitle is None:
                 subtitle = r'$\lambda$ = 'f'{lambdas[-1]:.2e}, '
                 subtitle += f'# iter = {num_iters[-1]} (maxed out) ' \
-                    if maxed_out \
-                    else f'# iter = {num_iters[-1]} '
+                    if maxed_out else f'# iter = {num_iters[-1]} '
                 subtitle += f'error = {errors[-1]:.2e}'
             fig_subtitles.append(
                 plt.figtext(*subtitle_pos, subtitle, **subtitle_props))
@@ -458,8 +457,7 @@ class ConstructBaseline(Processor):
         ax.set_ylabel(ylabel, fontsize='x-large')
         ax.set_xlim(x[0], x[-1])
         fig_title = plt.figtext(*title_pos, 'Baseline', **title_props) \
-            if title is None \
-            else plt.figtext(*title_pos, title, **title_props)
+            if title is None else plt.figtext(*title_pos, title, **title_props)
         if num_iter < max_iter:
             _change_fig_subtitle()
         else:
@@ -1703,8 +1701,7 @@ class MapProcessor(Processor):
                 shape=(num_det, num_scan, *ddata.shape))
             datatype = dtlib.from_numpy_dtype(np.float64)
             itemsize = datatype.Get_size()
-            nbytes = num_scan * num_id * num_dim * itemsize \
-                if not rank else 0
+            nbytes = num_scan * num_id * num_dim * itemsize if not rank else 0
             win_id = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
             buf_id, _ = win_id.Shared_query(0)
             independent_dimensions = np.ndarray(
