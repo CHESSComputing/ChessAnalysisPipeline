@@ -7,11 +7,14 @@ from typing import (
     ClassVar,
     Literal,
     Optional,
+    Type,
     Union,
 )
 
 # Third party imports
+import lmfit.models as lmfit_models
 from pydantic import (
+    BaseModel,
     Field,
     PrivateAttr,
     StrictBool,
@@ -377,7 +380,7 @@ class FitParameter(CHAPBaseModel):
         """
         if hasattr(self, '_prefix'):
             return self._prefix
-        return None
+        return ''
 
     @property
     def stderr(self):
@@ -445,8 +448,7 @@ class FitParameter(CHAPBaseModel):
 class ConstantModel(CHAPBaseModel):
     """Class representing a Constant model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['constant']
     :ivar parameters: Function parameters, defaults to those auto
         generated from the function signature (excluding the
@@ -457,6 +459,7 @@ class ConstantModel(CHAPBaseModel):
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['c']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.ConstantModel
     MODEL_PARAMETERS: ClassVar[list[str]] = []
     MODEL_IDENTIFIERS: ClassVar[list[str]] = []
     model_type: Literal['constant']
@@ -533,52 +536,62 @@ class ConstantModel(CHAPBaseModel):
             return self._func_args
         return None
 
+#    def linear_parameters(self, prefix=''):
+#        """Return the linear parameters.
+#
+#        :param prefix: Model prefix.
+#        :type prefix: str, optional
+#        :returns: The list of linear function parameters.
+#        :rtype: list[str]
+#        """
+#        return [f'{prefix}{v}' for v in self.LINEAR_PARAMETERS]
+
 
 class LinearModel(ConstantModel):
     """Class representing a Linear model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['linear']
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['slope', 'intercept']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.LinearModel
     model_type: Literal['linear']
 
 
 class QuadraticModel(ConstantModel):
     """Class representing a Quadratic model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['parabolic']
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['a', 'b', 'c']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.QuadraticModel
     model_type: Literal['parabolic']
 
 
 class ExponentialModel(ConstantModel):
     """Class representing an Exponential model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['exponential']
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.ExponentialModel
     model_type: Literal['exponential']
 
 
 class GaussianModel(ConstantModel):
     """Class representing a Gaussian model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['gaussian']
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.GaussianModel
     model_type: Literal['gaussian']
 
     def _validate_parameters(self):
@@ -591,12 +604,12 @@ class GaussianModel(ConstantModel):
 class LorentzianModel(ConstantModel):
     """Class representing a Lorentzian model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['lorentzian']
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.LorentzianModel
     model_type: Literal['lorentzian']
 
     def _validate_parameters(self):
@@ -609,12 +622,12 @@ class LorentzianModel(ConstantModel):
 class PseudoVoigtModel(ConstantModel):
     """Class representing a PseudoVoigt model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['pvoigt']
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.PseudoVoigtModel
     MODEL_PARAMETERS: ClassVar[list[str]] = ['fraction']
     model_type: Literal['pvoigt']
 
@@ -635,12 +648,12 @@ class RectangleModel(ConstantModel):
         `'linear'`.
     :vartype form: Literal[
         'linear', 'atan', 'arctan', 'erf', 'logistic'], optional
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['rectangle']
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.RectangleModel
     MODEL_IDENTIFIERS: ClassVar[list[str]] = ['form']
     form: Literal['linear', 'atan', 'arctan', 'erf', 'logistic'] = 'linear'
     model_type: Literal['rectangle']
@@ -655,11 +668,11 @@ class RectangleModel(ConstantModel):
             elif par.name == 'sigma2':
                 par.min = 0.0
 
+
 class ExpressionModel(ConstantModel):
     """Class representing an Expression model component.
 
-    :ivar model_type: The model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['expression']
     :ivar expr: Mathematical expression to represent the model
         component.
@@ -668,6 +681,43 @@ class ExpressionModel(ConstantModel):
 
     model_type: Literal['expression']
     expr: constr(strip_whitespace=True, min_length=1)
+
+    def lmfit_model(self, prefix=None, parameters=None):
+        """Return the corresponding lmfit model.
+
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        :returns: Corresponding lmfit model.
+        :rtype: lmfit.models.ExpressionModel
+        """
+        # Third party modules
+        from asteval import (
+            Interpreter,
+            get_ast_names,
+        )
+        from lmfit.models import ExpressionModel as LmfitModel
+        from sympy import diff
+
+        if parameters is None:
+            parameters = []
+        for par in self.parameters:
+            if par.expr is not None:
+                raise KeyError(
+                    f'Invalid "expr" key ({par.expr}) in '
+                    f'parameter ({par}) for an expression model')
+        ast = Interpreter()
+        expr = self.expr
+        expr_parameters = [
+            name for name in get_ast_names(ast.parse(expr))
+            if (name != 'x' and name not in parameters
+                and name not in ast.symtable)]
+        if prefix is not None:
+            for name in expr_parameters:
+                expr = sub(rf'\b{name}\b', f'{prefix}{name}', expr)
+            expr_parameters = [
+                f'{prefix}{name}' for name in expr_parameters]
+
+        return lmfit_models.ExpressionModel(expr=expr, name=self.model_type)
 
 
 # Available models for components of the fitting function
@@ -708,23 +758,11 @@ PEAK_LIKE_MODELS = {
     'pvoigt': PseudoVoigtModel,
 }
 
-#MODEL_TYPE_TO_CLASS = {#v.model_type:v for v in MODEL_CLASSES}
-#    'constant': constant,
-#    'linear': linear,
-#    'parabolic': parabolic,
-#    'exponential': exponential,
-#    'gaussian': gaussian,
-#    'lorentzian': lorentzian,
-#    'pvoigt': pvoigt,
-#    'rectangle': rectangle,
-#}
-
 
 class MultipeakModel(CHAPBaseModel):
     """Class representing a multipeak model.
 
-    :ivar model_type: The model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['expression']
     :ivar centers: Peak centers.
     :vartype center: list[float]

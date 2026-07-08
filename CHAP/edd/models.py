@@ -73,6 +73,11 @@ class _FitConfig(CHAPBaseModel):
     :ivar baseline: Automated baseline subtraction configuration,
         defaults to `False`.
     :vartype baseline: bool or BaselineConfig, optional
+    :ivar baseline_type: Automated baseline subtraction type,
+        one baseline per detector based on the mean spectrum
+        (`'mean'`), or a baseline for each spectrum per detector
+        (`'spectrum'`). Defaults to `mean`.
+    :vartype baseline_type: Literal['mean', 'spectrum'], optional
     :ivar centers_range: Peak centers range for peak fitting.
         The allowed range for the peak centers will be the initial
         values &pm; `centers_range` (in MCA channels for calibration
@@ -104,6 +109,7 @@ class _FitConfig(CHAPBaseModel):
     background: Optional[conlist(item_type=constr(
         strict=True, strip_whitespace=True, to_lower=True))] = ['constant']
     baseline: Optional[Union[bool, BaselineConfig]] = None
+    baseline_type: Optional[Literal['mean', 'spectrum']] = 'mean'
     centers_range: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
     energy_mask_ranges: Optional[conlist(
         min_length=1,
