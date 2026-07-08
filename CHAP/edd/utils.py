@@ -1309,22 +1309,24 @@ def get_spectra_fits(
     )
 
     # Local modules
+    from CHAP.pipeline import PipelineData
     from CHAP.utils.fit import FitProcessor
 
-    num_proc = kwargs.get('num_proc', 1)
+    num_proc = kwargs.pop('num_proc', 1)
+    max_nfev = kwargs.pop('max_nfev', 64000)
+    abs_height_cutoff = detector.abs_height_cutoff
     rel_height_cutoff = detector.rel_height_cutoff
     num_peak = len(peak_locations)
-    nxdata = NXdata(NXfield(spectra, 'y'), NXfield(energies, 'x'))
 
     # Construct the fit model
     models = []
     if detector.background is not None:
         if isinstance(detector.background, str):
             models.append(
-                {'model': detector.background, 'prefix': 'bkgd_'})
+                {'model_type': detector.background, 'prefix': 'bkgd_'})
         else:
             for model in detector.background:
-                models.append({'model': model, 'prefix': f'{model}_'})
+                models.append({'model_type': model, 'prefix': f'{model}_'})
     if detector.backgroundpeaks is not None:
         _, backgroundpeaks = FitProcessor.create_multipeak_model(
             detector.backgroundpeaks)
@@ -1332,15 +1334,18 @@ def get_spectra_fits(
             peak.prefix = f'bkgd_{peak.prefix}'
         models += backgroundpeaks
     models.append(
-        {'model': 'multipeak', 'centers': list(peak_locations),
+        {'model_type': 'multipeak', 'centers': list(peak_locations),
          'fit_type': 'uniform', 'peak_models': detector.peak_models,
          'centers_range': detector.centers_range,
          'fwhm_min': detector.fwhm_min, 'fwhm_max': detector.fwhm_max})
     config = {
-        'code': 'lmfit',
+        'abs_height_cutoff': abs_height_cutoff,
+#        'code': 'lmfit',
+        'code': 'scipy',
         'models': models,
 #        'plot': True,
         'num_proc': num_proc,
+        'max_nfev': max_nfev,
         'rel_height_cutoff': rel_height_cutoff,
 #        'method': 'trf',
         'method': 'leastsq',
@@ -1350,8 +1355,10 @@ def get_spectra_fits(
 
     # Perform uniform fit
     # FIX make more generic for fit parameters
-    fit = FitProcessor(**kwargs)
-    uniform_fit = fit.process(nxdata, config)
+    uniform_fit = FitProcessor.run(
+        data=[PipelineData(name='signal', data=spectra),
+              PipelineData(name='coordinates', data=energies)],
+        config=config)
     uniform_success = uniform_fit.success
     if spectra.ndim == 1:
         if uniform_success:
@@ -1518,7 +1525,9 @@ def get_spectra_fits(
 
     # Perform unconstrained fit
     config['models'][-1]['fit_type'] = 'unconstrained'
-    unconstrained_fit = fit.process(uniform_fit, config)
+    unconstrained_fit = FitProcessor.run(
+        data=[PipelineData(data=uniform_fit)],
+        config=config, **kwargs)
     unconstrained_success = unconstrained_fit.success
     if spectra.ndim == 1:
         if unconstrained_success:

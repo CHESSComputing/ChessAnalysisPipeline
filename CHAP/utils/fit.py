@@ -14,6 +14,7 @@ from re import sub
 from shutil import rmtree
 from sys import float_info
 #from time import time
+from typing import Optional
 
 # Third party modules
 try:
@@ -24,8 +25,8 @@ try:
     HAVE_JOBLIB = True
 except ImportError:
     HAVE_JOBLIB = False
-from nexusformat.nexus import NXdata
 import numpy as np
+from pydantic import Field
 
 # Local modules
 from CHAP.processor import Processor
@@ -35,6 +36,7 @@ from CHAP.utils.general import (
     index_nearest,
     quick_plot,
 )
+from CHAP.utils.models import FitConfig
 
 FLOAT_MIN = float_info.min
 FLOAT_MAX = float_info.max
@@ -48,6 +50,10 @@ fwhm_factor = {
     'voight': '0.2776*fwhm',        # sigma = gamma
     'pvoigt': '0.5*fwhm',           # fraction = 0.5
 }
+# fwhm = sigma_factor*sigma
+sigma_factor = {
+    'gaussian': '2*sigma*sqrt(2*log(2))',
+}
 
 # amplitude = height_factor*height*fwhm
 height_factor = {
@@ -57,171 +63,201 @@ height_factor = {
     'voight': '3.334*height*fwhm',            # sigma = gamma
     'pvoigt': '1.268*height*fwhm',            # fraction = 0.5
 }
+# height = amplitude_factor*amplitude/sigma
+amplitude_factor = {
+    'gaussian': 'amplitude/(sigma*sqrt(2*pi))',
+}
 
 
 class FitProcessor(Processor):
-    """A processor to perform a fit on a data set or data map. """
+    """A processor to perform a fit on a data set or data map.
 
-    def process(self, data, config=None):
+    :ivar config: Initialization parameters for an instance of
+        :class:`~CHAP.utils.models.FitConfig`.
+    :vartype config: dict, optional
+    """
+
+    pipeline_fields: dict = Field(
+        default = {
+            'config': 'CHAP.utils.models.FitConfig'}, init_var=True)
+    config: Optional[FitConfig] = None
+
+    def _get_pipelinedata_item(self, data, remove=True):
+        """Retrieve the input data to :meth:`process` from the list of
+        PipelineData items.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param remove: If there is a matching entry in `data`, remove
+            it from the list, defaults to `True`.
+        :type remove: bool, optional
+        :return: Matching data item(s).
+        :rtype: Any
+        """
+        # Retrieve the data to (re)fit from the pipeline
+        for i, d in reversed(list(enumerate(data))):
+            ddata = d.get('data')
+            if isinstance(ddata, (Fit, FitMap)):
+                if remove:
+                    data.pop(i)
+                return ddata
+            if d.get('name') == 'signal':
+                if remove:
+                    data.pop(i)
+                break
+        else:
+            raise ValueError(
+                f'Unable to extract suitable fit input data from {data}')
+
+        # Retrieve the optional coordinates from the pipeline
+        try:
+            y = np.asarray(ddata)
+            for i, d in reversed(list(enumerate(data))):
+                if d.get('name') == 'coordinates':
+                    x = np.asarray(d.get('data'))
+                    if remove:
+                        data.pop(i)
+                    assert x.size == y.shape[-1]
+                    break
+            else:
+                x = None
+        except (ValueError, TypeError) as exc:
+            raise ValueError(
+                f'Unable to extract suitable fit input data from {data}')
+        return x, y
+
+    def process(self, data):
         """Fit the data and return a :class:`~CHAP.utils.fit.Fit` or
         :class:`~CHAP.utils.fit.FitMap` object depending on the
-        dimensionality of the input data. The input data should be or
-        contain a NeXus style
-        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__ 
-        object, with properly defined signal and axis, or a
-        :class:`~CHAP.utils.fit.Fit` or :class:`~CHAP.utils.fit.FitMap`
-        object from a previous fit.
+        dimensionality of the input data. The input data should be a
+        list of PipelineData items containing either one with a `data`
+        field of type :class:`~CHAP.utils.fit.Fit` or
+        :class:`~CHAP.utils.fit.FitMap` (to refit or continue a
+        previous fit), or one with the `name` of `signal` and an
+        array-like `data` field. In the latter case, optional
+        x-coordinates can be supplied by a second PipelineData item
+        with the `name` of `coordinates` and again an array-like
+        `data` field.
 
-        :param data: Input data containing the
-            nexusformat.nexus.NXdata object to fit.
-        :type data: list[PipelineData] or Fit or FitMap or
-            nexusformat.nexus.NXdata
-        :param config: Fit configuration.
-        :type config: dict, optional
-        :raises ValueError: Invalid input or configuration parameter.
+        :param data: Input data.
+        :type data: list[PipelineData]
         :return: The fitted data object.
         :rtype: Fit or FitMap
         """
         # Local modules
-        from CHAP.utils.models import (
-            FitConfig,
-            Multipeak,
-        )
+        from CHAP.utils.models import MultipeakModel
 
-        # Unwrap the PipelineData if called as a Pipeline Processor
-        if (not isinstance(data, (Fit, FitMap))
-                and not isinstance(data, NXdata)):
-            data = self.get_pipelinedata_item(data)
-
-        # Get the validated fit configuration
-        fit_config = None
-        if config is not None:
-            try:
-                fit_config = FitConfig(**config)
-            except Exception as exc:
-                raise RuntimeError from exc
+        # Unwrap the PipelineData
+        data = self._get_pipelinedata_item(data)
 
         if isinstance(data, (Fit, FitMap)):
 
             # Refit/continue the fit with possibly updated parameters
             fit = data
-            if isinstance(data, FitMap):
-                fit.fit(config=fit_config)
-            else:
-                fit.fit(config=fit_config)
-                if fit_config is not None:
-                    if fit_config.print_report:
-                        fit.print_fit_report()
-                    if fit_config.plot:
-                        fit.plot(skip_init=True)
+            fit.fit(config=self.config, max_nfev=self.config.max_nfev)
+            if self.config is not None and not isinstance(data, FitMap):
+                if self.config.print_report:
+                    fit.print_fit_report()
+                if self.config.plot:
+                    fit.plot(skip_init=True)
 
-        elif isinstance(data, NXdata):
-
-            # Get the default NXdata object
-            try:
-                nxdata = data.get_default()
-                assert nxdata is not None
-            except (AssertionError, ValueError) as exc:
-                if nxdata is None or nxdata.nxclass != 'NXdata':
-                    raise ValueError(
-                        'Invalid default pathway to an NXdata '
-                        f'object in ({data})') from exc
+        else:
 
             # Expand multipeak model if present
             found_multipeak = False
-            for i, model in enumerate(deepcopy(fit_config.models)):
-                if isinstance(model, Multipeak):
+            for i, model in enumerate(deepcopy(self.config.models)):
+                if isinstance(model, MultipeakModel):
                     if found_multipeak:
                         raise ValueError(
-                            f'Invalid parameter models ({fit_config.models}) '
+                            f'Invalid parameter models ({self.config.models}) '
                             '(multiple instances of multipeak not allowed)')
                     parameters, models = self.create_multipeak_model(model)
                     if parameters:
-                        fit_config.parameters += parameters
-                    fit_config.models += models
-                    fit_config.models.pop(i)
+                        self.config.parameters += parameters
+                    self.config.models += models
+                    self.config.models.pop(i)
                     found_multipeak = True
 
             # Instantiate the Fit or FitMap object and fit the data
-            if np.squeeze(nxdata.nxsignal).ndim == 1:
-                fit = Fit(nxdata, fit_config, self.logger)
-                fit.fit()
-                if fit_config.print_report:
+            if np.squeeze(data[1]).ndim == 1:
+                fit = Fit(data[1], self.config, self.logger, x=data[0])
+                fit.fit(max_nfev=self.config.max_nfev)
+                if self.config.print_report:
                     fit.print_fit_report()
-                if fit_config.plot:
+                if self.config.plot:
                     fit.plot(skip_init=True)
             else:
-                fit = FitMap(nxdata, fit_config, self.logger)
+                fit = FitMap(data[1], self.config, self.logger, x=data[0])
                 fit.fit(
-                    rel_height_cutoff=fit_config.rel_height_cutoff,
-                    num_proc=fit_config.num_proc, plot=fit_config.plot,
-                    print_report=fit_config.print_report)
-        else:
-            raise ValueError(f'Invalid input data ({type(data)}: {data})')
+                    abs_height_cutoff=self.config.abs_height_cutoff,
+                    rel_height_cutoff=self.config.rel_height_cutoff,
+                    max_nfev=self.config.max_nfev,
+                    num_proc=self.config.num_proc,
+                    plot=self.config.plot,
+                    print_report=self.config.print_report)
 
         return fit
 
     @staticmethod
-    def create_multipeak_model(model_config):
+    def create_multipeak_model(model):
         """Create a multipeak model.
 
-        :param model_config: A Multipeak fit model class.
-        :type model_config: :class:`~CHAP.utils.models.Multipeak`
+        :param model: A Multipeak fit model class.
+        :type model: :class:`~CHAP.utils.models.MultipeakModel`
         :return: The fit parameters and fit model classes.
         :rtype: list[:attr:`~CHAP.utils.models.FitParameter`],
             list[:attr:`~CHAP.utils.models.FitConfig.models`]
         """
         # Local modules
         from CHAP.utils.models import (
+            PEAK_LIKE_MODELS,
             FitParameter,
-            models,
         )
 
-        peak_model_name = model_config.peak_models
-        peak_model_class = models[peak_model_name]['class']
+        peak_model_class = PEAK_LIKE_MODELS[model.peak_models]
         parameters = []
         peak_models = []
-        num_peak = len(model_config.centers)
-        if num_peak == 1 and model_config.fit_type == 'uniform':
-            model_config.fit_type = 'unconstrained'
+        num_peak = len(model.centers)
+        if num_peak == 1 and model.fit_type == 'uniform':
+            model.fit_type = 'unconstrained'
 
         sig_min = FLOAT_MIN
         sig_max = np.inf
-        if (model_config.fwhm_min is not None
-                or model_config.fwhm_max is not None):
+        if (model.fwhm_min is not None
+                or model.fwhm_max is not None):
             # Third party modules
             from asteval import Interpreter
 
             ast = Interpreter()
 
-            if model_config.fwhm_min is not None:
-                ast(f'fwhm = {model_config.fwhm_min}')
-                sig_min = ast(fwhm_factor[model_config.peak_models])
-            if model_config.fwhm_max is not None:
-                ast(f'fwhm = {model_config.fwhm_max}')
-                sig_max = ast(fwhm_factor[model_config.peak_models])
+            if model.fwhm_min is not None:
+                ast(f'fwhm = {model.fwhm_min}')
+                sig_min = ast(fwhm_factor[model.peak_models])
+            if model.fwhm_max is not None:
+                ast(f'fwhm = {model.fwhm_max}')
+                sig_max = ast(fwhm_factor[model.peak_models])
 
         prefix = ''
-        if model_config.fit_type == 'uniform':
+        if model.fit_type == 'uniform':
             parameters.append(FitParameter(
                 name='scale_factor', value=1.0, min=FLOAT_MIN))
-            for i, cen in enumerate(model_config.centers):
+            for i, cen in enumerate(model.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
                 peak_models.append(peak_model_class(
-                    model=peak_model_name,
+                    model_type=model.peak_models,
                     prefix=prefix,
                     parameters=[
                          {'name': 'amplitude', 'min': FLOAT_MIN},
                          {'name': 'center', 'expr': f'scale_factor*{cen}'},
                          {'name': 'sigma', 'min': sig_min, 'max': sig_max}]))
         else:
-            for i, cen in enumerate(model_config.centers):
+            for i, cen in enumerate(model.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
-                if model_config.centers_range == 0:
+                if model.centers_range == 0:
                     peak_models.append(peak_model_class(
-                        model=peak_model_name,
+                        model_type=model.peak_models,
                         prefix=prefix,
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
@@ -229,14 +265,14 @@ class FitProcessor(Processor):
                              {'name': 'sigma', 'min': sig_min, 'max': sig_max}
                         ]))
                 else:
-                    if model_config.centers_range is None:
+                    if model.centers_range is None:
                         cen_min = None
                         cen_max = None
                     else:
-                        cen_min = cen - model_config.centers_range
-                        cen_max = cen + model_config.centers_range
+                        cen_min = cen - model.centers_range
+                        cen_max = cen + model.centers_range
                     peak_models.append(peak_model_class(
-                        model=peak_model_name,
+                        model_type=model.peak_models,
                         prefix=prefix,
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
@@ -260,12 +296,17 @@ class Component():
         :type prefix: str, optional
         """
         # Local modules
-        from CHAP.utils.models import models
+        #from CHAP.utils.models import MODEL_TYPE_TO_CLASS
 
-        self.func = models[model.model]['name']
+        self.func = model.func #MODEL_TYPE_TO_CLASS[model.model_type]
+        self.func_args = model.func_args #MODEL_TYPE_TO_CLASS[model.model_type]
+        self.model_identifiers = {
+            k:getattr(model, k) for k in model.MODEL_IDENTIFIERS}
         self.param_names = [f'{prefix}{par.name}' for par in model.parameters]
         self.prefix = prefix
-        self._name = model.model
+        self._name = model.model_type
+        names = [f'{par.name}' for par in model.parameters]
+        self.func_args_indices = [names.index(arg) for arg in self.func_args]
 
 
 class Components(dict):
@@ -290,24 +331,6 @@ class Components(dict):
         :type: list[:attr:`~CHAP.utils.models.FitConfig.models`]
         """
         return self.values()
-
-    def add(self, model, prefix=''):
-        """Add a model to the model fit components dictionary.
-
-        :param model: A fit model class.
-        :type model: :attr:`~CHAP.utils.models.FitConfig.models`
-        :param prefix: Model prefix.
-        :type prefix: str, optional
-        """
-        # Local modules
-        from CHAP.utils.models import model_classes
-
-        if not isinstance(model, model_classes):
-            raise ValueError(f'Invalid parameter model ({model})')
-        if not isinstance(prefix, str):
-            raise ValueError(f'Invalid parameter prefix ({prefix})')
-        name = f'{prefix}{model.model}'
-        self.__setitem__(name, Component(model, prefix))
 
 
 class Parameters(dict):
@@ -364,7 +387,7 @@ class ModelResult():
     """
 
     def __init__(
-            self, model, parameters, x=None, y=None, method=None, ast=None,
+            self, model, parameters, *, x=None, y=None, method=None, ast=None,
             res_par_exprs=None, res_par_indices=None, res_par_names=None,
             result=None):
         """Initialize SetNumexprThreads.
@@ -505,7 +528,10 @@ class ModelResult():
                 name = component._name
             else:
                 name = component.prefix
-            result[name] = component.func(x, *par_values)
+            ppar_values = tuple(
+                par_values[i] for i in component.func_args_indices)
+            result[name] = component.func(
+                x, *ppar_values, **component.model_identifiers)
         return result
 
     def fit_report(self, show_correl=False):
@@ -577,22 +603,24 @@ class ModelResult():
 class Fit:
     """Wrapper class for scipy/lmfit."""
 
-    def __init__(self, nxdata, config, logger):
+    def __init__(self, y, config, logger, x=None):
         """Initialize Fit.
 
-        :param nxdata: The input data.
-        :type nxdata: nexusformat.nexus.NXdata
+        :param y: Input signal data.
+        :type y: array-like
         :param config: Fit configuration.
-        :type config: CHAP.utils.models.FitConfig, optional
+        :type config: CHAP.utils.models.FitConfig
         :param logger: A python Logger object.
         :type logger: logging.Logger
+        :param x: Input coordinate data.
+        :type x: array-like, optional
         """
         self._code = config.code
         for model in config.models:
-            if model.model == 'expression' and self._code != 'lmfit':
+            if model.model_type == 'expression' and self._code != 'lmfit':
                 self._code = 'lmfit'
-                logger.warning('Using lmfit instead of scipy with '
-                                    'an expression model')
+                logger.warning('Using lmfit instead of scipy with an '
+                               'expression model')
         if self._code == 'scipy':
             # Local modules
             from CHAP.utils.fit import Parameters
@@ -633,20 +661,16 @@ class Fit:
 #                raise ValueError(
 #                    'Invalid value of keyword argument try_linear_fit '
 #                    f'({self._try_linear_fit})')
-        if nxdata is not None:
-            if isinstance(nxdata.attrs['axes'], str):
-                dim_x = nxdata.attrs['axes']
+        if y is not None:
+            self._y = np.squeeze(y)
+            if self._y.ndim != 1:
+                raise ValueError(
+                    f'Invalid input signal dimension ({self._y.ndim})')
+            if x is None:
+                self._x = np.arange(self._y.size)
             else:
-                dim_x = nxdata.attrs['axes'][-1]
-            self._x = np.asarray(nxdata[dim_x])
-            self._y = np.squeeze(nxdata.nxsignal)
-            if self._x.ndim != 1:
-                raise ValueError(
-                    f'Invalid x dimension ({self._x.ndim})')
-            if self._x.size != self._y.size:
-                raise ValueError(
-                    f'Inconsistent x and y dimensions ({self._x.size} vs '
-                    f'{self._y.size})')
+                self._x = x
+                assert self._x.size == self._y.size
 #            if 'mask' in kwargs:
 #                self._mask = kwargs.pop('mask')
             if True: #self._mask is None:
@@ -929,14 +953,6 @@ class Fit:
         return getattr(self._result, 'var_names', None)
 
     @property
-    def x(self):
-        """Return the input x-coordinates.
-
-        :type: numpy.ndarray
-        """
-        return self._x
-
-    @property
     def y(self):
         """Return the input y-coordinates.
 
@@ -1010,12 +1026,10 @@ class Fit:
                 RectangleModel,
         )
 
-        if model.model == 'expression':
+        if model.model_type == 'expression':
             expr = model.expr
         else:
             expr = None
-        parameters = model.parameters
-        model_name = model.model
 
         if prefix is None:
             pprefix = ''
@@ -1023,149 +1037,147 @@ class Fit:
             pprefix = prefix
         if self._code == 'scipy':
             new_parameters = []
-            for par in deepcopy(parameters):
+            for par in deepcopy(model.parameters):
+                name = par.name
                 self._parameters.add(par, pprefix)
                 if self._parameters[par.name].expr is None:
                     self._parameters[par.name].set(value=par.default)
                 new_parameters.append(par.name)
-            self._res_num_pars += [len(parameters)]
+                if name in model.LINEAR_PARAMETERS:
+                    self._linear_parameters.append(par.name)
+                elif name not in model.MODEL_PARAMETERS:
+                    self._nonlinear_parameters.append(par.name)
+            self._res_num_pars += [len(model.parameters)]
 
-        if model_name == 'constant':
-            # Par: c
-            if self._code == 'lmfit':
+        if self._code == 'lmfit':
+            if model.model_type == 'constant':
+                # Par: c
                 newmodel = ConstantModel(prefix=prefix)
-            self._linear_parameters.append(f'{pprefix}c')
-        elif model_name == 'linear':
-            # Par: slope, intercept
-            if self._code == 'lmfit':
+                self._linear_parameters.append(f'{pprefix}c')
+            elif model.model_type == 'linear':
+                # Par: slope, intercept
                 newmodel = LinearModel(prefix=prefix)
-            self._linear_parameters.append(f'{pprefix}slope')
-            self._linear_parameters.append(f'{pprefix}intercept')
-        elif model_name == 'quadratic':
-            # Par: a, b, c
-            if self._code == 'lmfit':
+                self._linear_parameters.append(f'{pprefix}slope')
+                self._linear_parameters.append(f'{pprefix}intercept')
+            elif model.model_type == 'parabolic':
+                # Par: a, b, c
                 newmodel = QuadraticModel(prefix=prefix)
-            self._linear_parameters.append(f'{pprefix}a')
-            self._linear_parameters.append(f'{pprefix}b')
-            self._linear_parameters.append(f'{pprefix}c')
-#        elif model_name == 'polynomial':
-#            # Par: c0, c1,..., c7
-#            degree = kwargs.get('degree')
-#            if degree is not None:
-#                kwargs.pop('degree')
-#            if degree is None or not is_int(degree, ge=0, le=7):
-#                raise ValueError(
-#                    'Invalid parameter degree for build-in step model '
-#                    f'({degree})')
-#            if self._code == 'lmfit':
+                self._linear_parameters.append(f'{pprefix}a')
+                self._linear_parameters.append(f'{pprefix}b')
+                self._linear_parameters.append(f'{pprefix}c')
+#            elif model.model_type == 'polynomial':
+#                # Par: c0, c1,..., c7
+#                degree = kwargs.get('degree')
+#                if degree is not None:
+#                    kwargs.pop('degree')
+#                if degree is None or not is_int(degree, ge=0, le=7):
+#                    raise ValueError(
+#                        'Invalid parameter degree for build-in step model '
+#                        f'({degree})')
 #                newmodel = PolynomialModel(degree=degree, prefix=prefix)
-#            for i in range(degree+1):
-#                self._linear_parameters.append(f'{pprefix}c{i}')
-        elif model_name == 'exponential':
-            # Par: amplitude, decay
-            if self._code == 'lmfit':
+#                for i in range(degree+1):
+#                    self._linear_parameters.append(f'{pprefix}c{i}')
+            elif model.model_type == 'exponential':
+                # Par: amplitude, decay
                 newmodel = ExponentialModel(prefix=prefix)
-            self._linear_parameters.append(f'{pprefix}amplitude')
-            self._nonlinear_parameters.append(f'{pprefix}decay')
-        elif model_name == 'gaussian':
-            # Par: amplitude, center, sigma (fwhm, height)
-            if self._code == 'lmfit':
+                self._linear_parameters.append(f'{pprefix}amplitude')
+                self._nonlinear_parameters.append(f'{pprefix}decay')
+            elif model.model_type == 'gaussian':
+                # Par: amplitude, center, sigma (fwhm, height)
                 newmodel = GaussianModel(prefix=prefix)
                 # parameter norms for height and fwhm are needed to
                 #   get correct errors
-            self._linear_parameters.append(f'{pprefix}amplitude')
-            self._nonlinear_parameters.append(f'{pprefix}center')
-            self._nonlinear_parameters.append(f'{pprefix}sigma')
-        elif model_name == 'lorentzian':
-            # Par: amplitude, center, sigma (fwhm, height)
-            if self._code == 'lmfit':
+                self._linear_parameters.append(f'{pprefix}amplitude')
+                self._nonlinear_parameters.append(f'{pprefix}center')
+                self._nonlinear_parameters.append(f'{pprefix}sigma')
+            elif model.model_type == 'lorentzian':
+                # Par: amplitude, center, sigma (fwhm, height)
                 newmodel = LorentzianModel(prefix=prefix)
                 # parameter norms for height and fwhm are needed to
                 #   get correct errors
-            self._linear_parameters.append(f'{pprefix}amplitude')
-            self._nonlinear_parameters.append(f'{pprefix}center')
-            self._nonlinear_parameters.append(f'{pprefix}sigma')
-        elif model_name == 'pvoigt':
-            # Par: amplitude, center, sigma (fwhm, height), fraction
-            if self._code == 'lmfit':
+                self._linear_parameters.append(f'{pprefix}amplitude')
+                self._nonlinear_parameters.append(f'{pprefix}center')
+                self._nonlinear_parameters.append(f'{pprefix}sigma')
+            elif model.model_type == 'pvoigt':
+                # Par: amplitude, center, sigma (fwhm, height), fraction
                 newmodel = PseudoVoigtModel(prefix=prefix)
                 # parameter norms for height and fwhm are needed to
                 #   get correct errors
-            self._linear_parameters.append(f'{pprefix}amplitude')
-            self._linear_parameters.append(f'{pprefix}fraction')
-            self._nonlinear_parameters.append(f'{pprefix}center')
-            self._nonlinear_parameters.append(f'{pprefix}sigma')
-#        elif model_name == 'step':
-#            # Par: amplitude, center, sigma
-#            form = kwargs.get('form')
-#            if form is not None:
-#                kwargs.pop('form')
-#            if (form is None or form not in
-#                    ('linear', 'atan', 'arctan', 'erf', 'logistic')):
-#                raise ValueError(
-#                    'Invalid parameter form for build-in step model '
-#                    f'({form})')
-#            if self._code == 'lmfit':
+                self._linear_parameters.append(f'{pprefix}amplitude')
+                self._linear_parameters.append(f'{pprefix}fraction')
+                self._nonlinear_parameters.append(f'{pprefix}center')
+                self._nonlinear_parameters.append(f'{pprefix}sigma')
+#            elif model.model_type == 'step':
+#                # Par: amplitude, center, sigma
+#                form = kwargs.get('form')
+#                if form is not None:
+#                    kwargs.pop('form')
+#                if (form is None or form not in
+#                        ('linear', 'atan', 'arctan', 'erf', 'logistic')):
+#                    raise ValueError(
+#                        'Invalid parameter form for build-in step model '
+#                        f'({form})')
 #                newmodel = StepModel(prefix=prefix, form=form)
-#            self._linear_parameters.append(f'{pprefix}amplitude')
-#            self._nonlinear_parameters.append(f'{pprefix}center')
-#            self._nonlinear_parameters.append(f'{pprefix}sigma')
-        elif model_name == 'rectangle':
-            # Par: amplitude, center1, center2, sigma1, sigma2
-            form = 'atan' #kwargs.get('form')
-            #if form is not None:
-            #    kwargs.pop('form')
-            # RV: Implement and test other forms when needed
-            if (form is None or form not in
-                    ('linear', 'atan', 'arctan', 'erf', 'logistic')):
-                raise ValueError(
-                    'Invalid parameter form for build-in rectangle model '
-                    f'({form})')
-            if self._code == 'lmfit':
+#                self._linear_parameters.append(f'{pprefix}amplitude')
+#                self._nonlinear_parameters.append(f'{pprefix}center')
+#                self._nonlinear_parameters.append(f'{pprefix}sigma')
+            elif model.model_type == 'rectangle':
+                # Par: amplitude, center1, center2, sigma1, sigma2
+                form = 'atan' #kwargs.get('form')
+                #if form is not None:
+                #    kwargs.pop('form')
+                # RV: Implement and test other forms when needed
+                if (form is None or form not in
+                        ('linear', 'atan', 'arctan', 'erf', 'logistic')):
+                    raise ValueError(
+                        'Invalid parameter form for build-in rectangle model '
+                        f'({form})')
                 newmodel = RectangleModel(prefix=prefix, form=form)
-            self._linear_parameters.append(f'{pprefix}amplitude')
-            self._nonlinear_parameters.append(f'{pprefix}center1')
-            self._nonlinear_parameters.append(f'{pprefix}center2')
-            self._nonlinear_parameters.append(f'{pprefix}sigma1')
-            self._nonlinear_parameters.append(f'{pprefix}sigma2')
-        elif model_name == 'expression' and self._code == 'lmfit':
-            # Third party modules
-            from asteval import (
-                Interpreter,
-                get_ast_names,
-            )
+                self._linear_parameters.append(f'{pprefix}amplitude')
+                self._nonlinear_parameters.append(f'{pprefix}center1')
+                self._nonlinear_parameters.append(f'{pprefix}center2')
+                self._nonlinear_parameters.append(f'{pprefix}sigma1')
+                self._nonlinear_parameters.append(f'{pprefix}sigma2')
+            elif model.model_type == 'expression':
+                # FIX move to a validator
+                # Third party modules
+                from asteval import (
+                    Interpreter,
+                    get_ast_names,
+                )
 
-            for par in parameters:
-                if par.expr is not None:
-                    raise KeyError(
-                        f'Invalid "expr" key ({par.expr}) in '
-                        f'parameter ({par}) for an expression model')
-            ast = Interpreter()
-            expr_parameters = [
-                name for name in get_ast_names(ast.parse(expr))
-                if (name != 'x' and name not in self._parameters
-                    and name not in ast.symtable)]
-            if prefix is None:
-                newmodel = ExpressionModel(expr=expr)
-            else:
-                for name in expr_parameters:
-                    expr = sub(rf'\b{name}\b', f'{prefix}{name}', expr)
+                for par in model.parameters:
+                    if par.expr is not None:
+                        raise KeyError(
+                            f'Invalid "expr" key ({par.expr}) in '
+                            f'parameter ({par}) for an expression model')
+                ast = Interpreter()
                 expr_parameters = [
-                    f'{prefix}{name}' for name in expr_parameters]
-            newmodel = ExpressionModel(expr=expr, name=model_name)
-            # Remove already existing names
-            for name in newmodel.param_names.copy():
-                if name not in expr_parameters:
-                    newmodel._func_allargs.remove(name)
-                    newmodel._param_names.remove(name)
-        else:
-            raise ValueError(f'Unknown fit model ({model_name})')
+                    name for name in get_ast_names(ast.parse(expr))
+                    if (name != 'x' and name not in self._parameters
+                        and name not in ast.symtable)]
+                if prefix is None:
+                    newmodel = ExpressionModel(expr=expr)
+                else:
+                    for name in expr_parameters:
+                        expr = sub(rf'\b{name}\b', f'{prefix}{name}', expr)
+                    expr_parameters = [
+                        f'{prefix}{name}' for name in expr_parameters]
+                newmodel = ExpressionModel(expr=expr, name=model.model_type)
+                # Remove already existing names
+                for name in newmodel.param_names.copy():
+                    if name not in expr_parameters:
+                        newmodel._func_allargs.remove(name)
+                        newmodel._param_names.remove(name)
+            else:
+                raise ValueError(f'Unknown fit model ({model.model_type})')
 
         # Add the new model to the current one
         if self._code == 'scipy':
             if self._model is None:
                 self._model = Components()
-            self._model.add(model, prefix)
+            self._model |= {
+                f'{prefix}{model.model_type}': Component(model, prefix)}
         else:
             if self._model is None:
                 self._model = newmodel
@@ -1201,23 +1213,28 @@ class Fit:
                             value = par.value
                         _min = par.min
                         _max = par.max
-                        if not (model_name == 'pvoigt' and 'fraction' in name):
-                            if value is not None:
-                                value *= self._norm[1]
-                            if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                                _min *= self._norm[1]
-                            if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                                _max *= self._norm[1]
+#                        if not (model.model_type == 'pvoigt' and 'fraction' in name):
+#                            if value is not None:
+#                                value *= self._norm[1]
+#                            if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+#                                _min *= self._norm[1]
+#                            if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+#                                _max *= self._norm[1]
+                        if value is not None:
+                            value *= self._norm[1]
+                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                            _min *= self._norm[1]
+                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                            _max *= self._norm[1]
                         par.set(value=value, min=_min, max=_max)
 
         # Initialize the model parameters
-        for parameter in deepcopy(parameters):
+        for parameter in deepcopy(model.parameters):
             name = parameter.name
             if name not in new_parameters:
                 name = pprefix+name
                 if name not in new_parameters:
-                    raise ValueError(
-                        f'Unable to match parameter {name}')
+                    raise ValueError(f'Unable to match parameter {name}')
             if parameter.expr is None:
                 self._parameters[name].set(
                     value=parameter.value, min=parameter.min,
@@ -1258,9 +1275,8 @@ class Fit:
 
         :param config: Fit configuration.
         :type config: CHAP.utils.models.FitConfig, optional
-        :param kwargs: Additional key, value pairs to pass on directly
-            to the core fit routine.
-        :type kwargs: dict
+        :param \*\*kwargs: Additional key, value pairs to pass on
+            directly to the core fit routine.
         """
         # Check input parameters
         if self._model is None:
@@ -1332,11 +1348,13 @@ class Fit:
         return None
 
     def plot(
-            self, y=None, *, y_title=None, title=None, result=None,
+            self, x=None, y=None, *, y_title=None, title=None, result=None,
             skip_init=False, plot_comp=True, plot_comp_legends=False,
             plot_residual=False, plot_masked_data=True, **kwargs):
         """Plot the best fit.
 
+        :param x: x-coordinates.
+        :type x: array-like, optional
         :param y: y-coordinates.
         :type y: array-like, optional
         :param y_title: y-axis label.
@@ -1359,9 +1377,8 @@ class Fit:
         :type plot_residual: bool, optional
         :param plot_masked_data:
         :type plot_masked_data: bool, optional
-        :param kwargs: Additional key, value pairs to pass on directly
-            to the Matplotlib plot function.
-        :type kwargs: dict
+        :param \*\*kwargs: Additional key, value pairs to pass on
+            directly to the Matplotlib plot function.
         """
         if result is None:
             result = self._result
@@ -1374,34 +1391,45 @@ class Fit:
             plot_masked_data = False
         else:
             mask = self._mask
+        if x is not None:
+            if not isinstance(x, (tuple, list, np.ndarray)):
+                self._logger.warning(
+                    'Ignoring invalid parameter x ({type(x)})')
+            if len(x) != len(self._x):
+                self._logger.warning(
+                    'Ignoring parameter x in plot (wrong dimension)')
+                x = None
+        if x is None:
+            x = self._x
         if y is not None:
             if not isinstance(y, (tuple, list, np.ndarray)):
-                self._logger.warning('Ignorint invalid parameter y ({y}')
-            if len(y) != len(self._x):
+                self._logger.warning(
+                    'Ignoring invalid parameter y ({type(y)})')
+            if len(y) != len(x):
                 self._logger.warning(
                     'Ignoring parameter y in plot (wrong dimension)')
                 y = None
         if y is not None:
             if y_title is None or not isinstance(y_title, str):
                 y_title = 'data'
-            plots += [(self._x, y, '.')]
+            plots += [(x, y, '.')]
             legend += [y_title]
         if self._y is not None:
-            plots += [(self._x, np.asarray(self._y), 'b.')]
+            plots += [(x, np.asarray(self._y), 'b.')]
             legend += ['data']
             if plot_masked_data:
-                plots += [(self._x[mask], np.asarray(self._y)[mask], 'bx')]
+                plots += [(x[mask], np.asarray(self._y)[mask], 'bx')]
                 legend += ['masked data']
         if isinstance(plot_residual, bool) and plot_residual:
-            plots += [(self._x[~mask], result.residual, 'r-')]
+            plots += [(x[~mask], result.residual, 'r-')]
             legend += ['residual']
-        plots += [(self._x[~mask], result.best_fit, 'k-')]
+        plots += [(x[~mask], result.best_fit, 'k-')]
         legend += ['best fit']
         if not skip_init and hasattr(result, 'init_fit'):
-            plots += [(self._x[~mask], result.init_fit, 'g-')]
+            plots += [(x[~mask], result.init_fit, 'g-')]
             legend += ['init']
         if plot_comp:
-            components = result.eval_components(x=self._x[~mask])
+            components = result.eval_components(x=x[~mask])
             num_components = len(components)
             if 'tmp_normalization_offset_' in components:
                 num_components -= 1
@@ -1415,8 +1443,8 @@ class Fit:
                     if len(modelname) > 20:
                         modelname = f'{modelname[0:16]} ...'
                     if isinstance(y_comp, (int, float)):
-                        y_comp *= np.ones(self._x[~mask].size)
-                    plots += [(self._x[~mask], y_comp, '--')]
+                        y_comp *= np.ones(x[~mask].size)
+                    plots += [(x[~mask], y_comp, '--')]
                     if plot_comp_legends:
                         if modelname[-1] == '_':
                             legend.append(modelname[:-1])
@@ -1543,7 +1571,7 @@ class Fit:
         names = []
         prefixes = []
         for model in models:
-            names.append(f'{model.prefix}{model.model}')
+            names.append(f'{model.prefix}{model.model_type}')
             prefixes.append(model.prefix)
         counts = Counter(names)
         for model, count in counts.items():
@@ -1656,10 +1684,10 @@ class Fit:
         # Add constant offset for a normalized model
         if self._result is None and self._norm is not None and self._norm[0]:
             # Local modules
-            from CHAP.utils.models import Constant
+            from CHAP.utils.models import ConstantModel
 
-            model = Constant(
-                model='constant',
+            model = ConstantModel(
+                model_type='constant',
                 parameters=[{
                     'name': 'c',
                     'value': -self._norm[0],
@@ -1672,14 +1700,14 @@ class Fit:
             # Local modules
             from CHAP.utils.models import (
                 FitConfig,
-                Multipeak,
+                MultipeakModel,
             )
 
             # Expand multipeak model if present
             scale_factor = None
             for i, model in enumerate(deepcopy(config.models)):
                 found_multipeak = False
-                if isinstance(model, Multipeak):
+                if isinstance(model, MultipeakModel):
                     if found_multipeak:
                         raise ValueError(
                             f'Invalid parameter models ({config.models}) '
@@ -1763,10 +1791,9 @@ class Fit:
                 if par.expr:
                     self._res_par_exprs.append(
                         {'expr': par.expr, 'index': i})
-                else:
-                    if par.vary:
-                        self._res_par_indices.append(i)
-                        self._res_par_names.append(name)
+                elif par.vary:
+                    self._res_par_indices.append(i)
+                    self._res_par_names.append(name)
 
         # Check for uninitialized parameters
         for name, par in self._parameters.items():
@@ -2082,28 +2109,29 @@ class Fit:
             else:
                 bounds = (-np.inf, np.inf)
             init_params = deepcopy(self._parameters)
-#            t0 = time()
             lskws = {
                 'ftol': 1.49012e-08,
                 'xtol': 1.49012e-08,
                 'gtol': 10*FLOAT_EPS,
             }
+            max_nfev = kwargs.get('max_nfev')
             if self._method == 'leastsq':
-                lskws['maxfev'] = 64000
+                if max_nfev is not None:
+                    lskws['maxfev'] = max_nfev
                 result = leastsq(
                     self._residual, pars_init, args=(x, y), full_output=True,
                     **lskws)
             else:
-                lskws['max_nfev'] = 64000
+                if max_nfev is not None:
+                    lskws['max_nfev'] = max_nfev
                 result = least_squares(
                     self._residual, pars_init, bounds=bounds,
                     method=self._method, args=(x, y), **lskws)
-#            t1 = time()
-#            print(f'\n\nFitting took {1000*(t1-t0):.3f} ms\n\n')
             model_result = ModelResult(
-                self._model, self._parameters, x, y, self._method, self._ast,
-                self._res_par_exprs, self._res_par_indices,
-                self._res_par_names, result)
+                self._model, self._parameters, x=x, y=y, method=self._method,
+                ast=self._ast, res_par_exprs=self._res_par_exprs,
+                res_par_indices=self._res_par_indices,
+                res_par_names=self._res_par_names, result=result)
             model_result.init_params = init_params
             model_result.init_values = {}
             for name, par in init_params.items():
@@ -2113,12 +2141,9 @@ class Fit:
             fit_kws = {}
 #            if 'Dfun' in kwargs:
 #                fit_kws['Dfun'] = kwargs.pop('Dfun')
-#            t0 = time()
             model_result = self._model.fit(
                 y, self._parameters, x=x, method=self._method, fit_kws=fit_kws,
                 **kwargs)
-#            t1 = time()
-#            print(f'\n\nFitting took {1000*(t1-t0):.3f} ms\n\n')
 
         return model_result
 
@@ -2304,8 +2329,11 @@ class Fit:
                     self._ast.eval(expr['expr'])
         for component, num_par in zip(
                 self._model.components, self._res_num_pars):
+            values = self._res_par_values[n_par:n_par+num_par]
+            vvalues = [values[i] for i in component.func_args_indices]
             res += component.func(
-                x, *tuple(self._res_par_values[n_par:n_par+num_par]))
+#                x, *tuple(self._res_par_values[n_par:n_par+num_par]))
+                x, *tuple(vvalues), **component.model_identifiers)
             n_par += num_par
         return res - y
 
@@ -2313,17 +2341,20 @@ class Fit:
 class FitMap(Fit):
     """Wrapper to the Fit class to fit data on a N-dimensional map."""
 
-    def __init__(self, nxdata, config, logger):
+    def __init__(self, y, config, logger, x=None):
         """Initialize FitMap.
 
-        :param nxdata: The input data.
-        :type nxdata: nexusformat.nexus.NXdata
+        :param y: Input signal data.
+        :type y: array-like
         :param config: Fit configuration.
-        :type config: CHAP.utils.models.FitConfig, optional
+        :type config: CHAP.utils.models.FitConfig
         :param logger: A python Logger object.
         :type logger: logging.Logger
+        :param x: Input coordinate data.
+        :type x: array-like, optional
         """
         super().__init__(None, config, logger)
+        self._abs_height_cutoff = None
         self._best_errors = None
         self._best_fit = None
         self._best_parameters = None
@@ -2347,16 +2378,12 @@ class FitMap(Fit):
         # At this point the fastest index should always be the signal
         #     dimension so that the slowest ndim-1 dimensions are the
         #     map dimensions
-        self._x = np.asarray(nxdata[nxdata.attrs['axes'][-1]])
-        self._ymap = np.asarray(nxdata.nxsignal)
-
-        # Check input parameters
-        if self._x.ndim != 1:
-            raise ValueError(f'Invalid x dimension ({self._x.ndim})')
-        if self._x.size != self._ymap.shape[-1]:
-            raise ValueError(
-                f'Inconsistent x and y dimensions ({self._x.size} vs '
-                f'{self._ymap.shape[-1]})')
+        self._ymap = y
+        if x is None:
+            self._x = np.arange(self._ymap.shape[-1])
+        else:
+            self._x = x
+            assert self._x.size == self._ymap.shape[-1]
 
         # Flatten the map
         # Store the flattened map in self._ymap_norm
@@ -2387,7 +2414,7 @@ class FitMap(Fit):
         self._y_range = ymap_max-ymap_min
         if self._y_range > 0.0:
             self._norm = (ymap_min, self._y_range)
-            self._ymap_norm = (self._ymap_norm-self._norm[0]) / self._norm[1]
+            self._ymap_norm = (self._ymap_norm-self._norm[0])/self._norm[1]
         else:
             self._redchi_cutoff *= self._y_range**2
 
@@ -2591,6 +2618,15 @@ class FitMap(Fit):
         """
         if dims is None:
             return self._best_parameters
+# FIX use something else, self._best_parameters is "reserved" to get the
+# parameters in the EDD strain analysis and must return the order of the
+# parameters in self.best_values and self.best_errors
+#            parameters_dict = {}
+#            for i, name in enumerate(self._best_parameters):
+#                parameters_dict[name] = {
+#                    'values': self._best_values[i],
+#                    'errors': self._best_errors[i]}
+#            return parameters_dict
         if (not isinstance(dims, (list, tuple))
                 or len(dims) != len(self._map_shape)):
             raise ValueError('Invalid parameter dims ({dims})')
@@ -2629,10 +2665,12 @@ class FitMap(Fit):
             self._logger.warning('Could not clean-up automatically.')
 
     def plot(
-            self, dims=None, *, y_title=None, plot_comp_legends=False,
+            self, x=None, dims=None, *, y_title=None, plot_comp_legends=False,
             plot_residual=False, plot_masked_data=True, **kwargs):
         """Plot the best fits.
 
+        :param x: x-coordinates.
+        :type x: array-like, optional
         :param dims: Map indices of the data point to plot,
             defaults to `None` which will plot the first data point.
         :type dims: list or tuple, optional
@@ -2645,13 +2683,22 @@ class FitMap(Fit):
         :type plot_residual: bool, optional
         :param plot_masked_data:
         :type plot_masked_data: bool, optional
-        :param kwargs: Additional key, value pairs to pass on directly
-            to the Matplotlib plot function.
-        :type kwargs: dict
+        :param \*\*kwargs: Additional key, value pairs to pass on
+            directly to the Matplotlib plot function.
         """
         # Third party modules
         from lmfit.models import ExpressionModel
 
+        if x is not None:
+            if not isinstance(x, (tuple, list, np.ndarray)):
+                self._logger.warning(
+                    'Ignoring invalid parameter x ({type(x)})')
+            if len(x) != len(self._x):
+                self._logger.warning(
+                    'Ignoring parameter x in plot (wrong dimension)')
+                x = None
+        if x is None:
+            x = self._x
         if dims is None:
             dims = [0]*len(self._map_shape)
         if (not isinstance(dims, (list, tuple))
@@ -2666,20 +2713,20 @@ class FitMap(Fit):
         if y_title is None or not isinstance(y_title, str):
             y_title = 'data'
         if self._mask is None:
-            mask = np.zeros(self._x.size).astype(bool)
+            mask = np.zeros(x.size).astype(bool)
             plot_masked_data = False
         else:
             mask = self._mask
-        plots = [(self._x, np.asarray(self._ymap[dims]), 'b.')]
+        plots = [(x, np.asarray(self._ymap[dims]), 'b.')]
         legend = [y_title]
         if plot_masked_data:
             plots += \
-                [(self._x[mask], np.asarray(self._ymap)[(*dims,mask)], 'bx')]
+                [(x[mask], np.asarray(self._ymap)[(*dims,mask)], 'bx')]
             legend += ['masked data']
-        plots += [(self._x[~mask], self.best_fit[dims], 'k-')]
+        plots += [(x[~mask], self.best_fit[dims], 'k-')]
         legend += ['best fit']
         if plot_residual:
-            plots += [(self._x[~mask], self.residual[dims], 'r--')]
+            plots += [(x[~mask], self.residual[dims], 'r--')]
             legend += ['residual']
         # Create current parameters
         parameters = deepcopy(self._parameters)
@@ -2706,10 +2753,10 @@ class FitMap(Fit):
                     modelname = f'{component._name}'
             if len(modelname) > 20:
                 modelname = f'{modelname[0:16]} ...'
-            y = component.eval(params=parameters, x=self._x[~mask])
+            y = component.eval(params=parameters, x=x[~mask])
             if isinstance(y, (int, float)):
-                y *= np.ones(self._x[~mask].size)
-            plots += [(self._x[~mask], y, '--')]
+                y *= np.ones(x[~mask].size)
+            plots += [(x[~mask], y, '--')]
             if plot_comp_legends:
                 legend.append(modelname)
         quick_plot(
@@ -2720,9 +2767,8 @@ class FitMap(Fit):
 
         :param config: Fit configuration.
         :type config: CHAP.utils.models.FitConfig, optional
-        :param kwargs: Additional key, value pairs to pass on directly
-            to the core fit routine.
-        :type kwargs: dict
+        :param \*\*kwargs: Additional key, value pairs to pass on
+            directly to the core fit routine.
         """
         # Check input parameters
         if self._model is None:
@@ -2730,6 +2776,7 @@ class FitMap(Fit):
         num_proc_max = max(1, cpu_count())
         if config is None:
             num_proc = kwargs.pop('num_proc', num_proc_max)
+            self._abs_height_cutoff = kwargs.pop('abs_height_cutoff')
             self._rel_height_cutoff = kwargs.pop('rel_height_cutoff')
             self._try_no_bounds = kwargs.pop('try_no_bounds', False)
             self._redchi_cutoff = kwargs.pop('redchi_cutoff', 0.1)
@@ -2738,6 +2785,7 @@ class FitMap(Fit):
             self._skip_init = kwargs.pop('skip_init', True)
         else:
             num_proc = config.num_proc
+            self._abs_height_cutoff = config.abs_height_cutoff
             self._rel_height_cutoff = config.rel_height_cutoff
 #            self._try_no_bounds = config.try_no_bounds
 #            self._redchi_cutoff = config.redchi_cutoff
@@ -2754,7 +2802,7 @@ class FitMap(Fit):
                 'maximum allowed number of processors, num_proc reduced to '
                 f'{num_proc_max}')
             num_proc = num_proc_max
-        self._logger.debug(f'Using {num_proc} processors to fit the data')
+        self._logger.info(f'Using {num_proc} processors to fit the data')
         self._redchi_cutoff *= self._y_range**2
 
         # Setup the fit
@@ -3072,9 +3120,29 @@ class FitMap(Fit):
         # Do not attempt a fit if the data is zero or entirely below
         # the cutoff
         y_max = self._ymap_norm[n].max()
+#        print(f'\ty_min, y_max: {self._ymap_norm[n].min()}, {y_max}')
+#        if self._normalized:
+#            print(f'\tabs_height_cutoff: {self._abs_height_cutoff} {y_max*self._norm[1] + self._norm[0]}')
+#        print(f'\trel_height_cutoff: {self._rel_height_cutoff}')
+#        print(f'\tcurrent_best_values: {current_best_values}')
+#        # Third party modules
+#        from scipy.signal import find_peaks as find_peaks_scipy
+#        peaks = find_peaks_scipy(
+#            #self._ymap_norm[n], width=5, height=0.05)#, prominence=0.5)
+#            self._ymap_norm[n], width=5, height=0, prominence=0.02)
+#        print(f"\tpeaks {type(peaks)}: {peaks}")
+#        print(f"\tpeak heights {type(peaks[1]['peak_heights'])}: {peaks[1]['peak_heights'].tolist()}")
+#        print(f"\tpeak widths {type(peaks[1]['widths'])}: {peaks[1]['widths'].tolist()}")
+#        print(f"\tpeak centers {type(peaks[0])}: {peaks[0].tolist()}")
+#        print(f"\tpeak centers: {[self._x[v] for v in peaks[0]]}")
+#        quick_plot(self._ymap_norm[n], vlines=peaks[0], block=True)
+#        exit('Done')
         if (y_max == 0.0
+                or (self._normalized and self._abs_height_cutoff is not None
+                    and y_max*self._norm[1] + self._norm[0] < self._abs_height_cutoff)
                 or (self._rel_height_cutoff is not None
                     and y_max < self._rel_height_cutoff)):
+#            print(f'\t------->skipping!!!!!!!!')
             self._logger.debug(f'Skipping fit {n} (rel norm = {y_max:.5f})')
             if self._code == 'scipy':
                 # Local modules
@@ -3093,17 +3161,37 @@ class FitMap(Fit):
 
         # Regular full fit
         result = self._fit_with_bounds_check(n, current_best_values, **kwargs)
+        if result.nfev == kwargs.get('max_nfev'):
+            self._logger.info(
+                f'Hit max_nfev limit for n={n}\n\tnfev: {result.nfev}')
 
         if self._rel_height_cutoff is not None:
             # Check for low heights peaks and refit without them
+            # FIX make sure to add "height" and "fwhm" to peak-like models
             heights = []
             names = []
-            for component in result.components:
-                if component._name in ('gaussian', 'lorentzian'):
-                    for name in component.param_names:
-                        if 'height' in name:
-                            heights.append(result.params[name].value)
-                            names.append(name)
+            if self._code == 'lmfit':
+                for component in result.components:
+                    if component._name in ('gaussian', 'lorentzian'):
+                        for name in component.param_names:
+                            if 'height' in name:
+                                heights.append(result.params[name].value)
+                                names.append(name)
+                                break
+            else:
+                # Third party modules
+                from asteval import Interpreter
+
+                ast = Interpreter()
+                for component in result.components:
+                    if component._name in ('gaussian', 'lorentzian'):
+                        for name in component.param_names:
+                            if 'amplitude' in name:
+                                ast(f'amplitude = {result.params[name].value}')
+                                names.append(name)
+                            elif 'sigma' in name:
+                                ast(f'sigma = {result.params[name].value}')
+                        heights.append(ast(amplitude_factor[component._name]))
             if heights:
                 refit = False
                 max_height = max(heights)
@@ -3111,22 +3199,36 @@ class FitMap(Fit):
                 parameters_bounds_save = deepcopy(self._parameter_bounds)
                 for i, (name, height) in enumerate(zip(names, heights)):
                     if height < self._rel_height_cutoff*max_height:
-                        self._parameters[
-                            name.replace('height', 'amplitude')].set(
+                        if self._code == 'lmfit':
+                            self._parameters[
+                                name.replace('height', 'amplitude')].set(
+                                   value=0.0, min=0.0, vary=False)
+                            self._parameters[
+                                name.replace('height', 'center')].set(
+                                   vary=False)
+                            self._parameters[
+                                name.replace('height', 'sigma')].set(
+                                   value=0.0, min=0.0, vary=False)
+                        else:
+                            self._parameters[name].set(
                                value=0.0, min=0.0, vary=False)
-                        self._parameters[
-                            name.replace('height', 'center')].set(
-                               vary=False)
-                        self._parameters[
-                            name.replace('height', 'sigma')].set(
-                               value=0.0, min=0.0, vary=False)
+                            self._parameters[
+                                name.replace('amplitude', 'center')].set(
+                                   vary=False)
+                            self._parameters[
+                                name.replace('amplitude', 'sigma')].set(
+                                   value=0.0, min=0.0, vary=False)
                         refit = True
                 if refit:
+#                    print(f'\t------->refitting!!!!!!!!')
                     result = self._fit_with_bounds_check(
                         n, current_best_values, **kwargs)
                     # Reset fixed amplitudes back to default
                     self._parameters = deepcopy(parameters_save)
                     self._parameter_bounds = deepcopy(parameters_bounds_save)
+                    if result.nfev == kwargs.get('max_nfev'):
+                        self._logger.info(
+                        f'\nHit max_nfev limit again after refit for n={n}')
 
         if result.redchi >= self._redchi_cutoff:
             result.success = False
