@@ -75,6 +75,10 @@ amplitude_factor = {
     'voigt': '0.2087*amplitude/sigma',         # sigma = gamma
     'pvoigt': '0.3940*amplitude/sigma',        # fraction = 0.5
 }
+# height = amplitude_factor*amplitude/sigma
+amplitude_factor = {
+    'gaussian': 'amplitude/(sigma*sqrt(2*pi))',
+}
 
 
 class FitProcessor(Processor):
