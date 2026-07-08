@@ -918,10 +918,8 @@ class SpecReader(Reader):
                     nxdata.data = NXfield(
                         value=scanparser.get_detector_data(detectors_ids)[0])
                 else:
-                    if self.config.experiment_type == 'TOMO':
-                        dtype = np.float32
-                    else:
-                        dtype = None
+                    dtype = np.float32 \
+                        if self.config.experiment_type == 'TOMO' else None
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
 #                    nxpaths.append(
@@ -1032,11 +1030,8 @@ class ZarrReader(Reader):
         root = zarr.open(filename, mode=mode)
 
         # Normalize path handling
-        if path in ('/', ''):
-            data = root
-        else:
-            # Remove leading slash for Zarr traversal
-            data = root[path.lstrip('/')]
+        # Remove leading slash for Zarr traversal
+        data = root if path in ('/', '') else root[path.lstrip('/')]
 
         # Optional indexing (arrays only)
         if idx is not None:
