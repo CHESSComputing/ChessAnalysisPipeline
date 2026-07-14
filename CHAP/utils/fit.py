@@ -3193,7 +3193,8 @@ class FitMap(Fit):
             use_peaks, _, peak_heights, peak_widths = \
                 self.guess_init_peak(
                     self._x, self._ymap_norm[n], centers, centers_range,
-                    centers_range_fraction, min_height=self._rel_height_cutoff,
+                    centers_range_fraction,
+                    min_height=y_max*self._rel_height_cutoff,
                     min_width=5)
 
             ast = Interpreter()
