@@ -1467,13 +1467,14 @@ class Fit:
         peak_widths = num_peak*[None]
         delta_x = x[1] - x[0]
         for n, target_center in enumerate(target_centers):
-            index = np.abs(centers - target_center).argmin() 
-            delta = max(centers_range, target_center*centers_range_fraction)
-            if np.abs(target_center - centers[index]) < delta:
-                use_peaks[n] = True
-                peak_centers[n] = centers[index]
-                peak_heights[n] = heights[index]
-                peak_widths[n] = widths[index]*delta_x
+            if centers:
+                index = np.abs(centers - target_center).argmin()
+                delta = max(centers_range, target_center*centers_range_fraction)
+                if np.abs(target_center - centers[index]) < delta:
+                    use_peaks[n] = True
+                    peak_centers[n] = centers[index]
+                    peak_heights[n] = heights[index]
+                    peak_widths[n] = widths[index]*delta_x
         return use_peaks, peak_centers, peak_heights, peak_widths
 
     def _create_prefixes(self, models):
@@ -3161,7 +3162,7 @@ class FitMap(Fit):
                          < self._abs_height_cutoff))
                 or (self._rel_height_cutoff is not None
                     and y_max < self._rel_height_cutoff)):
-            print(f'\t------->skipping n={n}!!!!!!!!')
+#            print(f'\t------->skipping n={n}!!!!!!!!')
             self._logger.debug(f'Skipping fit {n} (rel norm = {y_max:.5f})')
             if self._code == 'scipy':
                 # Local modules
@@ -3303,7 +3304,7 @@ class FitMap(Fit):
                     break
         self._out_of_bounds_flat[n] = out_of_bounds
         if self._try_no_bounds and out_of_bounds:
-            print(f'\t------->refitting n={n} after out_of_bounds!!!!!!!!')
+#            print(f'\t------->refitting n={n} after out_of_bounds!!!!!!!!')
             # Rerun fit with parameter bounds in place
             for name, par in self._parameter_bounds.items():
                 if self._parameters[name].vary:
