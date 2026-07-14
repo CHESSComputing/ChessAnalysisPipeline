@@ -174,6 +174,7 @@ class FitProcessor(Processor):
 
             # Expand multipeak model if present
             found_multipeak = False
+            multipeak_info = None
             for i, model in enumerate(deepcopy(self.config.models)):
                 if isinstance(model, MultipeakModel):
                     if found_multipeak:
@@ -186,6 +187,7 @@ class FitProcessor(Processor):
                     self.config.models += models
                     self.config.models.pop(i)
                     found_multipeak = True
+                    multipeak_info = model.model_dump()
 
             # Instantiate the Fit or FitMap object and fit the data
             if np.squeeze(data[1]).ndim == 1:
@@ -199,11 +201,12 @@ class FitProcessor(Processor):
                 fit = FitMap(data[1], self.config, self.logger, x=data[0])
                 fit.fit(
                     abs_height_cutoff=self.config.abs_height_cutoff,
-                    rel_height_cutoff=self.config.rel_height_cutoff,
                     max_nfev=self.config.max_nfev,
+                    multipeak_info=multipeak_info,
                     num_proc=self.config.num_proc,
                     plot=self.config.plot,
-                    print_report=self.config.print_report)
+                    print_report=self.config.print_report,
+                    rel_height_cutoff=self.config.rel_height_cutoff)
 
         return fit
 
@@ -226,16 +229,19 @@ class FitProcessor(Processor):
             # Local modules
             from CHAP.utils.models import FitParameter
 
-            prefix = ''
-            parameters = [FitParameter(
-                name='scale_factor', value=1.0, min=FLOAT_MIN)]
+            if not model.centers_range_fraction:
+                parameters = [FitParameter(
+                    name='scale_factor', value=1.0, min=FLOAT_MIN)]
+            else:
+                parameters = [FitParameter(
+                    name='scale_factor', value=1.0,
+                    min=1.0-model.centers_range_fraction,
+                    max=1.0+model.centers_range_fraction)]
             peak_models = []
             for i, cen in enumerate(model.centers):
-                if num_peak > 1:
-                    prefix = f'peak{i+1}_'
                 peak_models.append(peak_model_class(
                     model_type=model.peak_models,
-                    prefix=prefix,
+                    prefix=f'peak{i+1}_',
                     parameters=[
                          {'name': 'amplitude', 'min': FLOAT_MIN},
                          {'name': 'center', 'expr': f'scale_factor*{cen}'},
@@ -245,34 +251,27 @@ class FitProcessor(Processor):
         def _unconstrained_model(
                 model, num_peak, peak_model_class, sig_min, sig_max):
             """Create an unconstrained multipeak model."""
-            prefix = ''
             peak_models = []
             for i, cen in enumerate(model.centers):
-                if num_peak > 1:
-                    prefix = f'peak{i+1}_'
-                if model.centers_range == 0:
+                if not (model.centers_range and model.centers_range_fraction):
                     peak_models.append(peak_model_class(
                         model_type=model.peak_models,
-                        prefix=prefix,
+                        prefix=f'peak{i+1}_',
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
-                             {'name': 'center', 'value': cen, 'vary': False},
+                             {'name': 'center', 'value': cen},
                              {'name': 'sigma', 'min': sig_min, 'max': sig_max}
                         ]))
                 else:
-                    if model.centers_range is None:
-                        cen_min = None
-                        cen_max = None
-                    else:
-                        cen_min = cen - model.centers_range
-                        cen_max = cen + model.centers_range
+                    delta = max(
+                        model.centers_range, cen*model.centers_range_fraction)
                     peak_models.append(peak_model_class(
                         model_type=model.peak_models,
-                        prefix=prefix,
+                        prefix=f'peak{i+1}_',
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
-                             {'name': 'center', 'value': cen, 'min': cen_min,
-                              'max': cen_max},
+                             {'name': 'center', 'value': cen,
+                              'min': max(0.0, cen-delta), 'max': cen+delta},
                              {'name': 'sigma', 'min': sig_min, 'max': sig_max}
                         ]))
             return [], peak_models
@@ -1342,112 +1341,42 @@ class Fit:
 
     @staticmethod
     def guess_init_peak(
-            x, y, *args, center_guess=None, use_max_for_center=True):
-        """Return a guess for the initial height, center and fwhm for a
-        single peak.
+            x, y, target_centers, centers_range, centers_range_fraction,
+            min_height=None, min_width=None):
+        """Return guesses for the initial height, center and fwhm for
+        peak-like models.
         """
-        center_guesses = None
+        # Third party modules
+        from scipy.signal import find_peaks as find_peaks_scipy
+
         x = np.asarray(x)
         y = np.asarray(y)
-        if len(x) != len(y):
-            print(f'Invalid x and y lengths ({len(x)}, {len(y)}), skip '
-                  'initial guess')
-            return None, None, None
-        if isinstance(center_guess, (int, float)):
-            if args:
-                print('Ignoring additional arguments for single center_guess '
-                      'value')
-        elif isinstance(center_guess, (tuple, list, np.ndarray)):
-            if len(center_guess) == 1:
-                print('Ignoring additional arguments for single center_guess '
-                      'value')
-                if not isinstance(center_guess[0], (int, float)):
-                    raise ValueError(
-                        'Invalid parameter center_guess '
-                        f'({type(center_guess[0])})')
-                center_guess = center_guess[0]
-            else:
-                if len(args) != 1:
-                    raise ValueError(
-                        f'Invalid number of arguments ({len(args)})')
-                n = args[0]
-                if not is_index(n, 0, len(center_guess)):
-                    raise ValueError('Invalid argument')
-                center_guesses = center_guess
-                center_guess = center_guesses[n]
-        elif center_guess is not None:
-            raise ValueError(
-                f'Invalid center_guess type ({type(center_guess)})')
+        target_centers = np.asarray(target_centers)
+        assert x.ndim == 1 and x.shape == y.shape
+        assert target_centers.ndim == 1
+        assert isinstance(centers_range, (int, float))
+        assert isinstance(centers_range_fraction, (int, float))
+        peaks = find_peaks_scipy(y, height=min_height, width=min_width)
+        centers = [x[v] for v in peaks[0]]
+        heights = peaks[1]['peak_heights']
+        widths = peaks[1]['widths']
 
-        # Sort the inputs
-        index = np.argsort(x)
-        x = x[index]
-        y = y[index]
-        miny = y.min()
-
-        # Set range for current peak
-        if center_guesses is not None:
-            if len(center_guesses) > 1:
-                index = np.argsort(center_guesses)
-                n = list(index).index(n)
-                center_guesses = np.asarray(center_guesses)[index]
-            if n == 0:
-                low = 0
-                upp = index_nearest(
-                    x, (center_guesses[0]+center_guesses[1]) / 2)
-            elif n == len(center_guesses)-1:
-                low = index_nearest(
-                    x, (center_guesses[n-1]+center_guesses[n]) / 2)
-                upp = len(x)
-            else:
-                low = index_nearest(
-                    x, (center_guesses[n-1]+center_guesses[n]) / 2)
-                upp = index_nearest(
-                    x, (center_guesses[n]+center_guesses[n+1]) / 2)
-            x = x[low:upp]
-            y = y[low:upp]
-
-        # Estimate FWHM
-        maxy = y.max()
-        if center_guess is None:
-            center_index = np.argmax(y)
-            center = x[center_index]
-            height = maxy-miny
-        else:
-            if use_max_for_center:
-                center_index = np.argmax(y)
-                center = x[center_index]
-                if center_index < 0.1*len(x) or center_index > 0.9*len(x):
-                    center_index = index_nearest(x, center_guess)
-                    center = center_guess
-            else:
-                center_index = index_nearest(x, center_guess)
-                center = center_guess
-            height = y[center_index]-miny
-        half_height = miny + 0.5*height
-        fwhm_index1 = 0
-        for i in range(center_index, fwhm_index1, -1):
-            if y[i] < half_height:
-                fwhm_index1 = i
-                break
-        fwhm_index2 = len(x)-1
-        for i in range(center_index, fwhm_index2):
-            if y[i] < half_height:
-                fwhm_index2 = i
-                break
-        if fwhm_index1 == 0 and fwhm_index2 < len(x)-1:
-            fwhm = 2 * (x[fwhm_index2]-center)
-        elif fwhm_index1 > 0 and fwhm_index2 == len(x)-1:
-            fwhm = 2 * (center-x[fwhm_index1])
-        else:
-            fwhm = x[fwhm_index2]-x[fwhm_index1]
-
-        if center_guess is not None and not use_max_for_center:
-            index = fwhm_index1+np.argmax(y[fwhm_index1:fwhm_index2])
-            center = x[index]
-            height = y[index]-miny
-
-        return height, center, fwhm
+        num_peak = target_centers.size
+        use_peaks = num_peak*[False]
+        peak_centers = num_peak*[None]
+        peak_heights = num_peak*[None]
+        peak_widths = num_peak*[None]
+        delta_x = x[1] - x[0]
+        for n, target_center in enumerate(target_centers):
+            if centers:
+                index = np.abs(centers - target_center).argmin()
+                delta = max(centers_range, target_center*centers_range_fraction)
+                if np.abs(target_center - centers[index]) < delta:
+                    use_peaks[n] = True
+                    peak_centers[n] = centers[index]
+                    peak_heights[n] = heights[index]
+                    peak_widths[n] = widths[index]*delta_x
+        return use_peaks, peak_centers, peak_heights, peak_widths
 
     def _create_prefixes(self, models):
         """Check for duplicate model names and create prefixes."""
@@ -1919,16 +1848,17 @@ class Fit:
             self._ast.basesymtable = dict(self._ast.symtable.items())
             pars_init = []
             res_par_indices = []
-            ii = 0
             for i, (name, par) in enumerate(self._parameters.items()):
-                setattr(par, '_init_value', par.value)
-                self._res_par_values[i] = par.value
+                value = par.value
+                setattr(par, '_init_value', value)
+                self._res_par_values[i] = value
                 if par.expr is None:
-                    self._ast.symtable[name] = par.value
+                    self._ast.symtable[name] = value
                     if par.vary:
-                        pars_init.append(par.value)
-                        res_par_indices.append(self._res_par_indices[ii])
-                        ii += 1
+                        pars_init.append(value)
+                        res_par_indices.append(
+                            self._res_par_indices[
+                                self._res_par_names.index(name)])
             if have_bounds:
                 bounds = (
                     [v['min'] for v in self._parameter_bounds.values()],
@@ -2193,6 +2123,7 @@ class FitMap(Fit):
         self._inv_transpose = None
         self._max_nfev = None
         self._memfolder = config.memfolder
+        self._multipeak_info = None
         self._new_parameters = None
         self._num_func_eval = None
         self._out_of_bounds = None
@@ -2613,21 +2544,22 @@ class FitMap(Fit):
         if config is None:
             num_proc = kwargs.pop('num_proc', num_proc_max)
             self._abs_height_cutoff = kwargs.pop('abs_height_cutoff')
-            self._rel_height_cutoff = kwargs.pop('rel_height_cutoff')
-            self._try_no_bounds = kwargs.pop('try_no_bounds', False)
-            self._redchi_cutoff = kwargs.pop('redchi_cutoff', 0.1)
-            self._print_report = kwargs.pop('print_report', False)
+            self._multipeak_info = kwargs.pop('multipeak_info', None)
             self._plot = kwargs.pop('plot', False)
+            self._print_report = kwargs.pop('print_report', False)
+            self._redchi_cutoff = kwargs.pop('redchi_cutoff', 0.1)
+            self._rel_height_cutoff = kwargs.pop('rel_height_cutoff')
             self._skip_init = kwargs.pop('skip_init', True)
+            self._try_no_bounds = kwargs.pop('try_no_bounds', False)
         else:
             num_proc = config.num_proc
             self._abs_height_cutoff = config.abs_height_cutoff
-            self._rel_height_cutoff = config.rel_height_cutoff
-#            self._try_no_bounds = config.try_no_bounds
-#            self._redchi_cutoff = config.redchi_cutoff
-            self._print_report = config.print_report
             self._plot = config.plot
+            self._print_report = config.print_report
+#            self._redchi_cutoff = config.redchi_cutoff
+            self._rel_height_cutoff = config.rel_height_cutoff
 #            self._skip_init = config.skip_init
+#            self._try_no_bounds = config.try_no_bounds
         if num_proc > 1 and not HAVE_JOBLIB:
             self._logger.warning(
                 'Missing joblib in the conda environment, running serially')
@@ -2939,8 +2871,9 @@ class FitMap(Fit):
                     if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
                         _max *= self._norm[1]
                     par.set(value=value, min=_min, max=_max)
-                if self._code == 'scipy':
-                    setattr(par, '_init_value', par.init_value*self._norm[1])
+                # RV FIX
+                #if self._code == 'scipy':
+                #    setattr(par, '_init_value', par.init_value*self._norm[1])
 
         if num_proc > 1:
             # Free the shared memory
@@ -2955,30 +2888,13 @@ class FitMap(Fit):
         # Do not attempt a fit if the data is zero or entirely below
         # the cutoff
         y_max = self._ymap_norm[n].max()
-#        print(f'\ty_min, y_max: {self._ymap_norm[n].min()}, {y_max}')
-#        if self._normalized:
-#            print(f'\tabs_height_cutoff: {self._abs_height_cutoff} {y_max*self._norm[1] + self._norm[0]}')
-#        print(f'\trel_height_cutoff: {self._rel_height_cutoff}')
-#        print(f'\tcurrent_best_values start: {current_best_values}')
-#        # Third party modules
-#        from scipy.signal import find_peaks as find_peaks_scipy
-#        peaks = find_peaks_scipy(
-#            #self._ymap_norm[n], width=5, height=0.05)#, prominence=0.5)
-#            self._ymap_norm[n], width=5, height=0, prominence=0.02)
-#        print(f"\tpeaks {type(peaks)}: {peaks}")
-#        print(f"\tpeak heights {type(peaks[1]['peak_heights'])}: {peaks[1]['peak_heights'].tolist()}")
-#        print(f"\tpeak widths {type(peaks[1]['widths'])}: {peaks[1]['widths'].tolist()}")
-#        print(f"\tpeak centers {type(peaks[0])}: {peaks[0].tolist()}")
-#        print(f"\tpeak centers: {[self._x[v] for v in peaks[0]]}")
-#        quick_plot(self._ymap_norm[n], vlines=peaks[0], block=True)
-#        exit('Done')
         if (y_max == 0.0
                 or (self._normalized and self._abs_height_cutoff is not None
                     and (y_max*self._norm[1] + self._norm[0]
                          < self._abs_height_cutoff))
                 or (self._rel_height_cutoff is not None
                     and y_max < self._rel_height_cutoff)):
-#            print(f'\t------->skipping!!!!!!!!')
+#            print(f'\t------->skipping n={n}!!!!!!!!')
             self._logger.debug(f'Skipping fit {n} (rel norm = {y_max:.5f})')
             if self._code == 'scipy':
                 # Local modules
@@ -2995,76 +2911,48 @@ class FitMap(Fit):
             self._renormalize(n, result)
             return result
 
+        parameters_save = deepcopy(self._parameters)
+        parameters_bounds_save = deepcopy(self._parameter_bounds)
+        if self._multipeak_info is not None:
+            # Third party modules
+            from asteval import Interpreter
+
+            centers = self._multipeak_info.get('centers')
+            centers_range = self._multipeak_info.get('centers_range')
+            centers_range_fraction = \
+                self._multipeak_info.get('centers_range_fraction')
+            model_type = self._multipeak_info.get('peak_models')
+            use_peaks, _, peak_heights, peak_widths = \
+                self.guess_init_peak(
+                    self._x, self._ymap_norm[n], centers, centers_range,
+                    centers_range_fraction, min_height=self._rel_height_cutoff,
+                    min_width=5)
+
+            ast = Interpreter()
+            for i, (use_peak, height, width) in enumerate(zip(
+                    use_peaks, peak_heights, peak_widths)):
+                name = f'peak{i+1}_amplitude'
+                ast(f'fwhm = {width}')
+                ast(f'height = {height}')
+                sigma = ast(fwhm_factor[model_type])
+                amplitude = ast(height_factor[model_type])
+                if use_peak:
+                    self._parameters[name].set(value=amplitude)
+                    self._parameters[name.replace('amplitude', 'sigma')].set(
+                        value=sigma)
+                else:
+                    self._parameters[name].set(
+                        value=0.0, min=0.0, vary=False)
+                    self._parameters[
+                        name.replace('amplitude', 'center')].set(vary=False)
+                    self._parameters[name.replace('amplitude', 'sigma')].set(
+                        value=0.0, min=0.0, vary=False)
+
         # Regular full fit
         result = self._fit_with_bounds_check(n, current_best_values, **kwargs)
         if result.nfev == kwargs.get('max_nfev'):
             self._logger.info(
                 f'Hit max_nfev limit for n={n}\n\tnfev: {result.nfev}')
-
-        if self._rel_height_cutoff is not None:
-            # Check for low heights peaks and refit without them
-            # FIX make sure to add "height" and "fwhm" to peak-like models
-            heights = []
-            names = []
-            if self._code == 'lmfit':
-                for component in result.components:
-                    if component._name in ('gaussian', 'lorentzian'):
-                        for name in component.param_names:
-                            if 'height' in name:
-                                heights.append(result.params[name].value)
-                                names.append(name)
-                                break
-            else:
-                # Third party modules
-                from asteval import Interpreter
-
-                ast = Interpreter()
-                for component in result.components:
-                    if component._name in ('gaussian', 'lorentzian'):
-                        for name in component.param_names:
-                            if 'amplitude' in name:
-                                ast(f'amplitude = {result.params[name].value}')
-                                names.append(name)
-                            elif 'sigma' in name:
-                                ast(f'sigma = {result.params[name].value}')
-                        heights.append(ast(amplitude_factor[component._name]))
-            if heights:
-                refit = False
-                max_height = max(heights)
-                parameters_save = deepcopy(self._parameters)
-                parameters_bounds_save = deepcopy(self._parameter_bounds)
-                for i, (name, height) in enumerate(zip(names, heights)):
-                    if height < self._rel_height_cutoff*max_height:
-                        if self._code == 'lmfit':
-                            self._parameters[
-                                name.replace('height', 'amplitude')].set(
-                                   value=0.0, min=0.0, vary=False)
-                            self._parameters[
-                                name.replace('height', 'center')].set(
-                                   vary=False)
-                            self._parameters[
-                                name.replace('height', 'sigma')].set(
-                                   value=0.0, min=0.0, vary=False)
-                        else:
-                            self._parameters[name].set(
-                               value=0.0, min=0.0, vary=False)
-                            self._parameters[
-                                name.replace('amplitude', 'center')].set(
-                                   vary=False)
-                            self._parameters[
-                                name.replace('amplitude', 'sigma')].set(
-                                   value=0.0, min=0.0, vary=False)
-                        refit = True
-                if refit:
-#                    print(f'\t------->refitting!!!!!!!!')
-                    result = self._fit_with_bounds_check(
-                        n, current_best_values, **kwargs)
-                    # Reset fixed amplitudes back to default
-                    self._parameters = deepcopy(parameters_save)
-                    self._parameter_bounds = deepcopy(parameters_bounds_save)
-                    if result.nfev == kwargs.get('max_nfev'):
-                        self._logger.info(
-                        f'\nHit max_nfev limit again after refit for n={n}')
 
         if result.redchi >= self._redchi_cutoff:
             result.success = False
@@ -3090,9 +2978,14 @@ class FitMap(Fit):
                 errortxt += f'\n\t{result.message}'
             self._logger.warning(f'{errortxt}')
 
+        # Reset parameters to defaults
+        self._parameters = deepcopy(parameters_save)
+        self._parameter_bounds = deepcopy(parameters_bounds_save)
+
         # Renormalize the data and results
         self._renormalize(n, result)
 
+        # Print output or plot
         if self._print_report:
             print(result.fit_report(show_correl=False))
         if self._plot:
@@ -3143,7 +3036,7 @@ class FitMap(Fit):
                     break
         self._out_of_bounds_flat[n] = out_of_bounds
         if self._try_no_bounds and out_of_bounds:
-#            print(f'\t------->refitting after out_of_bounds!!!!!!!!')
+#            print(f'\t------->refitting n={n} after out_of_bounds!!!!!!!!')
             # Rerun fit with parameter bounds in place
             for name, par in self._parameter_bounds.items():
                 if self._parameters[name].vary:
