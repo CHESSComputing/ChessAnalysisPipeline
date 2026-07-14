@@ -81,9 +81,18 @@ class _FitConfig(CHAPBaseModel):
     :ivar centers_range: Peak centers range for peak fitting.
         The allowed range for the peak centers will be the initial
         values &pm; `centers_range` (in MCA channels for calibration
-        or keV for strain analysis). Defaults to `20` for calibration
-        and `2.0` for strain analysis.
+        or keV for strain analysis, ignored when `0.0`).
+        Defaults to `20` for calibration and `2.0` for strain analysis.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
     :vartype centers_range: float, optional
+    :ivar centers_range_fraction: Peak centers range for peak fitting.
+        The allowed range for the peak centers will be the initial
+        values &pm; `centers_range_fraction times the initial value`
+        (in keV) (ignored when `0.0`), defaults to `0.02`.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
+    :vartype centers_range_fraction: float, optional
     :ivar energy_mask_ranges: MCA energy mask ranges in keV for
         selecting the data to be included after applying a mask (bounds
         are inclusive). Specify either energy_mask_ranges or
@@ -110,7 +119,9 @@ class _FitConfig(CHAPBaseModel):
         strict=True, strip_whitespace=True, to_lower=True))] = ['constant']
     baseline: Optional[Union[bool, BaselineConfig]] = None
     baseline_type: Optional[Literal['mean', 'spectrum']] = 'mean'
-    centers_range: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
+    centers_range: Optional[confloat(ge=0, allow_inf_nan=False)] = 20
+    centers_range_fraction: Optional[
+        confloat(ge=0, allow_inf_nan=False)] = 0.02
     energy_mask_ranges: Optional[conlist(
         min_length=1,
         item_type=conlist(
@@ -426,8 +437,18 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     :vartype abs_height_cutoff: int, optional
     :ivar centers_range: Peak centers range for peak fitting.
         The allowed range for the peak centers will be the initial
-        values &pm; `centers_range` (in keV), defaults to `2.0`.
+        values &pm; `centers_range` (in keV) (ignored when `0.0`),
+        defaults to `2.0`.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
     :vartype centers_range: float, optional
+    :ivar centers_range_fraction: Peak centers range for peak fitting.
+        The allowed range for the peak centers will be the initial
+        values &pm; `centers_range_fraction times the initial value`
+        (in keV) (ignored when `0.0`), defaults to `0.02`.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
+    :vartype centers_range_fraction: float, optional
     :ivar fwhm_min: Minimum FWHM for peak fitting (in keV),
         defaults to `0.25`.
     :vartype fwhm_min: float, optional
@@ -451,7 +472,9 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     #:vartype tth_file: FilePath, optional
 
     abs_height_cutoff: Optional[conint(gt=0)] = None
-    centers_range: Optional[confloat(gt=0, allow_inf_nan=False)] = 2
+    centers_range: Optional[confloat(ge=0, allow_inf_nan=False)] = 2
+    centers_range_fraction: Optional[
+        confloat(ge=0, allow_inf_nan=False)] = 0.02
     fwhm_min: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.25
     fwhm_max: Optional[confloat(gt=0, allow_inf_nan=False)] = 2.0
     processor_type: Literal['strainanalysis']
