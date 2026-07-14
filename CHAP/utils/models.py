@@ -1019,8 +1019,16 @@ class MultipeakModel(CHAPBaseModel):
     :vartype model_type: Literal['expression']
     :ivar centers: Peak centers.
     :vartype center: list[float]
-    :ivar centers_range: Range of peak centers around their centers.
+    :ivar centers_range: Range of peak centers around their centers,
+        defaults to `0.0` in which case it is ignored.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
     :vartype centers_range: float, optional
+    :ivar centers_range_fraction: Range of peak centers around their
+        centers as a fraction of their position, defaults to `0.05`.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
+    :vartype centers_range_fraction: float, optional
     :ivar fit_type: Type of fit, defaults to `'unconstrained'`.
     :vartype fit_type: Literal['uniform', 'unconstrained'], optional.
     :ivar fwhm_min: Lower limit of the fwhm of the peaks.
@@ -1034,7 +1042,9 @@ class MultipeakModel(CHAPBaseModel):
 
     model_type: Literal['multipeak']
     centers: conlist(item_type=confloat(allow_inf_nan=False), min_length=1)
-    centers_range: Optional[confloat(allow_inf_nan=False)] = None
+    centers_range: Optional[confloat(ge=0, allow_inf_nan=False)] = 0.0
+    centers_range_fraction: Optional[
+        confloat(ge=0, allow_inf_nan=False)] = 0.05
     fit_type: Optional[Literal['uniform', 'unconstrained']] = 'unconstrained'
     fwhm_min: Optional[confloat(allow_inf_nan=False)] = None
     fwhm_max: Optional[confloat(allow_inf_nan=False)] = None

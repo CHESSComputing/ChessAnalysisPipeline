@@ -237,8 +237,14 @@ class FitProcessor(Processor):
             # Local modules
             from CHAP.utils.models import FitParameter
 
-            parameters = [FitParameter(
-                name='scale_factor', value=1.0, min=FLOAT_MIN)]
+            if not model.centers_range_fraction:
+                parameters = [FitParameter(
+                    name='scale_factor', value=1.0, min=FLOAT_MIN)]
+            else:
+                parameters = [FitParameter(
+                    name='scale_factor', value=1.0,
+                    min=1.0-model.centers_range_fraction,
+                    max=1.0+model.centers_range_fraction)]
             peak_models = []
             for i, cen in enumerate(model.centers):
                 peak_models.append(peak_model_class(
@@ -255,29 +261,25 @@ class FitProcessor(Processor):
             """Create an unconstrained multipeak model."""
             peak_models = []
             for i, cen in enumerate(model.centers):
-                if model.centers_range == 0:
+                if not (model.centers_range and model.centers_range_fraction):
                     peak_models.append(peak_model_class(
                         model_type=model.peak_models,
                         prefix=f'peak{i+1}_',
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
-                             {'name': 'center', 'value': cen, 'vary': False},
+                             {'name': 'center', 'value': cen},
                              {'name': 'sigma', 'min': sig_min, 'max': sig_max}
                         ]))
                 else:
-                    if model.centers_range is None:
-                        cen_min = None
-                        cen_max = None
-                    else:
-                        cen_min = cen - model.centers_range
-                        cen_max = cen + model.centers_range
+                    delta = max(
+                        model.centers_range, cen*model.centers_range_fraction)
                     peak_models.append(peak_model_class(
                         model_type=model.peak_models,
                         prefix=f'peak{i+1}_',
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
-                             {'name': 'center', 'value': cen, 'min': cen_min,
-                              'max': cen_max},
+                             {'name': 'center', 'value': cen,
+                              'min': max(0.0, cen-delta), 'max': cen+delta},
                              {'name': 'sigma', 'min': sig_min, 'max': sig_max}
                         ]))
             return [], peak_models
@@ -1438,8 +1440,8 @@ class Fit:
 
     @staticmethod
     def guess_init_peak(
-            x, y, target_centers, centers_range, min_height=None,
-            min_width=None):
+            x, y, target_centers, centers_range, centers_range_fraction,
+            min_height=None, min_width=None):
         """Return guesses for the initial height, center and fwhm for
         peak-like models.
         """
@@ -1452,6 +1454,7 @@ class Fit:
         assert x.ndim == 1 and x.shape == y.shape
         assert target_centers.ndim == 1
         assert isinstance(centers_range, (int, float))
+        assert isinstance(centers_range_fraction, (int, float))
         peaks = find_peaks_scipy(y, height=min_height, width=min_width)
         centers = [x[v] for v in peaks[0]]
         heights = peaks[1]['peak_heights']
@@ -1465,7 +1468,8 @@ class Fit:
         delta_x = x[1] - x[0]
         for n, target_center in enumerate(target_centers):
             index = np.abs(centers - target_center).argmin() 
-            if np.abs(target_center - centers[index]) < centers_range:
+            delta = max(centers_range, target_center*centers_range_fraction)
+            if np.abs(target_center - centers[index]) < delta:
                 use_peaks[n] = True
                 peak_centers[n] = centers[index]
                 peak_heights[n] = heights[index]
@@ -3182,11 +3186,14 @@ class FitMap(Fit):
 
             centers = self._multipeak_info.get('centers')
             centers_range = self._multipeak_info.get('centers_range')
+            centers_range_fraction = \
+                self._multipeak_info.get('centers_range_fraction')
             model_type = self._multipeak_info.get('peak_models')
             use_peaks, _, peak_heights, peak_widths = \
                 self.guess_init_peak(
                     self._x, self._ymap_norm[n], centers, centers_range,
-                    min_height=self._rel_height_cutoff, min_width=5)
+                    centers_range_fraction, min_height=self._rel_height_cutoff,
+                    min_width=5)
 
             ast = Interpreter()
             for i, (use_peak, height, width) in enumerate(zip(

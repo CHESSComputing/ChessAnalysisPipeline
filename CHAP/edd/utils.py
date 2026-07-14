@@ -1337,6 +1337,7 @@ def get_spectra_fits(
         {'model_type': 'multipeak', 'centers': list(peak_locations),
          'fit_type': 'uniform', 'peak_models': detector.peak_models,
          'centers_range': detector.centers_range,
+         'centers_range_fraction': detector.centers_range_fraction,
          'fwhm_min': detector.fwhm_min, 'fwhm_max': detector.fwhm_max})
     config = {
         'abs_height_cutoff': abs_height_cutoff,
@@ -1344,7 +1345,7 @@ def get_spectra_fits(
         'code': 'scipy',
         'models': models,
 #        'plot': True,
-        'print_report': True,
+#        'print_report': True,
         'num_proc': num_proc,
         'max_nfev': max_nfev,
         'rel_height_cutoff': rel_height_cutoff,
