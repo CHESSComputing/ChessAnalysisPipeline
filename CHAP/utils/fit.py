@@ -2944,9 +2944,7 @@ class FitMap(Fit):
         if (y_max == 0.0
                 or (self._normalized and self._abs_height_cutoff is not None
                     and (y_max*self._norm[1] + self._norm[0]
-                         < self._abs_height_cutoff))
-                or (self._rel_height_cutoff is not None
-                    and y_max < self._rel_height_cutoff)):
+                         < self._abs_height_cutoff))):
 #            print(f'\t------->skipping n={n}!!!!!!!!')
             self._logger.debug(f'Skipping fit {n} (rel norm = {y_max:.5f})')
             if self._code == 'scipy':
@@ -2978,7 +2976,8 @@ class FitMap(Fit):
             use_peaks, _, peak_heights, peak_widths = \
                 self.guess_init_peak(
                     self._x, self._ymap_norm[n], centers, centers_range,
-                    centers_range_fraction, min_height=self._rel_height_cutoff,
+                    centers_range_fraction,
+                    min_height=y_max*self._rel_height_cutoff,
                     min_width=5)
 
             ast = Interpreter()
