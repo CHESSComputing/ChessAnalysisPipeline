@@ -505,40 +505,10 @@ class PipelineItem(RunConfig):
         """
         # System modules
         from importlib import import_module
-        from inspect import isclass
-        from pkgutil import walk_packages
-
-        # Local modules
-        from CHAP.utils.general import input_menu
-
-        def _find_class_in_package(package_name, class_name):
-            package = import_module(package_name)
-            # Recursively walk through all submodules
-            found_classes = []
-            for _, module_name, _ in walk_packages(
-                    package.__path__, package.__name__ + "."):
-                try:
-                    module = import_module(module_name)
-                    # Check if the class exists in this module
-                    if hasattr(module, class_name):
-                        cls = getattr(module, class_name)
-                        if (isclass(cls) and cls.__module__ == module_name
-                                and cls not in found_classes):
-                            found_classes.append(cls)
-                except ImportError:
-                    continue
-            if not found_classes:
-                raise ImportError(f'Unable to find {class_name} in CHAP')
-            if len(found_classes) == 1:
-                return found_classes[0]
-            index = input_menu(
-                [v.__module__ for v in found_classes],
-                header=f'\nFound multiple classes named {class_name} in '
-                       f'CHAP\nUse {class_name} from:')
-            return found_classes[index]
 
         cls_name = cls.__name__
-        mmc = _find_class_in_package('CHAP', cls_name)
+        package = import_module(cls.__module__, cls_name)
+        mmc = getattr(package, cls_name)
         item = mmc(modelmetaclass=mmc, **kwargs)
         return item.execute(kwargs.get('data'))
 
