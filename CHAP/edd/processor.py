@@ -536,7 +536,6 @@ class DiffractionVolumeLengthProcessor(_BaseEddProcessor):
                 'merge_key_paths': {'key_path': 'detectors/id', 'type': int}},
         },
         init_var=True)
-
     config: Optional[
         DiffractionVolumeLengthConfig] = DiffractionVolumeLengthConfig()
     detector_config: MCADetectorConfig

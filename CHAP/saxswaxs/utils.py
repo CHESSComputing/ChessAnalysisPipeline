@@ -1,5 +1,4 @@
-import zarr
-
+# Local modules
 from CHAP.runner import set_logger
 
 logger, _ = set_logger(log_level='DEBUG')
