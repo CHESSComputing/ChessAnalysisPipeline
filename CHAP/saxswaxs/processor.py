@@ -1332,7 +1332,7 @@ class UpdateValuesProcessor(Processor):
     pyfai_config: PyfaiIntegrationConfig
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
     correction_config: CorrectionsConfig
-    fit_config: FitsConfig
+    fit_config: FitsConfig = FitsConfig(fits=[])
     spec_file: FilePath
     scan_number: conint(gt=0)
     filename: Optional[str] = None
