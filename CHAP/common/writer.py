@@ -645,7 +645,7 @@ class NexusValuesWriter(Writer):
     resize_axis: Union[int, Literal[False]] = False
     idx_slice: Optional[IndexSliceConfig] = IndexSliceConfig()
 
-    def write(self, data, filename):
+    def write(self, data):
         """Write new values specified in `data` to the exising NeXus
         file `filename`.
 
@@ -655,17 +655,13 @@ class NexusValuesWriter(Writer):
         to be written, and `'idx'` identifying the index / indicies of
          the `NXfield` to which the data will be written.
         :type data: list[PipelineData]
-        :param filename: Name of an existing NeXus file to update.
-        :type filename: str
-        :param path_prefix: Prefix to use for all paths in input
-            `data`, defaults to `''`.
-        :type path_prefix: str, optional
         """
         # Third party modules
         from nexusformat.nexus import NXFile
 
         data = self.get_pipelinedata_item(data, remove=self.remove)
-        with NXFile(filename, 'a') as nxroot:
+        self.logger.info(f'data = {data}')
+        with NXFile(self.filename, 'a') as nxroot:
             for d in data:
                 try:
                     self.nxs_writer(

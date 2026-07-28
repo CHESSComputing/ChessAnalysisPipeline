@@ -302,6 +302,12 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         direction of the azimuthal coordinate from pyFAI's convention,
         defaults to `True`.
     :vartype right_handed: bool, optional
+    :ivar input_name: When set, names a
+        :class:`~CHAP.saxswaxs.models.CorrectionConfig` whose
+        corrected detector images are used as input to this integration
+        instead of raw detector data.  When ``None`` (default), raw
+        detector images are used as input.
+    :vartype input_name: str, optional
     """
 
     name: constr(strip_whitespace=True, min_length=1)
@@ -312,6 +318,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         Integrate1dConfig, Integrate2dConfig, IntegrateRadialConfig]
     ] = None
     right_handed: bool = True
+    input_name: Optional[str] = None
 
     _placeholder_result: PrivateAttr = None
 

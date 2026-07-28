@@ -34,6 +34,7 @@ from CHAP.processor import Processor
 from CHAP.pipeline import PipelineData
 from CHAP.saxswaxs.models import (
     CorrectionsConfig,
+    FitsConfig,
     FluxCorrectionConfig,
     FluxAbsorptionCorrectionConfig,
     FluxAbsorptionBackgroundCorrectionConfig,
@@ -266,7 +267,7 @@ class FluxCorrectionProcessor(ExpressionProcessor):
             data, name='presample_intensity',
         )
         intensity = self.get_data(
-            data, name=self.config.uncorrected_data_name,
+            data, name=self.config.input_data_name,
         )
         # nxfieldtable = {
         #     'intensity': intensity,
@@ -336,7 +337,7 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
         :rtype: numpy.ndarray or nexusformat.nexus.NXobject
         """
         intensity = self.get_data(
-            data, name=self.config.uncorrected_data_name, #'intensity',
+            data, name=self.config.input_data_name, #'intensity',
         )
 
         if self.config.presample_intensity_reference_rate is None:
@@ -433,7 +434,7 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         :rtype: numpy.ndarray or nexusformat.nexus.NXobject
         """
         intensity = self.get_data(
-            data, name=self.config.uncorrected_data_name,
+            data, name=self.config.input_data_name,
         )
 
         if self.config.presample_intensity_reference_rate is None:
@@ -567,13 +568,20 @@ class SetupProcessor(Processor):
     experiments.
 
     :ivar map_config: Map configuration.
-    :vartype map_config: dict, optional
-        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
+    :vartype map_config: :class:`~CHAP.common.models.map.MapConfig`,
+        optional
     :ivar pyfai_config: Initialization parameters for an instance of
         :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
-    :vartype pyfai_config: dict, optional
+    :vartype pyfai_config:
+        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`,
+        optional
     :ivar detector_config: Detector configurations.
-    :vartype detector_config: DetectorConfig
+    :vartype detector_config: :class:`~CHAP.common.models.map.DetectorConfig`
+    :ivar correction_config: Corrections to apply to integrated data.
+    :vartype correction_config:
+        :class:`~CHAP.saxswaxs.models.CorrectionsConfig`
+    :ivar fit_config: Fits to perform on integrated or corrected data.
+    :vartype fit_config: :class:`~CHAP.saxswaxs.models.FitsConfig`
     :ivar dataset_shape: Shape of the completed dataset that will be
         processed later on (shape of the measurement itself, _not_
         including the dimensions of any signals collected at each point
@@ -591,7 +599,7 @@ class SetupProcessor(Processor):
     :ivar num_chunk: Used only if `dataset_chunks` is `"auto"`.
         Preferred number of chunks in the dataset, defaults to `1`.
     :vartype num_chunk: int, optional
-    :ivar raw_data: Flag to indicate wether or not space for raw
+    :ivar raw_data: Flag to indicate whether or not space for raw
         detector data should be included in the returned
         `Zarr group <https://zarr.readthedocs.io/en/latest/api/zarr/group/#zarr.Group>`__,
         defaults to `True`.
@@ -604,6 +612,7 @@ class SetupProcessor(Processor):
             'detector_config': 'common.models.map.DetectorConfig',
             'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig',
             'correction_config': 'saxswaxs.models.CorrectionsConfig',
+            'fit_config': 'saxswaxs.models.FitsConfig',
         },
         init_var=True)
     # map_config needs a default value because the map configuration
@@ -614,6 +623,7 @@ class SetupProcessor(Processor):
     pyfai_config: PyfaiIntegrationConfig = None
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
     correction_config: CorrectionsConfig = CorrectionsConfig(corrections=[])
+    fit_config: FitsConfig = FitsConfig(fits=[])
     dataset_shape: Optional[
         conlist(item_type=conint(ge=0), min_length=1)] = [0]
     dataset_chunks: Optional[
@@ -713,30 +723,102 @@ class SetupProcessor(Processor):
 
 
         # Get zarr container for corrected datasets
-        integration_shapes = {
-            integration.name: integration.result_shape
-            for integration in self.pyfai_config.integrations
-        }
         intg_by_name = {
             intg.name: intg for intg in self.pyfai_config.integrations
         }
-        corr_nxlinks = {
-            corr.name: (
-                dim_paths
-                + [f'{corr.uncorrected_data_name}/data/I']
-                + [
-                    f'{corr.uncorrected_data_name}/data/{coord}'
-                    for coord in intg_by_name[
-                        corr.uncorrected_data_name].result_coords
-                ]
-            )
+        corr_by_name = {
+            corr.name: corr
             for corr in self.correction_config.corrections
         }
+        fit_by_name = {
+            fit.name: fit
+            for fit in self.fit_config.fits
+        }
+        proc_by_name = corr_by_name | fit_by_name
+
+        # Detector image shapes keyed by detector ID
+        ai_shapes = {
+            ai.get_id(): ai.ai.detector.shape
+            for ai in self.pyfai_config.azimuthal_integrators
+        }
+
+        def _resolve_input_shape(name):
+            """Return the output frame shape of the named single-source node.
+
+            Corrections are elementwise so their output shape equals
+            their input shape; recurse until a detector ID or integration
+            is reached.  Only valid for single-name sources.
+            """
+            if name in intg_by_name:
+                return intg_by_name[name].result_shape
+            if name in proc_by_name:
+                src = proc_by_name[name].input_data_name
+                if isinstance(src, list):
+                    # Multi-source correction/fit: all sources have the same
+                    # shape (same detector type); use the first.
+                    return _resolve_input_shape(src[0])
+                return _resolve_input_shape(src)
+            return ai_shapes[name]  # detector ID
+
+        def _resolve_intg_ancestor(name):
+            """Return the nearest integration ancestor of name, or None.
+
+            Traverses correction chains upward until an integration or
+            a raw detector source is found.  Only valid for single-name
+            sources.
+            """
+            if name in intg_by_name:
+                return name
+            if name in proc_by_name:
+                src = proc_by_name[name].input_data_name
+                if isinstance(src, list):
+                    return _resolve_intg_ancestor(src[0])
+                return _resolve_intg_ancestor(src)
+            return None  # raw detector data
+
+        # input_shapes is keyed by Correction/FitConfig.name.  For
+        # single-source corrections/fits the value is a shape tuple;
+        # for multi-source corrections/fits it is a dict mapping each
+        # source name to its shape.
+        input_shapes = {}
+        for proc in self.correction_config.corrections + self.fit_config.fits:
+            if isinstance(proc.input_data_name, list):
+                input_shapes[proc.name] = {
+                    src: _resolve_input_shape(src)
+                    for src in proc.input_data_name
+                }
+            else:
+                input_shapes[proc.name] = _resolve_input_shape(
+                    proc.input_data_name)
+
+        proc_nxlinks = {}
+        for proc in self.correction_config.corrections + self.fit_config.fits:
+            # For nxlinks use the first source to find an integration
+            # ancestor (all sources in a multi-source correction/fit share
+            # the same chain type).
+            first_src = (proc.input_data_name[0]
+                         if isinstance(proc.input_data_name, list)
+                         else proc.input_data_name)
+            intg_ancestor = _resolve_intg_ancestor(first_src)
+            src_signal = 'I' if first_src in intg_by_name \
+                             else 'I_corrected' if first_src in corr_by_name \
+                             else None
+            if intg_ancestor is None:
+                proc_nxlinks[proc.name] = dim_paths
+            else:
+                proc_nxlinks[proc.name] = (
+                    dim_paths
+                    + [f'{first_src}/data/{src_signal}']
+                    + [
+                        f'{intg_ancestor}/data/{coord}'
+                        for coord in intg_by_name[intg_ancestor].result_coords
+                    ]
+                )
         zarr_corr = dict_to_zarr(
             self.correction_config.zarr_tree(
                 self.dataset_shape, self.dataset_chunks,
-                integration_shapes,
-                nxlinks=corr_nxlinks,
+                input_shapes,
+                nxlinks=proc_nxlinks,
             ),
             logger=self.logger,
         )
@@ -771,28 +853,11 @@ class SetupProcessor(Processor):
                     for det in self.detector_config.detectors:
                         bg_det_images[det.get_id()].append(
                             scanparser.get_detector_data(det.get_id(), i))
-            # Average all background data to a single frame before
-            # processing with appropriate integration
+            # Average all background frames to a single frame per detector
             for det_id in bg_det_images:
                 bg_det_images[det_id] = np.mean(
                     bg_det_images[det_id], axis=0, keepdims=True)
-            self.logger.info(
-                f'Integrating background data for correction '
-                f'"{corr_cfg.name}"')
-            bg_pyfai_input = [
-                PipelineData(name=det_id, data=imgs)
-                for det_id, imgs in bg_det_images.items()
-            ]
-            bg_pyfai_config = self.pyfai_config.model_copy(
-                update={'integrations': [
-                    intg for intg in self.pyfai_config.integrations
-                    if intg.name == corr_cfg.uncorrected_data_name
-                ]}
-            )
-            bg_integrated = self.setup_pipelineitem(
-                PyfaiIntegrationProcessor(config=bg_pyfai_config)
-            ).process(bg_pyfai_input)[0]
-            # Read background scalar data
+            # Read background monitor data
             bg_presample = self.map_config.presample_intensity.get_value(
                 corr_cfg.background, scan_number, -1,
                 self.map_config.scalar_data
@@ -801,12 +866,41 @@ class SetupProcessor(Processor):
                 corr_cfg.background, scan_number, -1,
                 self.map_config.scalar_data
             )[idx_slice._slice]
-            # Fill in placeholder zarr arrays with real background
-            # data
             data_group = zarr_corr[corr_cfg.name]['data']
-            data_group['I_background'][:] = np.squeeze(
-                bg_integrated['data'], axis=0
-            )
+            # Determine whether each source of this correction resolves
+            # to a raw detector (store background as images) or to an
+            # integration (integrate background first).
+            for src in corr_cfg.input_data_names:
+                if _resolve_intg_ancestor(src) is None:
+                    # Source is raw detector data: store mean background
+                    # image for this detector directly.
+                    bg_image = np.squeeze(bg_det_images[src], axis=0)
+                    arr = data_group.create_array(
+                        f'I_background_{src}',
+                        shape=bg_image.shape, dtype=bg_image.dtype)
+                    arr[:] = bg_image
+                else:
+                    # Source is an integration: integrate background
+                    # images and store the result.
+                    self.logger.info(
+                        f'Integrating background data for correction '
+                        f'"{corr_cfg.name}" (source "{src}")')
+                    bg_pyfai_input = [
+                        PipelineData(name=det_id, data=imgs)
+                        for det_id, imgs in bg_det_images.items()
+                    ]
+                    bg_pyfai_config = self.pyfai_config.model_copy(
+                        update={'integrations': [
+                            intg for intg in self.pyfai_config.integrations
+                            if intg.name == src
+                        ]}
+                    )
+                    bg_integrated = self.setup_pipelineitem(
+                        PyfaiIntegrationProcessor(config=bg_pyfai_config)
+                    ).process(bg_pyfai_input)[0]
+                    data_group['I_background'][:] = np.squeeze(
+                        bg_integrated['data'], axis=0
+                    )
             bg_presample_arr = data_group.create_array(
                 'background_presample_intensity',
                 shape=bg_presample.shape, dtype=bg_presample.dtype)
@@ -815,6 +909,16 @@ class SetupProcessor(Processor):
                 'background_postsample_intensity',
                 shape=bg_postsample.shape, dtype=bg_postsample.dtype)
             bg_postsample_arr[:] = bg_postsample
+
+        # Assemble containers for fit data
+        zarr_fit = dict_to_zarr(
+            self.fit_config.zarr_tree(
+                self.dataset_shape, self.dataset_chunks,
+                input_shapes,
+                nxlinks=proc_nxlinks
+            ),
+            logger=self.logger,
+        )
 
         # Assemble containers for raw & processed data
         zarr_root = zarr.create_group(store=MemoryStore({}))
@@ -832,7 +936,7 @@ class SetupProcessor(Processor):
                 buf = await source_store.get(
                     k, prototype=default_buffer_prototype())
                 await dest_store.set(k, buf)
-        for zarr_group in (zarr_map, zarr_pyfai, zarr_corr):
+        for zarr_group in (zarr_map, zarr_pyfai, zarr_corr, zarr_fit):
             asyncio.run(copy_zarr_store(zarr_group.store, zarr_root.store))
         return zarr_root
 
@@ -1179,23 +1283,37 @@ class UpdateValuesProcessor(Processor):
     """Processes a slice of data for updating values in an existing
     container for a SAXS/WAXS experiment.
 
-    :ivar map_config: Map Configuration.
-    :vartype map_config: dict dict, optional
+    :ivar map_config: Map configuration.
+    :vartype map_config: :class:`~CHAP.common.models.map.MapConfig`,
+        optional
     :ivar pyfai_config: Initialization parameters for an instance of
         :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
-    :vartype pyfai_config: dict, optional
+    :vartype pyfai_config:
+        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`
+    :ivar detector_config: Detector configurations.
+    :vartype detector_config: :class:`~CHAP.common.models.map.DetectorConfig`
+    :ivar correction_config: Corrections to apply to integrated data.
+    :vartype correction_config:
+        :class:`~CHAP.saxswaxs.models.CorrectionsConfig`
+    :ivar fit_config: Fits to perform on integrated or corrected data.
+    :vartype fit_config: :class:`~CHAP.saxswaxs.models.FitsConfig`
     :ivar spec_file: SPEC file containing the scan from which to read
         and process a slice of raw data.
     :vartype spec_file: str
     :ivar scan_number: Scan number from which to read and process a
         slice of raw data.
     :vartype scan_number: int
-    :ivar detector_config: Detector configurations.
-    :vartype detector_config: :class:`~CHAP.common.models.map.DetectorConfig`
-    :ivar raw_data: Flag to indicate wether or not space for raw
-        detector data should be included in the values returned,
-        defaults to `True`.
+    :ivar filename: Path to an existing output file (Zarr or NeXus)
+        used to read pre-computed background data for corrections that
+        require it.  When ``None`` background intensities are skipped.
+    :vartype filename: str, optional
+    :ivar raw_data: Flag to indicate whether or not raw detector data
+        should be included in the values returned, defaults to `True`.
     :vartype raw_data: bool, optional
+    :ivar idx_slice: Index slice selecting which scan steps to process,
+        defaults to all steps.
+    :vartype idx_slice:
+        :class:`~CHAP.common.models.common.IndexSliceConfig`, optional
     """
     pipeline_fields: dict = Field(
         {
@@ -1203,6 +1321,7 @@ class UpdateValuesProcessor(Processor):
             'detector_config': 'common.models.map.DetectorConfig',
             'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig',
             'correction_config': 'saxswaxs.models.CorrectionsConfig',
+            'fit_config': 'saxswaxs.models.FitsConfig',
         },
         init_var=True)
     # map_config needs a default value because the map configuration
@@ -1213,6 +1332,7 @@ class UpdateValuesProcessor(Processor):
     pyfai_config: PyfaiIntegrationConfig
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
     correction_config: CorrectionsConfig
+    fit_config: FitsConfig = FitsConfig(fits=[])
     spec_file: FilePath
     scan_number: conint(gt=0)
     filename: Optional[str] = None
@@ -1223,31 +1343,32 @@ class UpdateValuesProcessor(Processor):
         """Processes a slice of data for updating values in an existing
         container for a SAXS/WAXS experiment.
 
+        Integrations, corrections, and fits are executed in dependency
+        order.  An integration whose ``input_name`` names a correction
+        takes that correction's output as its input; a correction or fit
+        whose ``input_data_name`` names another correction or integration
+        takes that node's output as its input.  Chains of arbitrary
+        depth are supported.
+
         :param data: Input data.
         :type data: list[PipelineData]
-        :param idx_slice: Dictionaries identifying the sliced index at which
-            the output data should be written in a dataset, defaults to
-            `{'start':0, 'step': 1}`.
-        :type idx_slice: dict[str, int], optional
-        :return: Integrated detector data ready for writing with
-            :class:`~CHAP.saxswaxs.ZarrResultsWriter` or
-            :class:`~CHAP.saxswaxs.NexusResultsWriter`.
-        :rtype: list[dict[str, Any]]
-        :return: Integrated detector data for updating values in an
-            existing container for a SAXS/WAXS experiment.
+        :return: Raw scalar data, integrated intensities, corrected
+            intensities, and fit results ready for writing with a
+            downstream writer.  Each item is a dict with keys ``'path'``
+            (str) and ``'data'`` (array or scalar).
         :rtype: list[dict[str, Any]]
         """
-        # Get updates with MapSliceProcessor
-        # Pass detector data to PyfaiIntegration processor
-        # Concatenate & return results
         # System modules
         from copy import deepcopy
-        import logging
         import os
 
         # Local modules
         from CHAP.common.map_utils import MapSliceProcessor
         from CHAP.pipeline import PipelineData
+        from CHAP.utils.fit import (
+            FitProcessor as UtilsFitProcessor,
+            UpdateValuesProcessor as UtilsUpdateValuesProcessor,
+        )
 
         # Use a copy of input data so we can append to it inside this
         # Processor without modifying the actual Pipeline's data
@@ -1265,54 +1386,246 @@ class UpdateValuesProcessor(Processor):
             )
         ).process(None)
 
-        def _get_detector_data(values, name):
-            """Get the detector data."""
-            for v in values:
+        detector_ids = {d.get_id() for d in self.detector_config.detectors}
+
+        def _get_raw_data(name):
+            """Return raw scalar or detector array from raw_values by name."""
+            for v in raw_values:
                 if os.path.basename(v['path']) == name:
                     return v['data']
             return None
 
-        # Use raw detector data as input to integration
-        for d in self.detector_config.detectors:
-            _data.append(
-                PipelineData(
-                    name=d.get_id(),
-                    data=_get_detector_data(raw_values, d.get_id()),
-                )
-            )
-        # Get integrated data
-        processed_values = self.setup_pipelineitem(
-            PyfaiIntegrationProcessor(config=self.pyfai_config)
-        ).process(_data)
+        # Execute all corrections, integrations, and fits in dependency order.
+        # image_outputs maps node name → {det_id: ndarray} for nodes whose
+        #   output is a per-detector image array.
+        # integrated_outputs maps node name → ndarray for nodes whose output
+        #   is an integrated data array.
+        # coord_outputs maps node name → 1-D coordinate array (x-values for
+        #   fitting) when the node's output has an associated coordinate axis.
+        # all_values accumulates result dicts for the return value.
+        image_outputs = {}        # name -> {det_id -> image ndarray}
+        integrated_outputs = {}   # name -> integrated ndarray
+        coord_outputs = {}        # name -> 1-D coordinate ndarray
+        all_values = []
 
-        # Get corrected data
-        corrected_values = [
-            {
-                'data': self.setup_pipelineitem(
-                    corr_cfg.processor
-                ).process(
-                    self.get_corrections_input_data(
-                        raw_values, processed_values, corr_cfg
-                    ),
-                    nxprocess=False,
-                ),
-                'path': f'{corr_cfg.name}/data/I_corrected'
-            }
-            for corr_cfg in self.correction_config.corrections
-        ]
+        # Seed image_outputs with raw detector data.
+        for det_id in detector_ids:
+            det_imgs = _get_raw_data(det_id)
+            if det_imgs is not None:
+                image_outputs[det_id] = {det_id: det_imgs}
+
+        # Process nodes in dependency order using a simple ready-queue.
+        # A node is ready when its named input is already in image_outputs
+        # or integrated_outputs.
+        pending_intgs = list(self.pyfai_config.integrations)
+        pending_corrs = list(self.correction_config.corrections)
+        pending_fits = list(self.fit_config.fits)
+
+        def _input_available(name):
+            return name in image_outputs or name in integrated_outputs
+
+        max_passes = len(pending_intgs) + len(pending_corrs) + len(pending_fits) + 1
+        for _ in range(max_passes):
+            if not pending_intgs and not pending_corrs and not pending_fits:
+                break
+
+            # Run any integration whose input is available
+            still_pending_intgs = []
+            for intg in pending_intgs:
+                if intg.input_name is not None:
+                    if not _input_available(intg.input_name):
+                        still_pending_intgs.append(intg)
+                        continue
+                    src_imgs = image_outputs.get(intg.input_name, {})
+                    if not src_imgs:
+                        still_pending_intgs.append(intg)
+                        continue
+                    pyfai_input = [
+                        PipelineData(name=det_id, data=arr)
+                        for det_id, arr in src_imgs.items()
+                    ]
+                else:
+                    # No input_name: use raw detector images
+                    pyfai_input = [
+                        PipelineData(name=d.get_id(),
+                                     data=_get_raw_data(d.get_id()))
+                        for d in self.detector_config.detectors
+                        if _get_raw_data(d.get_id()) is not None
+                    ]
+                    if not pyfai_input:
+                        still_pending_intgs.append(intg)
+                        continue
+
+                pyfai_cfg = self.pyfai_config.model_copy(
+                    update={'integrations': [intg]})
+                result = self.setup_pipelineitem(
+                    PyfaiIntegrationProcessor(config=pyfai_cfg)
+                ).process([*_data, *pyfai_input])
+                for r in result:
+                    all_values.append(r)
+                    integrated_outputs[intg.name] = r['data']
+                # Store the first coordinate axis for this integration so
+                # that downstream fits can use it as x-values.
+                if intg._placeholder_result is None:
+                    ais = {
+                        ai.get_id(): ai
+                        for ai in self.pyfai_config.azimuthal_integrators
+                    }
+                    intg.init_placeholder_results(ais)
+                if intg._placeholder_result is not None:
+                    coords = intg._placeholder_result.get('coords', {})
+                    coord_values = list(coords.values())
+                    if coord_values:
+                        coord_outputs[intg.name] = coord_values[0]['data']
+
+            pending_intgs = still_pending_intgs
+
+            # Run any correction whose inputs are all available
+            still_pending_corrs = []
+            for corr_cfg in pending_corrs:
+                if not all(_input_available(src)
+                           for src in corr_cfg.input_data_names):
+                    still_pending_corrs.append(corr_cfg)
+                    continue
+
+                multi = isinstance(corr_cfg.input_data_name, list)
+                # Collect corrected output per source name.
+                # image_outputs[corr_cfg.name] aggregates all sources.
+                per_src_corrected = {}  # src_name -> corrected ndarray
+                corr_image_outputs = {}  # det_id -> corrected image ndarray
+
+                for src in corr_cfg.input_data_names:
+                    if src in integrated_outputs:
+                        # Source is an integrated data array; correction
+                        # produces another integrated array for this source.
+                        result_data = self.setup_pipelineitem(
+                            corr_cfg.processor
+                        ).process(
+                            self.get_corrections_input_data(
+                                raw_values, integrated_outputs, corr_cfg,
+                                src_name=src),
+                            nxprocess=False,
+                        )
+                        per_src_corrected[src] = result_data
+                    else:
+                        # Source is a per-detector image dict.
+                        src_imgs = image_outputs[src]
+                        for det_id, det_imgs in src_imgs.items():
+                            corr_imgs = self.setup_pipelineitem(
+                                corr_cfg.processor
+                            ).process(
+                                self.get_image_corrections_input_data(
+                                    raw_values, det_imgs, det_id, corr_cfg),
+                                nxprocess=False,
+                            )
+                            corr_image_outputs[det_id] = corr_imgs
+                            per_src_corrected[src] = corr_imgs
+
+                if corr_image_outputs:
+                    image_outputs[corr_cfg.name] = corr_image_outputs
+                # Propagate coordinate from the first available source.
+                for src in corr_cfg.input_data_names:
+                    if src in coord_outputs:
+                        coord_outputs[corr_cfg.name] = coord_outputs[src]
+                        break
+                if multi:
+                    # One I_corrected_{src} value per source
+                    for src, result_data in per_src_corrected.items():
+                        all_values.append({
+                            'data': result_data,
+                            'path': (f'{corr_cfg.name}/data/'
+                                     f'I_corrected_{src}'),
+                        })
+                    # Expose the combined image dict for downstream nodes
+                    # that reference corr_cfg.name as their source
+                    if not corr_image_outputs:
+                        # All sources are integrated arrays; combine them
+                        integrated_outputs[corr_cfg.name] = next(
+                            iter(per_src_corrected.values()))
+                else:
+                    src = corr_cfg.input_data_names[0]
+                    result_data = per_src_corrected[src]
+                    if src in integrated_outputs:
+                        integrated_outputs[corr_cfg.name] = result_data
+                    all_values.append({
+                        'data': result_data,
+                        'path': f'{corr_cfg.name}/data/I_corrected',
+                    })
+
+            pending_corrs = still_pending_corrs
+
+            # Run any fit whose input is available in integrated_outputs
+            still_pending_fits = []
+            for fit_cfg in pending_fits:
+                if fit_cfg.input_data_name not in integrated_outputs:
+                    still_pending_fits.append(fit_cfg)
+                    continue
+                signal = integrated_outputs[fit_cfg.input_data_name]
+                fit_input = [PipelineData(name='signal', data=signal)]
+                coords = coord_outputs.get(fit_cfg.input_data_name)
+                if coords is not None:
+                    fit_input.append(
+                        PipelineData(name='coordinates', data=coords))
+                fit_result = self.setup_pipelineitem(
+                    UtilsFitProcessor(config=fit_cfg)
+                ).process(fit_input)
+                fit_values = self.setup_pipelineitem(
+                    UtilsUpdateValuesProcessor()
+                ).process([PipelineData(name='FitProcessor', data=fit_result)])
+                for v in fit_values:
+                    all_values.append({
+                        'path': f'{fit_cfg.name}/{v["path"]}',
+                        'data': v['data'],
+                    })
+
+            pending_fits = still_pending_fits
+        else:
+            unresolved = (
+                [i.name for i in pending_intgs]
+                + [c.name for c in pending_corrs]
+                + [f.name for f in pending_fits]
+            )
+            if unresolved:
+                raise RuntimeError(
+                    f'Could not resolve dependencies for: {unresolved}. '
+                    f'Check for missing inputs or cycles.')
 
         if self.raw_data:
-            return raw_values + processed_values + corrected_values
+            return raw_values + all_values
 
-        detector_ids = [d.get_id() for d in self.detector_config.detectors]
-        scalar_values = [
+        scalar_raw = [
             d for d in raw_values
-            if not os.path.basename(d['path']) in detector_ids
+            if os.path.basename(d['path']) not in detector_ids
         ]
-        return scalar_values + processed_values + corrected_values
+        return scalar_raw + all_values
 
-    def get_corrections_input_data(self, raw_values, processed_values,
-                                   corr_cfg):
+    def get_corrections_input_data(self, raw_values, integrated_outputs,
+                                   corr_cfg, src_name=None):
+        """Assemble input :class:`~CHAP.pipeline.PipelineData` for a
+        correction processor that takes integrated data as its intensity
+        signal.
+
+        :param raw_values: Output of
+            :class:`~CHAP.common.map_utils.MapSliceProcessor`.
+        :type raw_values: list[dict]
+        :param integrated_outputs: Mapping from node name to its
+            integrated output array.
+        :type integrated_outputs: dict[str, numpy.ndarray]
+        :param corr_cfg: Correction configuration.
+        :type corr_cfg: saxswaxs.models.CorrectionConfig
+        :param src_name: Source name to look up in ``integrated_outputs``
+            when ``corr_cfg.input_data_name`` is a list.  Defaults
+            to ``corr_cfg.input_data_name`` (for single-source
+            corrections).
+        :type src_name: str, optional
+        :returns: List of :class:`~CHAP.pipeline.PipelineData` items
+            ready to pass to the correction processor.
+        :rtype: list[PipelineData]
+        """
+        # Local modules
+        from CHAP.pipeline import PipelineData
+
+        lookup = src_name or corr_cfg.input_data_name
         corr_data = []
         for x in ('dwell_time_actual', 'presample_intensity',
                   'postsample_intensity'):
@@ -1322,14 +1635,11 @@ class UpdateValuesProcessor(Processor):
                         PipelineData(data=d['data'], name=x)
                     )
                     break
-        for d in processed_values:
-            if d['path'].startswith(f'{corr_cfg.uncorrected_data_name}/'):
-                corr_data.append(
-                    PipelineData(
-                        data=d['data'],
-                        name=corr_cfg.uncorrected_data_name,
-                    )
-                )
+        if lookup in integrated_outputs:
+            corr_data.append(PipelineData(
+                data=integrated_outputs[lookup],
+                name=lookup,
+            ))
         if corr_cfg.background is not None:
             if self.filename is None:
                 self.logger.warning(
@@ -1368,6 +1678,96 @@ class UpdateValuesProcessor(Processor):
                             (pre_path, 'background_presample_intensity'),
                             (post_path, 'background_postsample_intensity'),
                             (intens_path, 'background_intensity')):
+                        try:
+                            corr_data.append(PipelineData(
+                                data=np.asarray(zarrfile[path]),
+                                name=name,
+                            ))
+                        except KeyError:
+                            self.logger.warning(
+                                f'{path} not found in {self.filename}')
+        return corr_data
+
+    def get_image_corrections_input_data(self, raw_values, det_imgs,
+                                         det_id, corr_cfg):
+        """Assemble input :class:`~CHAP.pipeline.PipelineData` for a
+        correction processor operating on detector image data.
+
+        Collects the same scalar channels as
+        :meth:`get_corrections_input_data` (``dwell_time_actual``,
+        ``presample_intensity``, ``postsample_intensity``), but passes
+        raw detector images — named by
+        :attr:`~saxswaxs.models.CorrectionConfig.input_data_name`
+        — as the intensity signal rather than integrated data.
+        When a background is configured, per-detector background images
+        (``I_background_{det_id}``) and background scalar arrays are
+        read from the container file.
+
+        :param raw_values: Output of
+            :class:`~CHAP.common.map_utils.MapSliceProcessor`.
+        :type raw_values: list[dict]
+        :param det_imgs: Raw detector images for ``det_id``,
+            shape ``(N, H, W)``.
+        :type det_imgs: numpy.ndarray
+        :param det_id: Detector ID string.
+        :type det_id: str
+        :param corr_cfg: Correction configuration.
+        :type corr_cfg: saxswaxs.models.CorrectionConfig
+        :returns: List of :class:`~CHAP.pipeline.PipelineData` items
+            ready to pass to the correction processor.
+        :rtype: list[PipelineData]
+        """
+        # Local modules
+        from CHAP.pipeline import PipelineData
+
+        corr_data = []
+        for x in ('dwell_time_actual', 'presample_intensity',
+                  'postsample_intensity'):
+            for d in raw_values:
+                if d['path'].endswith(x):
+                    corr_data.append(PipelineData(data=d['data'], name=x))
+                    break
+        # Raw detector images are the "intensity" for this correction
+        corr_data.append(
+            PipelineData(data=det_imgs, name=corr_cfg.input_data_name))
+        if corr_cfg.background is not None:
+            if self.filename is None:
+                self.logger.warning(
+                    f'No filename configured; cannot read background '
+                    f'intensities for correction "{corr_cfg.name}"')
+            else:
+                # System modules
+                import os
+                pre_path = (f'{corr_cfg.name}/data/'
+                            'background_presample_intensity')
+                post_path = (f'{corr_cfg.name}/data/'
+                             'background_postsample_intensity')
+                bg_path = f'{corr_cfg.name}/data/I_background_{det_id}'
+                if os.path.splitext(self.filename)[1] in ('.nxs', '.h5',
+                                                          '.hdf5'):
+                    import h5py
+                    with h5py.File(self.filename, 'r') as f:
+                        for path, name in (
+                                (pre_path,
+                                 'background_presample_intensity'),
+                                (post_path,
+                                 'background_postsample_intensity'),
+                                (bg_path, 'background_intensity')):
+                            if path in f:
+                                corr_data.append(PipelineData(
+                                    data=np.asarray(f[path]),
+                                    name=name,
+                                ))
+                            else:
+                                self.logger.warning(
+                                    f'{path} not found in {self.filename}')
+                else:
+                    import zarr
+                    zarrfile = zarr.open(self.filename, mode='r')
+                    for path, name in (
+                            (pre_path, 'background_presample_intensity'),
+                            (post_path, 'background_postsample_intensity'),
+                            (bg_path, 'background_intensity')):
                         try:
                             corr_data.append(PipelineData(
                                 data=np.asarray(zarrfile[path]),

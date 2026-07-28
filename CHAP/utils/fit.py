@@ -14,7 +14,11 @@ from re import sub
 from shutil import rmtree
 from sys import float_info
 #from time import time
-from typing import Optional
+from typing import (
+    Literal,
+    Optional,
+    Union,
+)
 
 # Third party modules
 try:
@@ -26,7 +30,11 @@ try:
 except ImportError:
     HAVE_JOBLIB = False
 import numpy as np
-from pydantic import Field
+from pydantic import (
+    conint,
+    conlist,
+    Field,
+)
 
 # Local modules
 from CHAP.processor import Processor
@@ -301,6 +309,96 @@ class FitProcessor(Processor):
                 model, num_peak, peak_model_class, sig_min, sig_max)
         return _unconstrained_model(
             model, num_peak, peak_model_class, sig_min, sig_max)
+
+class SetupProcessor(Processor):
+    """Processor to set up an empty results container for
+    :class:`~CHAP.utils.fit.FitProcessor`.
+
+    Creates a `Zarr <https://zarr.readthedocs.io/en/stable/>`__ store
+    whose structure is determined by the fit configuration and the
+    scan / signal dimensions.
+
+    :ivar config: Initialization parameters for an instance of
+        :class:`~CHAP.utils.models.FitConfig`.
+    :vartype config: dict, optional
+    :ivar dataset_shape: Shape of the map (scan) dimensions of the
+        output datasets, defaults to `[0]`.
+    :vartype dataset_shape: list[int], optional
+    :ivar dataset_chunks: Chunk shape along the scan dimensions, or
+        ``'auto'`` to let Zarr choose, defaults to ``'auto'``.
+    :vartype dataset_chunks: list[int] or 'auto', optional
+    :ivar signal_shape: Shape of one frame of the 1-D signal being
+        fit (the signal dimension).
+    :vartype signal_shape: list[int]
+    """
+
+    pipeline_fields: dict = Field(
+        default = {
+            'config': 'CHAP.utils.models.FitConfig'
+        },
+        init_var=True
+    )
+    config: Optional[FitConfig] = None
+    dataset_shape: Optional[
+        conlist(item_type=conint(ge=0), min_length=1)] = [0]
+    dataset_chunks: Optional[
+        Union[
+            Literal['auto'],
+            conlist(item_type=conint(gt=0), min_length=1)
+        ]] = 'auto'
+    signal_shape: conlist(item_type=conint(ge=0), min_length=1)
+
+    def process(self, data):
+        """Create and return an empty
+        `Zarr <https://zarr.readthedocs.io/en/stable/>`__ store whose
+        group hierarchy mirrors the output of
+        :class:`~CHAP.utils.fit.FitProcessor` for the configured fit
+        model.
+
+        The store structure is produced by
+        :meth:`~CHAP.utils.models.FitConfig.zarr_tree` and populated
+        into an in-memory ``zarr.Group`` so that a downstream writer
+        can write fit results into it incrementally.
+
+        :param data: Input pipeline data; may supply a
+            :class:`~CHAP.utils.models.FitConfig` to populate
+            :attr:`config` when one is not already set.
+        :type data: list[PipelineData]
+        :return: In-memory Zarr root group pre-structured for fit
+            results.
+        :rtype: zarr.Group
+        """
+        import asyncio
+        import zarr
+        from zarr.core.buffer import default_buffer_prototype
+        from zarr.storage import MemoryStore
+
+        from CHAP.saxswaxs.utils import dict_to_zarr
+
+        zarr_fit = dict_to_zarr(
+            self.config.zarr_tree(
+                self.dataset_shape, self.dataset_chunks,
+                self.signal_shape,
+            ),
+            logger=self.logger,
+        )
+        zarr_root = zarr.create_group(store=MemoryStore({}))
+        async def copy_zarr_store(source_store, dest_store):
+            """Copy a Zarr <https://zarr.readthedocs.io/en/stable/>`__
+            store.
+
+            :param source_store: Source Zarr group.
+            :type: zarr.Group
+            :param dest_store: Destination Zarr group.
+            :type: zarr.Group
+            """
+            async for k in source_store.list():
+                self.logger.info(f'Copying {k}')
+                buf = await source_store.get(
+                    k, prototype=default_buffer_prototype())
+                await dest_store.set(k, buf)
+        asyncio.run(copy_zarr_store(zarr_fit.store, zarr_root.store))
+        return zarr_root
 
 
 class Component():
@@ -2096,6 +2194,175 @@ class Fit:
                 **component.model_identifiers)
             n_par += num_par
         return res - y
+
+
+class UpdateValuesProcessor(Processor):
+    """Processor to extract fit results from a
+    :class:`~CHAP.utils.fit.Fit` (or :class:`~CHAP.utils.fit.FitMap`)
+    object and format them as a list of path-keyed value dicts
+    suitable for a downstream
+    :class:`~CHAP.common.processor.NexusValuesWriter`.
+
+    This processor is the write-side complement of
+    :class:`~CHAP.utils.fit.SetupProcessor`: the paths it emits
+    correspond to the Zarr dataset layout defined by
+    :meth:`~CHAP.utils.models.FitConfig.zarr_tree`.
+    """
+
+    def process(self, data):
+        """Extract fit results from a :class:`~CHAP.utils.fit.Fit` or
+        :class:`~CHAP.utils.fit.FitMap` object and return them as a
+        flat list of path-keyed value dicts.
+
+        The paths in the returned dicts match the dataset layout
+        defined by :meth:`~CHAP.utils.models.FitConfig.zarr_tree` and
+        the container created by
+        :class:`~CHAP.utils.fit.SetupProcessor`.
+
+        :param data: Input pipeline data; must include a
+            ``'FitProcessor'``-tagged item whose ``data`` field is a
+            :class:`~CHAP.utils.fit.Fit` or
+            :class:`~CHAP.utils.fit.FitMap` instance.
+        :type data: list[PipelineData]
+        :return: List of dicts, each with keys ``'path'`` (str) and
+            ``'data'`` (scalar or array), for use with a downstream
+            :class:`~CHAP.common.processor.NexusValuesWriter`.
+        :rtype: list[dict]
+        """
+        # Third party modules
+        from lmfit.models import ExpressionModel
+
+        fit = self.get_data(data, name='FitProcessor')
+        is_map = isinstance(fit, FitMap)
+
+        if is_map:
+            raise TypeError('Updates from FitMap not implemented yet')
+            # FitMap: results are already full map-shaped arrays.
+            values = [
+                {'path': 'data/best_fit', 'data': fit.best_fit},
+                {'path': 'data/num_func_eval', 'data': fit.num_func_eval},
+                {'path': 'data/redchi', 'data': fit.redchi},
+                {'path': 'data/residual', 'data': fit.residual},
+                {'path': 'data/success', 'data': fit.success},
+            ]
+        else:
+            # Fit: wrap each result in a list for idx-based writing.
+            values = [
+                {'path': 'data/best_fit', 'data': [fit.best_fit]},
+                {'path': 'data/num_func_eval', 'data': [fit.num_func_eval]},
+                {'path': 'data/redchi', 'data': [fit.redchi]},
+                {'path': 'data/residual', 'data': [fit.residual]},
+                {'path': 'data/success', 'data': [fit.success]},
+            ]
+
+        map_params_names = fit.best_parameters() if is_map else None
+
+        for component_name, component_model in fit.components.items():
+            comp_prefix = f'components/{component_name}'
+
+            if is_map:
+                # Identify the lmfit component that corresponds to
+                # component_name (using the same naming logic as
+                # FitMap.components and FitMap.plot).
+                target_comp = None
+                for comp in fit._result.components:
+                    if 'tmp_normalization_offset_c' in comp.param_names:
+                        continue
+                    if isinstance(comp, ExpressionModel):
+                        comp_id = comp._name.rstrip('_')
+                    else:
+                        prefix = comp.prefix.rstrip('_')
+                        comp_id = (f'{prefix} ({comp._name})'
+                                   if prefix else comp._name)
+                    if comp_id == component_name:
+                        target_comp = comp
+                        break
+
+                # Evaluate the component at every map point using the
+                # stored best parameter values (same approach as
+                # FitMap.plot).
+                x = fit._x
+                comp_best_fit = np.zeros((*fit._map_shape, x.size))
+                if target_comp is not None:
+                    for idx in np.ndindex(*fit._map_shape):
+                        parameters = deepcopy(fit._parameters)
+                        for i, pname in enumerate(map_params_names):
+                            if fit._parameters[pname].vary:
+                                parameters[pname].set(
+                                    value=fit.best_values[i][idx])
+                        comp_best_fit[idx] = target_comp.eval(
+                            params=parameters, x=x)
+
+                values.append({
+                    'path': f'{comp_prefix}/data/best_fit',
+                    'data': comp_best_fit,
+                })
+            else:
+                values.append({
+                    'path': f'{comp_prefix}/data/best_fit',
+                    'data': [fit._result.eval_components()[component_name]],
+                })
+
+            best_parameters = fit.best_parameters
+            for parameter_name, parameter in (
+                    component_model.get('parameters').items()):
+                param_prefix = f'{comp_prefix}/parameters/{parameter_name}'
+                if is_map:
+                    # FIXME param_value for any parameters that are part
+                    # of a component that was excluded from the fit?
+                    if parameter_name in map_params_names:
+                        param_idx = map_params_names.index(parameter_name)
+                        param_value = fit.best_values[param_idx]
+                        param_error = fit.best_errors[param_idx]
+                    else:
+                        # Fixed parameter: scalar value, no meaningful
+                        # error across the map.
+                        param_value = fit._parameters[parameter_name].value
+                        param_error = None
+                    init_params = fit.init_parameters
+                    param = fit._parameters[parameter_name]
+                    param_initial = [init_params[parameter_name]['value']] * param_value.size # FIXME for params with no initial value
+                    param_min = [init_params[parameter_name]['min']] * param_value.size
+                    param_max = [init_params[parameter_name]['max']] * param_value.size
+                    param_vary = [init_params[parameter_name]['vary']] * param_value.size
+                    param_expr = [init_params[parameter_name]['expr']
+                                  if isinstance(init_params[parameter_name]['expr'], str)
+                                  else ''] * param_value.size
+                    values.extend([
+                        {'path': f'{param_prefix}/value',
+                         'data': param_value},
+                        {'path': f'{param_prefix}/error',
+                         'data': param_error},
+                        {'path': f'{param_prefix}/initial',
+                         'data': param_initial},
+                        {'path': f'{param_prefix}/min',
+                         'data': param_min},
+                        {'path': f'{param_prefix}/max',
+                         'data': param_max},
+                        {'path': f'{param_prefix}/vary',
+                         'data': param_vary},
+                        {'path': f'{param_prefix}/expression',
+                         'data': param_expr},
+                    ])
+                else:
+                    param = best_parameters[parameter_name]
+                    values.extend([
+                        {'path': f'{param_prefix}/value',
+                         'data': [param['value']]},
+                        {'path': f'{param_prefix}/error',
+                         'data': [param['error']]},
+                        {'path': f'{param_prefix}/initial',
+                         'data': [param['init_value']]}, # FIXME for params with no initial value
+                        {'path': f'{param_prefix}/min',
+                         'data': [param['min']]},
+                        {'path': f'{param_prefix}/max',
+                         'data': [param['max']]},
+                        {'path': f'{param_prefix}/vary',
+                         'data': [param['vary']]},
+                        {'path': f'{param_prefix}/expression',
+                         'data': [param['expr']]},
+                    ])
+        return values
 
 
 class FitMap(Fit):
