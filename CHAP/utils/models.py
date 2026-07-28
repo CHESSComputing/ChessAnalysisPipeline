@@ -381,6 +381,10 @@ class FitParameter(CHAPBaseModel):
             return self._init_value
         return None
 
+    @init_value.setter
+    def init_value(self, value):
+        self._init_value = value
+
     @property
     def prefix(self):
         """Return the parametr prefix.
@@ -415,7 +419,12 @@ class FitParameter(CHAPBaseModel):
             return self._stderr
         return None
 
-    def set(self, value=None, min=None, max=None, vary=None, expr=None):
+    @stderr.setter
+    def stderr(self, value):
+        self._stderr = value
+
+    def set(self, value=None, min=None, max=None, vary=None, expr=None,
+            is_init_value=True):
         """Set or update FitParameter attributes.
 
         :param value: Parameter value.
@@ -432,6 +441,9 @@ class FitParameter(CHAPBaseModel):
             value during the fit. To remove a constraint you must
             supply an empty string.
         :type expr: str, optional
+        :param is_init_value: Whether to set the intial value when
+            setting the parameter value, default to `True`.
+        :type is_init_value: bool, optional
         """
         if expr is not None:
             if not isinstance(expr, str):
@@ -466,6 +478,8 @@ class FitParameter(CHAPBaseModel):
             elif self.value < self.min:
                 self.value = self.min
             self.expr = None
+            if is_init_value:
+                self._init_value = value
 
     def zarr_tree(self, dataset_shape, dataset_chunks, nxlinks=None):
         """Return a nested dict representing the Zarr group tree for

@@ -235,7 +235,9 @@ class FluxCorrectionProcessor(ExpressionProcessor):
     :ivar config: Correction configuration.
     :vartype config: FluxCorrectionConfig
     """
+
     config: FluxCorrectionConfig
+
     def process(self, data, nxprocess=False):
         """Compute the flux-corrected intensity.
 
@@ -312,7 +314,9 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
     :ivar config: Correction configuration.
     :vartype config: FluxAbsorptionCorrectionConfig
     """
+
     config: FluxAbsorptionCorrectionConfig
+
     def process(self, data, nxprocess=False):
         """Compute the flux- and absorption-corrected intensity.
 
@@ -400,7 +404,9 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
     :ivar config: Correction configuration.
     :vartype config: FluxAbsorptionBackgroundCorrectionConfig
     """
+
     config: FluxAbsorptionBackgroundCorrectionConfig
+
     def process(self, data, nxprocess=False):
         """Compute the flux-, absorption-, and background-corrected
         intensity, with optional thickness normalisation.
@@ -1315,6 +1321,7 @@ class UpdateValuesProcessor(Processor):
     :vartype idx_slice:
         :class:`~CHAP.common.models.common.IndexSliceConfig`, optional
     """
+
     pipeline_fields: dict = Field(
         {
             'map_config': 'common.models.map.MapConfig',
