@@ -10,7 +10,6 @@ from os import (
     mkdir,
     path,
 )
-from re import sub
 from shutil import rmtree
 from sys import float_info
 #from time import time
@@ -1143,11 +1142,14 @@ class Fit:
 
         def _set_parameter_info_lmfit(model, prefix):
             if model.model_type == 'expression':
+                # Third party modules
+                from sympy import diff
+
                 newmodel = model.lmfit_model(
                     prefix=prefix, parameters=self._parameters)
                 # Remove already existing names
                 for name in newmodel.param_names.copy():
-                    if name not in expr_parameters:
+                    if name not in model.expr_parameters:
                         newmodel._func_allargs.remove(name)
                         newmodel._param_names.remove(name)
                 # Check linearity of expression model parameters
@@ -1161,7 +1163,7 @@ class Fit:
             else:
                 kwargs = {}
                 if model.model_type == 'rectangle':
-                    kwargs['form'] = 'atan'
+                    kwargs['form'] = model.form
                 newmodel = model.LMFITMODEL(prefix=prefix, **kwargs)
                 for par in model.parameters:
                     name = par.name
@@ -1505,6 +1507,9 @@ class Fit:
 
     def _setup_fit_model(self, parameters, models):
         """Setup the fit model."""
+        # Third party modules
+        from sympy import diff
+
         # Local modules
         from CHAP.utils.models import PEAK_LIKE_MODELS
 
@@ -1528,9 +1533,6 @@ class Fit:
                         and ('height' in name or 'fwhm' in name))):
                 for nname, par in self._parameters.items():
                     if par.expr is not None:
-                        # Third party modules
-                        from sympy import diff
-
                         expr = par.expr.replace('fraction', 'fraction_') \
                             if 'fraction' in par.expr else par.expr
                         nnname = 'fraction_' \
@@ -1656,7 +1658,9 @@ class Fit:
                     'name': 'c',
                     'value': -self._norm[0],
                     'vary': False,
-                }])
+                }],
+                prefix='tmp_normalization_offset_'
+            )
             self.add_model(model, 'tmp_normalization_offset_')
 
         # Adjust existing parameters for refit:
@@ -3240,12 +3244,12 @@ class FitMap(Fit):
             centers_range_fraction = \
                 self._multipeak_info.get('centers_range_fraction')
             model_type = self._multipeak_info.get('peak_models')
+            min_height = None if self._rel_height_cutoff is None \
+                else y_max*self._rel_height_cutoff
             use_peaks, _, peak_heights, peak_widths = \
                 self.guess_init_peak(
                     self._x, self._ymap_norm[n], centers, centers_range,
-                    centers_range_fraction,
-                    min_height=y_max*self._rel_height_cutoff,
-                    min_width=5)
+                    centers_range_fraction, min_height=min_height, min_width=5)
 
             ast = Interpreter()
             for i, (use_peak, height, width) in enumerate(zip(
