@@ -310,7 +310,6 @@ class FitProcessor(Processor):
         return _unconstrained_model(
             model, num_peak, peak_model_class, sig_min, sig_max)
 
-
 class SetupProcessor(Processor):
     """Processor to set up an empty results container for
     :class:`~CHAP.utils.fit.FitProcessor`.

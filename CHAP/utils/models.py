@@ -589,9 +589,10 @@ class FitModel(CHAPBaseModel):
         generated from the function signature (excluding the
         independent variable).
     :vartype parameters: list[FitParameter], optional
-    :vartype prefix: The model prefix, defaults to `''`.
+    :ivar prefix: Model prefix, defaults to `''`.
     :vartype prefix: str, optional
     """
+
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['c']
     LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.ConstantModel
     MODEL_PARAMETERS: ClassVar[list[str]] = []
