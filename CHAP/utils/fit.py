@@ -815,7 +815,7 @@ class Fit:
         :type: dict
         """
         if self._result is None:
-            return None
+            return {}
         return {name:self._result.params[name].stderr
                 for name in sorted(self._result.params)
                 if name != 'tmp_normalization_offset_c'}
@@ -837,7 +837,7 @@ class Fit:
         :type: dict
         """
         if self._result is None:
-            return None
+            return {}
         parameters = {}
         for name in sorted(self._result.params):
             if name != 'tmp_normalization_offset_c':
@@ -859,7 +859,7 @@ class Fit:
         :type: dict
         """
         if self._result is None:
-            return None
+            return {}
         return {name:self._result.params[name].value
                 for name in sorted(self._result.params)
                 if name != 'tmp_normalization_offset_c'}
@@ -871,7 +871,7 @@ class Fit:
         :type: dict
         """
         if self._result is None:
-            return None
+            return {}
         return {name:self._result.params[name].vary
                 for name in sorted(self._result.params)
                 if name != 'tmp_normalization_offset_c'}
@@ -953,17 +953,17 @@ class Fit:
         :type: dict
         """
         if self._result is None or self._result.init_params is None:
-            return None
+            return {}
         parameters = {}
         for name in sorted(self._result.init_params):
             if name != 'tmp_normalization_offset_c':
                 par = self._result.init_params[name]
                 parameters[name] = {
-                    'value': par.value,
+                    'expr': par.expr,
                     'min': par.min,
                     'max': par.max,
+                    'value': par.value,
                     'vary': par.vary,
-                    'expr': par.expr,
                 }
         return parameters
 
@@ -974,7 +974,7 @@ class Fit:
         :type: dict
         """
         if self._result is None or self._result.init_params is None:
-            return None
+            return {}
         return {name:self._result.init_params[name].value
                 for name in sorted(self._result.init_params)
                 if name != 'tmp_normalization_offset_c'}
@@ -1180,8 +1180,8 @@ class Fit:
 
         def _set_default_initial_parameters(new_parameters):
             for name in new_parameters:
+                par = self._parameters[name]
                 if name in self._linear_parameters:
-                    par = self._parameters.get(name)
                     if par.expr is None:
                         value = par.default if self._code == 'scipy' else None
                         if value is None:
@@ -1195,6 +1195,9 @@ class Fit:
                         if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
                             _max *= self._norm[1]
                         par.set(value=value, min=_min, max=_max)
+                elif par.expr is None:
+                    par.set(value=par.value)
+
 
         def _initialize_model_parameters(model, new_parameters, prefix):
             for parameter in deepcopy(model.parameters):
@@ -1223,6 +1226,7 @@ class Fit:
                     self._parameters[name].set(
                         value=None, min=-np.inf, max=np.inf,
                         expr=parameter.expr)
+                par = self._parameters[name]
 
         # Set model parameter info
         assert prefix is not None
@@ -1324,7 +1328,9 @@ class Fit:
         if self.success:
             for name, par in self._parameters.items():
                 if par.expr is None and par.vary:
-                    par.set(value=self._result.params[name].value)
+                    par.set(
+                        value=self._result.params[name].value,
+                        is_init_value=False)
 
         # Renormalize the data and results
         self._renormalize()
@@ -1456,7 +1462,10 @@ class Fit:
         assert isinstance(centers_range_fraction, (int, float))
         peaks = find_peaks_scipy(y, height=min_height, width=min_width)
         centers = [x[v] for v in peaks[0]]
-        heights = peaks[1]['peak_heights']
+        if 'peak_heights' in peaks[1]:
+            heights = peaks[1]['peak_heights']
+        else:
+            heights = [y[v] for v in peaks[0]]
         widths = peaks[1]['widths']
 
         num_peak = target_centers.size
@@ -1594,13 +1603,15 @@ class Fit:
             if isinstance(self, FitMap):
                 scale_factor_index = \
                     self._best_parameters.index('scale_factor')
+                self._best_errors = np.delete(
+                    self._best_errors, scale_factor_index, 0)
                 self._best_parameters.pop(scale_factor_index)
                 self._best_values = np.delete(
                     self._best_values, scale_factor_index, 0)
-                self._best_errors = np.delete(
-                    self._best_errors, scale_factor_index, 0)
                 self._best_vary = np.delete(
                     self._best_vary, scale_factor_index, 0)
+                self._init_values = np.delete(
+                    self._init_values, scale_factor_index, 0)
             for par in parameters:
                 name = par.name
                 if name not in self._parameters:
@@ -1948,7 +1959,6 @@ class Fit:
             res_par_indices = []
             for i, (name, par) in enumerate(self._parameters.items()):
                 value = par.value
-                setattr(par, '_init_value', value)
                 self._res_par_values[i] = value
                 if par.expr is None:
                     self._ast.symtable[name] = value
@@ -2067,39 +2077,17 @@ class Fit:
                     _min *= self._norm[1]
                 if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
                     _max *= self._norm[1]
-                par.set(value=value, min=_min, max=_max)
+                par.init_value *= self._norm[1]
+                par.set(value=value, min=_min, max=_max, is_init_value=False)
         if self._result is None:
             return
         self._result.best_fit = (
             self._result.best_fit*self._norm[1] + self._norm[0])
-        for name, par in self._result.params.items():
-            if name in self._linear_parameters:
-                if par.stderr is not None:
-                    if self._code == 'scipy':
-                        setattr(
-                            par, '_stderr', par.stderr*self._norm[1])
-                    else:
-                        par.stderr *= self._norm[1]
-                if par.expr is None:
-                    value = par.value*self._norm[1]
-                    if par.init_value is not None:
-                        if self._code == 'scipy':
-                            setattr(par, '_init_value',
-                                    par.init_value*self._norm[1])
-                        else:
-                            par.init_value *= self._norm[1]
-                    _min = par.min
-                    _max = par.max
-                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                        _min *= self._norm[1]
-                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                        _max *= self._norm[1]
-                    par.set(value=value, min=_min, max=_max)
         if hasattr(self._result, 'init_fit'):
             self._result.init_fit = (
                 self._result.init_fit*self._norm[1] + self._norm[0])
+        init_values = {}
         if hasattr(self._result, 'init_values'):
-            init_values = {}
             for name, value in self._result.init_values.items():
                 if name in self._linear_parameters:
                     init_values[name] = value*self._norm[1]
@@ -2118,10 +2106,32 @@ class Fit:
                     if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
                         _max *= self._norm[1]
                     par.set(value=value, min=_min, max=_max)
-                if self._code == 'scipy':
-                    setattr(par, '_init_value', par.value)
-                else:
-                    par.init_value = par.value
+                par.init_value = par.value
+        for name, par in self._result.params.items():
+            par.init_value = init_values.get(name)
+            if name in self._linear_parameters:
+                if par.stderr is not None:
+                    if self._code == 'scipy':
+                        setattr(
+                            par, '_stderr', par.stderr*self._norm[1])
+                    else:
+                        par.stderr *= self._norm[1]
+                if par.expr is None:
+                    value = par.value*self._norm[1]
+#                    if par.init_value is not None:
+#                        if self._code == 'scipy':
+#                            setattr(par, '_init_value',
+#                                    par.init_value*self._norm[1])
+#                        else:
+#                            par.init_value *= self._norm[1]
+                    _min = par.min
+                    _max = par.max
+                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                        _min *= self._norm[1]
+                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                        _max *= self._norm[1]
+                    par.set(
+                        value=value, min=_min, max=_max, is_init_value=False)
         # Don't renormalize chisqr, it has no useful meaning in
         #     physical units
 #        self._result.chisqr *= self._norm[1]*self._norm[1]
@@ -2387,6 +2397,7 @@ class FitMap(Fit):
         self._best_parameters = None
         self._best_values = None
         self._best_vary = None
+        self._init_values = None
         self._inv_transpose = None
         self._max_nfev = None
         self._memfolder = config.memfolder
@@ -2548,6 +2559,14 @@ class FitMap(Fit):
         self._logger.warning('Undefined property covar')
 
     @property
+    def init_values(self):
+        """Return init values of the fit parameters.
+
+        :type: numpy.ndarray
+        """
+        return self._init_values
+
+    @property
     def max_nfev(self):
         """Return if the maximum number of function evaluations is
         reached for each fit.
@@ -2647,47 +2666,65 @@ class FitMap(Fit):
             return self._best_parameters
 # FIX use something else, self._best_parameters is "reserved" to get the
 # parameters in the EDD strain analysis and must return the order of the
-# parameters in self.best_values and self.best_errors
+# parameters in self.best_values, self.best_errors, and self_init_values
 #            parameters_dict = {}
 #            for i, name in enumerate(self._best_parameters):
 #                parameters_dict[name] = {
+#                    'errors': self._best_errors[i],
+#                    'init_values': self._init_values[i],
 #                    'values': self._best_values[i],
-#                    'errors': self._best_errors[i]}
+#                }
 #            return parameters_dict
+        if (self.best_errors is None or self.best_values is None
+                or self.init_values is None):
+            self._logger.warning('No data for best parameter values')
+            return {}
         if isinstance(dims, int):
-            if len(self._map_shape) != 1:
-                raise ValueError(f'Invalid parameter dims ({dims}) '
-                                 f'for map shape {self._map_shape}')
+            dims = (dims,)
         elif isinstance(dims, (list, tuple)):
-            if len(dims) != len(self._map_shape):
-                raise ValueError(f'Invalid parameter dims ({dims}) '
-                                 f'for map shape {self._map_shape}')
-            dims = dims[0] if len(dims) == 1 else tuple(dims)
+            dims = tuple(dims)
         else:
             raise ValueError(f'Invalid parameter dims ({dims})')
-        if self.best_values is None or self.best_errors is None:
-            self._logger.warning(
-                f'Unable to obtain best parameter values for dims = {dims}')
-            return {}
         # Create current parameters
         parameters = deepcopy(self._parameters)
         for n, name in enumerate(self._best_parameters):
             if self._parameters[name].vary:
-                parameters[name].set(value=self.best_values[n][dims])
-            parameters[name]._stderr = self.best_errors[n][dims]
+                parameters[name].set(
+                    value=self.best_values[n][dims], is_init_value=False)
+            parameters[name].init_value = self.init_values[n][dims]
+            parameters[name].stderr = self.best_errors[n][dims]
         parameters_dict = {}
         for name in sorted(parameters):
             if name != 'tmp_normalization_offset_c':
                 par = parameters[name]
                 parameters_dict[name] = {
-                    'value': par.value,
                     'error': par.stderr,
-                    'init_value': self.init_parameters[name]['value'],
+                    'expr': par.expr,
+                    'init_value': par.init_value,
                     'min': par.min,
                     'max': par.max,
+                    'value': par.value,
                     'vary': par.vary,
-                    'expr': par.expr,
                 }
+        return parameters_dict
+
+    def init_parameters(self, dims=None):
+        """Return the initial fit parameters.
+
+        :param dims: Map indices of the initial fit parameters to
+            return, defaults to `None` which will return the list of
+            the best parameter names in the correct order for the
+            results.
+        :type dims: int or list or tuple, optional
+        :return: Initial fit parameters.
+        :rtype: list[str] or dict
+        """
+        parameters_dict = self.best_parameters(dims)
+        if dims is None:
+            return parameters_dict
+        for name, par in parameters_dict.items():
+            par.pop('error')
+            par['value'] = par.pop('init_value')
         return parameters_dict
 
     def freemem(self):
@@ -2872,9 +2909,10 @@ class FitMap(Fit):
             self._num_func_eval = None
             self._redchi = None
             self._success = None
-            self._best_fit = None
             self._best_errors = None
+            self._best_fit = None
             self._best_vary = None
+            self._init_values = None
             assert self._best_values is not None
             assert self._best_values.shape[0] == num_best_parameters
             assert self._best_values.shape[1:] == self._map_shape
@@ -2923,9 +2961,6 @@ class FitMap(Fit):
             self._best_errors_flat = [
                 np.zeros(self._map_dim, dtype=np.float64)
                 for _ in range(num_best_parameters+num_new_parameters)]
-            self._best_vary_flat = [
-                np.zeros(self._map_dim, dtype=bool)
-                for _ in range(num_best_parameters+num_new_parameters)]
             if self._result is None:
                 self._best_values_flat = [
                     np.zeros(self._map_dim, dtype=np.float64)
@@ -2935,6 +2970,12 @@ class FitMap(Fit):
                 self._best_values_flat += [
                     np.zeros(self._map_dim, dtype=np.float64)
                     for _ in range(num_new_parameters)]
+            self._best_vary_flat = [
+                np.zeros(self._map_dim, dtype=bool)
+                for _ in range(num_best_parameters+num_new_parameters)]
+            self._init_values_flat = [
+                np.zeros(self._map_dim, dtype=np.float64)
+                for _ in range(num_best_parameters+num_new_parameters)]
         else:
             try:
                 mkdir(self._memfolder)
@@ -2970,13 +3011,6 @@ class FitMap(Fit):
                 self._best_errors_flat.append(
                     np.memmap(filename_memmap, dtype=np.float64,
                               shape=self._map_dim, mode='w+'))
-            self._best_vary_flat = []
-            for i in range(num_best_parameters+num_new_parameters):
-                filename_memmap = path.join(
-                    self._memfolder, f'best_errors_memmap_{i}')
-                self._best_vary_flat.append(
-                    np.memmap(filename_memmap, dtype=bool,
-                              shape=self._map_dim, mode='w+'))
             self._best_values_flat = []
             for i in range(num_best_parameters):
                 filename_memmap = path.join(
@@ -2991,6 +3025,20 @@ class FitMap(Fit):
                     self._memfolder,
                     f'best_values_memmap_{i+num_best_parameters}')
                 self._best_values_flat.append(
+                    np.memmap(filename_memmap, dtype=np.float64,
+                              shape=self._map_dim, mode='w+'))
+            self._best_vary_flat = []
+            for i in range(num_best_parameters+num_new_parameters):
+                filename_memmap = path.join(
+                    self._memfolder, f'best_vary_memmap_{i}')
+                self._best_vary_flat.append(
+                    np.memmap(filename_memmap, dtype=bool,
+                              shape=self._map_dim, mode='w+'))
+            self._init_values_flat = []
+            for i in range(num_best_parameters+num_new_parameters):
+                filename_memmap = path.join(
+                    self._memfolder, f'init_values_memmap_{i}')
+                self._init_values_flat.append(
                     np.memmap(filename_memmap, dtype=np.float64,
                               shape=self._map_dim, mode='w+'))
 
@@ -3089,12 +3137,14 @@ class FitMap(Fit):
             self._success_flat, self._map_shape))
         self._best_fit = np.copy(np.reshape(
             self._best_fit_flat, list(self._map_shape)+[x_size]))
-        self._best_values = np.asarray([np.reshape(
-            par, list(self._map_shape)) for par in self._best_values_flat])
         self._best_errors = np.asarray([np.reshape(
             par, list(self._map_shape)) for par in self._best_errors_flat])
+        self._best_values = np.asarray([np.reshape(
+            par, list(self._map_shape)) for par in self._best_values_flat])
         self._best_vary = np.asarray([np.reshape(
             par, list(self._map_shape)) for par in self._best_vary_flat])
+        self._init_values = np.asarray([np.reshape(
+            par, list(self._map_shape)) for par in self._init_values_flat])
         if self._inv_transpose is not None:
             self._out_of_bounds = np.transpose(
                 self._out_of_bounds, self._inv_transpose)
@@ -3106,21 +3156,24 @@ class FitMap(Fit):
             self._best_fit = np.transpose(
                 self._best_fit,
                 list(self._inv_transpose) + [len(self._inv_transpose)])
-            self._best_values = np.transpose(
-                self._best_values, [0] + [i+1 for i in self._inv_transpose])
             self._best_errors = np.transpose(
                 self._best_errors, [0] + [i+1 for i in self._inv_transpose])
+            self._best_values = np.transpose(
+                self._best_values, [0] + [i+1 for i in self._inv_transpose])
             self._best_vary = np.transpose(
                 self._best_vary, [0] + [i+1 for i in self._inv_transpose])
+            self._init_values = np.transpose(
+                self._init_values, [0] + [i+1 for i in self._inv_transpose])
         del self._out_of_bounds_flat
         del self._max_nfev_flat
         del self._num_func_eval_flat
         del self._redchi_flat
         del self._success_flat
         del self._best_fit_flat
-        del self._best_values_flat
         del self._best_errors_flat
+        del self._best_values_flat
         del self._best_vary_flat
+        del self._init_values_flat
 
         # Restore parameter bounds and renormalize the parameters
         for name, par in self._parameter_bounds.items():
@@ -3349,32 +3402,27 @@ class FitMap(Fit):
             self._redchi_flat[n] = np.float64(result.redchi)
         if self._norm is None or not self._normalized:
             for i, name in enumerate(self._best_parameters):
-                self._best_values_flat[i][n] = np.float64(
-                    result.params[name].value)
                 self._best_errors_flat[i][n] = np.float64(
                     result.params[name].stderr)
+                self._best_values_flat[i][n] = np.float64(
+                    result.params[name].value)
                 self._best_vary_flat[i][n] = (
                     result.params[name].vary and result.success)
+                self._init_values_flat[i][n] = np.float64(
+                    result.init_params[name].value)
             if result.success:
                 self._best_fit_flat[n] = result.best_fit
         else:
             for name, par in result.params.items():
+                init_value = result.init_params[name].value
+                if init_value is not None:
+                    par.init_value = init_value*self._norm[1]
                 if name in self._linear_parameters:
                     if par.stderr is not None:
-                        if self._code == 'scipy':
-                            setattr(
-                                par, '_stderr', par.stderr*self._norm[1])
-                        else:
-                            par.stderr *= self._norm[1]
+                        par.stderr *= self._norm[1]
                     if par.expr is None:
                         par.value *= self._norm[1]
                         if self._print_report:
-                            if par.init_value is not None:
-                                if self._code == 'scipy':
-                                    setattr(par, '_init_value',
-                                            par.init_value*self._norm[1])
-                                else:
-                                    par.init_value *= self._norm[1]
                             if (not np.isinf(par.min)
                                     and abs(par.min) != FLOAT_MIN):
                                 par.min *= self._norm[1]
@@ -3382,12 +3430,14 @@ class FitMap(Fit):
                                     and abs(par.max) != FLOAT_MIN):
                                 par.max *= self._norm[1]
             for i, name in enumerate(self._best_parameters):
-                self._best_values_flat[i][n] = np.float64(
-                    result.params[name].value)
                 self._best_errors_flat[i][n] = np.float64(
                     result.params[name].stderr)
+                self._best_values_flat[i][n] = np.float64(
+                    result.params[name].value)
                 self._best_vary_flat[i][n] = (
                     result.params[name].stderr and result.success)
+                self._init_values_flat[i][n] = np.float64(
+                    result.params[name].init_value)
             if result.success:
                 self._best_fit_flat[n] = (
                     result.best_fit*self._norm[1] + self._norm[0])

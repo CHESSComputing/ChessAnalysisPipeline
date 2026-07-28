@@ -502,7 +502,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         """
         integration_method = data['integration_method']
         if integration_method == 'integrate2d_grazing_incidence':
-            if 'multi_geometry' in data:
+            if data.get('multi_geometry') is not None:
                 raise ValueError('Invalid parameter multi_geometry ',
                                  f'(invalid for {integration_method})')
         else:
