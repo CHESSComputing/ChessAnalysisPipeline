@@ -255,9 +255,8 @@ class _BaseEddProcessor(Processor):
 
     def _subtract_baselines(self):
         """Get and subtract the detector baselines."""
-        # Local modules
-        from CHAP.edd.models import BaselineConfig
-        from CHAP.common.processor import ConstructBaseline
+        # Third party modules
+        from nexusformat.nexus import NXfield
 
         if self.save_figures:
             if self.__name__ == 'LatticeParameterRefinementProcessor':
@@ -273,43 +272,87 @@ class _BaseEddProcessor(Processor):
             else:
                 basename = f'{self.__name__}_baseline'
 
-        baselines = []
-        for energies, mean_data, (low, _), nxdata, detector in zip(
-                self._energies, self._mean_data, self._mask_index_ranges,
-                self._nxdata_detectors, self.detector_config.detectors):
+        for i, (energies, mean_data, (low, _), nxdata, detector) in enumerate(
+                zip(self._energies, self._mean_data, self._mask_index_ranges,
+                    self._nxdata_detectors, self.detector_config.detectors)):
             if detector.baseline:
-                if isinstance(detector.baseline, bool):
-                    detector.baseline = BaselineConfig()
-                if self.__name__ in ('DiffractionVolumeLengthProcessor',
-                                     'MCAEnergyCalibrationProcessor'):
-                    x = low + np.arange(mean_data.size)
-                    xlabel = 'Detector Channel (-)'
+                if detector.baseline_type == 'mean':
+                    self._subtract_baseline_mean(
+                        energies, mean_data, low, nxdata, detector, basename)
                 else:
-                    x = energies
-                    xlabel = 'Energy (keV)'
+                    data = self._subtract_baseline_spectrum(
+                        energies, low, nxdata.nxsignal.nxdata.astype(float),
+                        detector)
+                    self._nxdata_detectors[i].nxsignal = NXfield(
+                        data, self._nxdata_detectors[i].signal)
+                    self._mean_data[i] = data.mean(axis=0)
 
-                baseline, baseline_config, buf = \
-                    ConstructBaseline.construct_baseline(
-                        mean_data, x=x, tol=detector.baseline.tol,
-                        lam=detector.baseline.lam,
-                        max_iter=detector.baseline.max_iter,
-                        title=f'Baseline for detector {detector.get_id()}',
-                        xlabel=xlabel, ylabel='Intensity (counts)',
-                        interactive=self.interactive,
-                        return_buf=self.save_figures)
-                if self.save_figures:
-                    self._figures.append(
-                        (buf, f'{detector.get_id()}_{basename}'))
+    def _subtract_baseline_mean(
+            self, energies, mean_data, low, nxdata, detector, basename):
+        """Get and subtract the detector baseline for a given detector
+        based on the mean spectrum.
+        """
+        # Local modules
+        from CHAP.edd.models import BaselineConfig
+        from CHAP.common.processor import ConstructBaseline
 
-                baselines.append(baseline)
-                detector.baseline.lam = baseline_config['lambda']
-                detector.baseline.attrs['num_iter'] = \
-                    baseline_config['num_iter']
-                detector.baseline.attrs['error'] = \
-                    baseline_config['error']
+        if isinstance(detector.baseline, bool):
+            detector.baseline = BaselineConfig()
+        if self.__name__ in ('DiffractionVolumeLengthProcessor',
+                             'MCAEnergyCalibrationProcessor'):
+            x = low + np.arange(mean_data.size)
+            xlabel = 'Detector Channel (-)'
+        else:
+            x = energies
+            xlabel = 'Energy (keV)'
 
-                nxdata.nxsignal -= baseline
-                mean_data -= baseline
+        baseline, baseline_config, buf = \
+            ConstructBaseline.construct_baseline(
+                mean_data, x=x, tol=detector.baseline.tol,
+                lam=detector.baseline.lam,
+                max_iter=detector.baseline.max_iter,
+                title=f'Baseline for detector {detector.get_id()}',
+                xlabel=xlabel, ylabel='Intensity (counts)',
+                interactive=self.interactive,
+                return_buf=self.save_figures)
+        if self.save_figures:
+            self._figures.append(
+                (buf, f'{detector.get_id()}_{basename}'))
+
+        detector.baseline.lam = baseline_config['lambda']
+        detector.baseline.attrs['num_iter'] = \
+            baseline_config['num_iter']
+        detector.baseline.attrs['error'] = \
+            baseline_config['error']
+
+        nxdata.nxsignal -= baseline
+        mean_data -= baseline
+
+    def _subtract_baseline_spectrum(self, energies, low, data, detector):
+        """Get and subtract a detector baseline for a given detector
+        for each individual spectrum and recompute the mean.
+        """
+        # Local modules
+        from CHAP.edd.models import BaselineConfig
+        from CHAP.common.processor import ConstructBaseline
+
+        if isinstance(detector.baseline, bool):
+            detector.baseline = BaselineConfig()
+        if self.__name__ in ('DiffractionVolumeLengthProcessor',
+                             'MCAEnergyCalibrationProcessor'):
+            x = low + np.arange(data.shape[1])
+        else:
+            x = energies
+
+        baselines = []
+        for i in range(data.shape[0]):
+            baseline, baseline_config, buf = \
+                ConstructBaseline.construct_baseline(
+                    data[i], x=x, tol=detector.baseline.tol,
+                    lam=detector.baseline.lam,
+                    max_iter=detector.baseline.max_iter)
+            baselines.append(baseline)
+        return data - baselines
 
 
 class _BaseStrainProcessor(_BaseEddProcessor):
@@ -495,7 +538,6 @@ class DiffractionVolumeLengthProcessor(_BaseEddProcessor):
                 'merge_key_paths': {'key_path': 'detectors/id', 'type': int}},
         },
         init_var=True)
-
     config: Optional[
         DiffractionVolumeLengthConfig] = DiffractionVolumeLengthConfig()
     detector_config: MCADetectorConfig
@@ -731,17 +773,19 @@ class DiffractionVolumeLengthProcessor(_BaseEddProcessor):
             if detector.background is not None:
                 if len(detector.background) == 1:
                     models.append(
-                        {'model': detector.background[0], 'prefix': 'bkgd_'})
+                        {'model_type': detector.background[0],
+                         'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
-                        models.append({'model': model, 'prefix': f'{model}_'})
-            models.append({'model': 'gaussian'})
+                        models.append(
+                            {'model_type': model, 'prefix': f'{model}_'})
+            models.append({'model_type': 'gaussian'})
             self.logger.debug('Fitting mean spectrum')
-            fit = FitProcessor(**self.run_config)
-            result = fit.process(
-                NXdata(
-                    NXfield(masked_sum, 'y'), NXfield(x, 'x')),
-                    {'models': models, 'method': 'trf'})
+            result = FitProcessor.run(
+                data=[PipelineData(name='signal', data=masked_sum),
+                      PipelineData(name='coordinates', data=x)],
+                config={'models': models, 'method': 'trf'},
+                **self.run_config)
 
             # Calculate / manually select diffraction volume length
             detector.dvl = float(
@@ -994,6 +1038,9 @@ class LatticeParameterRefinementProcessor(_BaseStrainProcessor):
                 elif raw_detector_data.sum():
                     for k, v in nxdata[detector_id].attrs.items():
                         detector.attrs[k] = v.nxdata
+                    if self.config.abs_height_cutoff is not None:
+                        detector.abs_height_cutoff = \
+                            self.config.abs_height_cutoff
                     if self.config.rel_height_cutoff is not None:
                         detector.rel_height_cutoff = \
                             self.config.rel_height_cutoff
@@ -1398,22 +1445,23 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
             if detector.background is not None:
                 if len(detector.background) == 1:
                     models.append(
-                        {'model': detector.background[0], 'prefix': 'bkgd_'})
+                        {'model_type': detector.background[0],
+                         'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
-                        models.append({'model': model, 'prefix': f'{model}_'})
+                        models.append(
+                            {'model_type': model, 'prefix': f'{model}_'})
             models.append(
-                {'model': 'multipeak', 'centers': initial_peak_indices,
+                {'model_type': 'multipeak', 'centers': initial_peak_indices,
                  'centers_range': detector.centers_range,
                  'fwhm_min': detector.fwhm_min,
                  'fwhm_max': detector.fwhm_max})
             self.logger.debug('Fitting spectrum')
-            fit = FitProcessor(**self.run_config)
-            mean_data_fit = fit.process(
-                NXdata(
-                    NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
-                {'models': models, 'method': 'trf'})
-
+            mean_data_fit = FitProcessor.run(
+                data=[PipelineData(name='signal', data=mean_data[mask]),
+                      PipelineData(name='coordinates', data=bins[mask])],
+                config={'models': models, 'method': 'trf'},
+                **self.run_config)
 
             # Extract the fit results for the peaks
             fit_peak_amplitudes = np.asarray([
@@ -1430,12 +1478,11 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
             self.logger.debug(f'Fit peak sigmas: {fit_peak_sigmas}')
 
             # FIX for now stick with a linear energy correction
-            fit = FitProcessor(**self.run_config)
-            energy_fit = fit.process(
-                    NXdata(
-                        NXfield(peak_energies, 'y'),
-                        NXfield(fit_peak_indices, 'x')),
-                    {'models': [{'model': 'linear'}]})
+            energy_fit = FitProcessor.run(
+                data=[PipelineData(name='signal', data=peak_energies),
+                      PipelineData(name='coordinates', data=fit_peak_indices)],
+                config={'models': [{'model_type': 'linear'}]},
+                **self.run_config)
             a = 0.0
             b = float(energy_fit.best_values['slope'])
             c = float(energy_fit.best_values['intercept'])
@@ -2116,10 +2163,10 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
         if detector.background is not None:
             if len(detector.background) == 1:
                 models.append(
-                    {'model': detector.background[0], 'prefix': 'bkgd_'})
+                    {'model_type': detector.background[0], 'prefix': 'bkgd_'})
             else:
                 for model in detector.background:
-                    models.append({'model': model, 'prefix': f'{model}_'})
+                    models.append({'model_type': model, 'prefix': f'{model}_'})
         if detector.backgroundpeaks is not None:
             backgroundpeaks = deepcopy(detector.backgroundpeaks)
             delta_energy = energies[1]-energies[0]
@@ -2137,16 +2184,17 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
                 peak.prefix = f'bkgd_{peak.prefix}'
             models += backgroundpeaks
         models.append(
-            {'model': 'multipeak', 'centers': centers,
+            {'model_type': 'multipeak', 'centers': centers,
              'centers_range': detector.centers_range,
              'fwhm_min': detector.fwhm_min,
              'fwhm_max': detector.fwhm_max})
 
         # Perform an unconstrained fit in terms of MCA bin index
-        fit = FitProcessor(**self.run_config)
-        result = fit.process(
-            NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
-            {'models': models, 'method': 'trf'})
+        result = FitProcessor.run(
+            data=[PipelineData(name='signal', data=mean_data[mask]),
+                  PipelineData(name='coordinates', data=bins[mask])],
+            config={'models': models, 'method': 'trf'},
+            **self.run_config)
         best_fit = result.best_fit
         residual = result.residual
 
@@ -2170,10 +2218,11 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             model = 'quadratic'
         else:
             model = 'linear'
-        fit = FitProcessor(**self.run_config)
-        result = fit.process(
-            NXdata(NXfield(e_bragg, 'y'), NXfield(fit_peak_indices, 'x')),
-            {'models': [{'model': model}]})
+        result = FitProcessor.run(
+            data=[PipelineData(name='signal', data=e_bragg),
+                  PipelineData(name='coordinates', data=fit_peak_indices)],
+            config={'models': [{'model_type': model}]},
+            **self.run_config)
         if quadratic_energy_calibration:
             a_fit = result.best_values['a']
             b_fit = result.best_values['b']
@@ -2245,10 +2294,11 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
         if detector.background is not None:
             if isinstance(detector.background, str):
                 bkgd_models.append(
-                    {'model': detector.background, 'prefix': 'bkgd_'})
+                    {'model_type': detector.background, 'prefix': 'bkgd_'})
             else:
                 for model in detector.background:
-                    bkgd_models.append({'model': model, 'prefix': f'{model}_'})
+                    bkgd_models.append(
+                        {'model_type': model, 'prefix': f'{model}_'})
 
         # Add the background peaks in MCA channels
         models = deepcopy(bkgd_models)
@@ -2277,7 +2327,7 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             if quadratic_energy_calibration:
                 expr = '(' + expr + f')*(1.0-a*(({e_peak}-c)/(b*b)))'
             models.append(
-                {'model': 'gaussian', 'prefix': f'xrf{i+1}_',
+                {'model_type': 'gaussian', 'prefix': f'xrf{i+1}_',
                  'parameters': [
                     {'name': 'amplitude', 'min': FLOAT_MIN},
                     {'name': 'center', 'expr': expr},
@@ -2293,17 +2343,19 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
                 expr = '(' + expr \
                        + f')*(1.0-a*((({norm}/sin(0.5*tth))-c)/(b*b)))'
             models.append(
-                {'model': 'gaussian', 'prefix': f'peak{i+1}_',
+                {'model_type': 'gaussian', 'prefix': f'peak{i+1}_',
                  'parameters': [
                     {'name': 'amplitude', 'min': FLOAT_MIN},
                     {'name': 'center', 'expr': expr},
                     {'name': 'sigma', 'min': sig_min, 'max': sig_max}]})
 
         # Perform the fit
-        fit = FitProcessor(**self.run_config)
-        result = fit.process(
-            NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
-            {'parameters': parameters, 'models': models, 'method': 'trf'})
+        result = FitProcessor.run(
+            data=[PipelineData(name='signal', data=mean_data[mask]),
+                  PipelineData(name='coordinates', data=bins[mask])],
+            config={
+                'parameters': parameters, 'models': models, 'method': 'trf'},
+            **self.run_config)
 
         # Extract values of interest from the best values
         tth_fit = np.degrees(result.best_values['tth'])
@@ -2331,18 +2383,15 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
         # Get an unconstrained fit for the fitted energy calibration
         # coefficients
         models = bkgd_models + [{
-            'model': 'multipeak', 'centers': list(e_peak_fit),
+            'model_type': 'multipeak', 'centers': list(e_peak_fit),
             'centers_range': b_fit * detector.centers_range,
             'fwhm_min': b_fit * detector.fwhm_min,
             'fwhm_max': b_fit * detector.fwhm_max}]
-        result = fit.process(
-            NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
-            {'parameters': parameters, 'models': models, 'method': 'trf'})
-        fit = FitProcessor(**self.run_config)
-        result = fit.process(
-            NXdata(NXfield(mean_data[mask], 'y'),
-            NXfield(energies[mask], 'x')),
-            {'models': models, 'method': 'trf'})
+        result = FitProcessor.run(
+            data=[PipelineData(name='signal', data=mean_data[mask]),
+                  PipelineData(name='coordinates', data=energies[mask])],
+            config={'models': models, 'method': 'trf'},
+            **self.run_config)
         e_xrf_unconstrained = np.sort(
             [result.best_values[f'peak{i+1}_center']
              for i in range(num_xrf)])
@@ -2790,6 +2839,9 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     # 0-scan map: no spectra yet, include for setup
                     for k, v in nxdata[detector_id].attrs.items():
                         detector.attrs[k] = v.nxdata
+                    if self.config.abs_height_cutoff is not None:
+                        detector.abs_height_cutoff = \
+                            self.config.abs_height_cutoff
                     if self.config.rel_height_cutoff is not None:
                         detector.rel_height_cutoff = \
                             self.config.rel_height_cutoff
@@ -2800,6 +2852,9 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 elif raw_detector_data.sum():
                     for k, v in nxdata[detector_id].attrs.items():
                         detector.attrs[k] = v.nxdata
+                    if self.config.abs_height_cutoff is not None:
+                        detector.abs_height_cutoff = \
+                            self.config.abs_height_cutoff
                     if self.config.rel_height_cutoff is not None:
                         detector.rel_height_cutoff = \
                             self.config.rel_height_cutoff

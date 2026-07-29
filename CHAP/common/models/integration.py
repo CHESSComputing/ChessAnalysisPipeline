@@ -302,6 +302,12 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         direction of the azimuthal coordinate from pyFAI's convention,
         defaults to `True`.
     :vartype right_handed: bool, optional
+    :ivar input_name: When set, names a
+        :class:`~CHAP.saxswaxs.models.CorrectionConfig` whose
+        corrected detector images are used as input to this integration
+        instead of raw detector data.  When ``None`` (default), raw
+        detector images are used as input.
+    :vartype input_name: str, optional
     """
 
     name: constr(strip_whitespace=True, min_length=1)
@@ -312,6 +318,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         Integrate1dConfig, Integrate2dConfig, IntegrateRadialConfig]
     ] = None
     right_handed: bool = True
+    input_name: Optional[str] = None
 
     _placeholder_result: PrivateAttr = None
 
@@ -634,17 +641,37 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 
         return results
 
-    def zarr_tree(self, dataset_shape, dataset_chunks='auto'):
+    def zarr_tree(self, dataset_shape, dataset_chunks='auto', nxlinks=None):
         """Return a dictionary representing a `zarr.group` that can be
         used to contain results from this integration.
 
-        :return: A `zarr.group` that can be used to contain the
-            integration results.
+        :param dataset_shape: Shape of the measurement (scan) dimensions
+            of the output dataset, excluding the integration dimensions.
+        :type dataset_shape: tuple[int, ...]
+        :param dataset_chunks: Chunk shape along the scan dimensions, or
+            ``'auto'``, defaults to ``'auto'``.
+        :type dataset_chunks: list[int] or str, optional
+        :param nxlinks: NeXus path(s) to link into the ``data`` group.
+            When the zarr tree is written to a ``.zarr`` file and
+            converted to ``.nxs`` with
+            :class:`~CHAP.common.processor.ZarrToNexusProcessor`, each
+            path produces an ``NXlink`` whose name is
+            ``os.path.basename(path)``.  Accepts a single path string or
+            a list of path strings.
+        :type nxlinks: str or list[str], optional
+        :returns: Nested dict representing the zarr group tree for this
+            integration.
         :rtype: dict
         """
         # Third party modules
         #import json
 
+        if isinstance(nxlinks, str):
+            nxlinks = [nxlinks]
+        data_attrs = {**self.get_axes_indices(len(dataset_shape))}
+        if nxlinks:
+            data_attrs['__nxlinks__'] = {
+                os.path.basename(p): p for p in nxlinks}
         tree = {
             # NXprocess
             'attributes': {
@@ -654,10 +681,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
             'children': {
                 'data': {
                     # NXdata
-                    'attributes': {
-                        # 'axes': self.result_axes(),
-                        **self.get_axes_indices(len(dataset_shape))
-                    },
+                    'attributes': data_attrs,
                     'children': {
                         'I': {
                             # NXfield
@@ -732,28 +756,50 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
                 data['azimuthal_integrators'] = ais
         return data
 
-    def zarr_tree(self, dataset_shape, dataset_chunks='auto'):
+    def zarr_tree(self, dataset_shape, dataset_chunks='auto', nxlinks=None):
         """Return a dictionary representing a `zarr.group` that can be
         used to contain results from
         :class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
 
-        :return: A `zarr.group` that can be used to contain the
-            integration results.
+        Each integration defined in :attr:`integrations` gets its own
+        sub-group keyed by the integration's ``name``.  See
+        :meth:`PyfaiIntegratorConfig.zarr_tree` for the structure of
+        each sub-group.
+
+        :param dataset_shape: Shape of the measurement (scan) dimensions
+            of the output dataset, excluding the integration dimensions.
+        :type dataset_shape: tuple[int, ...]
+        :param dataset_chunks: Chunk shape along the scan dimensions, or
+            ``'auto'``, defaults to ``'auto'``.
+        :type dataset_chunks: list[int] or str, optional
+        :param nxlinks: NeXus links to inject into each integration's
+            ``data`` group.  May be a single path string or list of path
+            strings (forwarded to every integration), or a dict keyed by
+            integration name mapping each integration to its own path(s).
+            See :meth:`PyfaiIntegratorConfig.zarr_tree` for details on
+            how individual paths are handled.
+        :type nxlinks: str or list[str] or dict[str, str or list[str]],
+            optional
+        :returns: Nested dict representing the zarr group tree for all
+            integrations.
         :rtype: dict
         """
         ais = {ai.get_id(): ai for ai in self.azimuthal_integrators}
         for integration in self.integrations:
             integration.init_placeholder_results(ais)
+        if not isinstance(nxlinks, dict):
+            nxlinks = {intg.name: nxlinks for intg in self.integrations}
         tree = {
             'root': {
                 'attributes': {
                     'description': 'Container for processed SAXS/WAXS data'
                 },
-                'children': {
-                    integration.name: integration.zarr_tree(
-                        dataset_shape, dataset_chunks)
-                    for integration in self.integrations
-                }
+            },
+            'children': {
+                integration.name: integration.zarr_tree(
+                    dataset_shape, dataset_chunks,
+                    nxlinks=nxlinks.get(integration.name))
+                for integration in self.integrations
             }
         }
         return tree

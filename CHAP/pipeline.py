@@ -77,18 +77,16 @@ class PipelineItem(RunConfig):
         # System modules
         from inspect import signature
 
-        if self.name is None:
-            self.__name__ = self.__class__.__name__
-        else:
-            self.__name__ = self.name
+        self.__name__ = self.__class__.__name__ \
+            if self.name is None else self.name
         if self.logger is None:
             self.logger = logging.getLogger(self.__name__)
             self.logger.propagate = False
             log_handler = logging.StreamHandler()
             log_handler.setFormatter(logging.Formatter(
-                '{asctime}: {name:20}: {levelname}: {message}',
+                '{asctime}: {name:20} (L{lineno}): {levelname}: {message}',
                 datefmt='%Y-%m-%d %H:%M:%S', style='{'))
-            self.logger.addHandler(log_handler)
+            self.logger.handlers = [log_handler]
         self.logger.setLevel(self.log_level)
         # Optinal, but it's already available in the 'name' field
         #if self.get_schema() is None:
@@ -269,7 +267,7 @@ class PipelineItem(RunConfig):
         `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
         object or matches a given name or schema. Pick the last item for which
         the `'name'` key matches `name` if set or the `'schema'` key matches
-        `schema` if set, pick the last match for a `NXobjecta` object
+        `schema` if set, pick the last match for a `NXobject` object
         otherwise. Return the data object.
 
         :param data: Input data.
@@ -416,7 +414,7 @@ class PipelineItem(RunConfig):
         :return: Matching data item.
         :rtype: Any
         """
-        if isinstance(data, list):
+        if isinstance(data, list) and isinstance(data[index], PipelineData):
             if remove:
                 return data.pop(index)['data']
             return data[index]['data']
@@ -507,40 +505,10 @@ class PipelineItem(RunConfig):
         """
         # System modules
         from importlib import import_module
-        from inspect import isclass
-        from pkgutil import walk_packages
-
-        # Local modules
-        from CHAP.utils.general import input_menu
-
-        def _find_class_in_package(package_name, class_name):
-            package = import_module(package_name)
-            # Recursively walk through all submodules
-            found_classes = []
-            for _, module_name, _ in walk_packages(
-                    package.__path__, package.__name__ + "."):
-                try:
-                    module = import_module(module_name)
-                    # Check if the class exists in this module
-                    if hasattr(module, class_name):
-                        cls = getattr(module, class_name)
-                        if (isclass(cls) and cls.__module__ == module_name
-                                and cls not in found_classes):
-                            found_classes.append(cls)
-                except ImportError:
-                    continue
-            if not found_classes:
-                raise ImportError(f'Unable to find {class_name} in CHAP')
-            if len(found_classes) == 1:
-                return found_classes[0]
-            index = input_menu(
-                [v.__module__ for v in found_classes],
-                header=f'\nFound multiple classes named {class_name} in '
-                       f'CHAP\nUse {class_name} from:')
-            return found_classes[index]
 
         cls_name = cls.__name__
-        mmc = _find_class_in_package('CHAP', cls_name)
+        package = import_module(cls.__module__, cls_name)
+        mmc = getattr(package, cls_name)
         item = mmc(modelmetaclass=mmc, **kwargs)
         return item.execute(kwargs.get('data'))
 

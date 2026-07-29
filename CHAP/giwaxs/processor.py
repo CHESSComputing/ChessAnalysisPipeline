@@ -118,13 +118,15 @@ class GiwaxsConversionProcessor(Processor):
                                 f'{skipped_detectors} (no raw data)')
         if not ais:
             raise RuntimeError('No matching raw detector data found')
-        ai_id = ais[0].get_id()
+        if len(ais) != 1:
+            raise RuntimeError(
+                'Wedge correction not implemented for multiple detectors')
         axes = get_axes(nxdata)
         if not axes:
             self.logger.warning('Unable to find axes information')
+        ai_id = ais[0].get_id()
         independent_dims[ai_id] = [
             nxcopy(nxdata[a]) for a in axes]
-        data[ai_id] = nxdata[ai_id]
         if axes[0] == 'theta':
             thetas = nxdata['theta']
             theta_unit = thetas.attrs.get('units')
@@ -217,6 +219,9 @@ class PyfaiIntegrationProcessor(Processor):
     :vartype config: dict, optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
     :vartype nxmemory: int, optional
+    :ivar nxpath: Path to a specific location in the NeXus file tree
+        to read the intensity data from.
+    :vartype nxpath: str, optional
     """
 
     pipeline_fields: dict = Field(
@@ -224,6 +229,7 @@ class PyfaiIntegrationProcessor(Processor):
             'config': 'giwaxs.models.PyfaiIntegrationConfig'}, init_var=True)
     config: PyfaiIntegrationConfig
     nxmemory: Optional[conint(gt=0)] = 100000
+    nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = None
 
     def process(self, data):
         """Process the input images & configuration and return a map of
@@ -247,9 +253,11 @@ class PyfaiIntegrationProcessor(Processor):
             NXprocess,
             nxsetconfig,
         )
+        from nexusformat.nexus.tree import NeXusError
         from pyFAI.gui.utils.units import Unit
 
         # Local imports
+        from CHAP.giwaxs.models import PyfaiIntegratorConfig
         from CHAP.utils.general import nxcopy
 
         nxsetconfig(memory=self.nxmemory)
@@ -262,37 +270,34 @@ class PyfaiIntegrationProcessor(Processor):
         data = {}
         independent_dims = {}
         try:
-            nxprocess_converted = nxroot[f'{nxroot.default}_converted']
-            conversion_config = loads(
-                str(nxprocess_converted.conversion_config))
-            converted_ais = conversion_config['azimuthal_integrators']
-            if len(converted_ais) > 1:
-                raise RuntimeError(
-                    'More than one detector not yet implemented')
+            nxprocess_wedge = nxroot[f'{nxroot.default}_wedge']
+            integration_config = PyfaiIntegratorConfig(**loads(
+                str(nxprocess_wedge.integration_config)))
+            wedge_ais = integration_config.integration_params.ais
             if self.config.azimuthal_integrators is None:
                 # Local modules
                 from CHAP.common.models.integration import (
                     AzimuthalIntegratorConfig,
                 )
 
-                ais = [AzimuthalIntegratorConfig(**converted_ais[0])]
+                ais = [AzimuthalIntegratorConfig(id=wedge_ais)]
             else:
-                converted_ids = [ai['id'] for ai in converted_ais]
+                wedge_ids = [wedge_ais]
                 skipped_detectors = []
                 ais = []
                 for ai in self.config.azimuthal_integrators:
-                    if ai.get_id() in converted_ids:
+                    if ai.get_id() in wedge_ids:
                         ais.append(ai)
                     else:
                         skipped_detectors.append(ai.get_id())
                 if skipped_detectors:
                     self.logger.warning(
                         f'Skipping detector(s) {skipped_detectors} '
-                        '(no converted data)')
+                        '(no wedge corrected data)')
                 if not ais:
                     raise RuntimeError(
                         'No matching azimuthal integrators found')
-            nxdata = nxprocess_converted.data
+            nxdata = nxprocess_wedge.data
             axes = nxdata.attrs['axes']
             if len(nxdata.attrs['axes']) != 3:
                 raise RuntimeError('More than one independent dimension '
@@ -300,12 +305,14 @@ class PyfaiIntegrationProcessor(Processor):
             axes = axes[0]
             independent_dims[ais[0].get_id()] = nxcopy(nxdata[axes])
             data[ais[0].get_id()] = np.flip(nxdata.nxsignal.nxdata, axis=1)
+            raise ValueError(
+                'Integration after wedge correction not implemented')
         except Exception as exc:
             experiment_type = loads(
                 str(nxroot[nxroot.default].map_config))['experiment_type']
             if experiment_type == 'GIWAXS':
-                self.logger.warning(
-                    'No converted data found, use raw data for integration')
+                self.logger.warning('No wedge corrected data found, use raw '
+                                    'data for integration')
             nxentry = nxroot[nxroot.default]
             detector_ids = [
                 #str(id, 'utf-8') for id in nxentry.detector_ids.nxdata]
@@ -321,29 +328,35 @@ class PyfaiIntegrationProcessor(Processor):
             skipped_detectors = []
             ais = []
             for ai in self.config.azimuthal_integrators:
-                if ai.get_id() in nxdata:
-                    if nxdata[ai.get_id()].ndim != 3:
+                ai_id = ai.get_id()
+                if ai_id in nxdata:
+                    if nxdata[ai_id].ndim != 3:
                         raise RuntimeError('Inconsistent raw data dimension '
-                                           f'{nxdata[ai.get_id()].ndim}')
+                                           f'{nxdata[ai_id].ndim}')
                     ais.append(ai)
-                    data[ai.get_id()] = nxdata[ai.get_id()].nxdata
+                    if self.nxpath is None:
+                        data[ai_id] = nxdata[ai_id].nxdata
+                    else:
+                        data[ai_id] = nxroot[self.nxpath]
                 else:
-                    skipped_detectors.append(ai.get_id())
+                    skipped_detectors.append(ai_id)
             if skipped_detectors:
-                self.logger.warning('Skipping detector(s) '
-                                    f'{skipped_detectors} (no raw data)')
+                self.logger.warning(
+                    'Skipping detector(s) {skipped_detectors} (no raw data)')
             if not ais:
                 raise RuntimeError('No matching raw detector data found')
+            if len(ais) != 1:
+                raise RuntimeError(
+                    'Integration not implemented for multiple detectors')
+            ai_id = ais[0].get_id()
             if 'unstructured_axes' in nxdata.attrs:
                 axes = nxdata.attrs['unstructured_axes']
-                independent_dims[ais[0].get_id()] = [
-                    nxcopy(nxdata[a]) for a in axes]
+                independent_dims[ai_id] = [nxcopy(nxdata[a]) for a in axes]
             elif 'axes' in nxdata.attrs:
                 axes = nxdata.attrs['axes']
-                independent_dims[ais[0].get_id()] = nxcopy(nxdata[axes])
+                independent_dims[ai_id] = nxcopy(nxdata[axes])
             else:
                 self.logger.warning('Unable to find independent_dimensions')
-            data[ais[0].get_id()] = nxdata[ais[0].get_id()]
 
         # Select the images to integrate
         #if False and self.config.scan_step_indices is not None:
@@ -369,7 +382,7 @@ class PyfaiIntegrationProcessor(Processor):
                     self.logger.debug(
                         f'mask shape for {ai.get_id()}: {mask.shape}')
                     masks[ai.get_id()] = mask
-            except (IOError, OSError, ValueError):
+            except (IOError, OSError, TypeError, ValueError):
                 self.logger.debug(f'No mask file found for {ai.get_id()}')
         if not masks:
             masks = None
@@ -382,7 +395,7 @@ class PyfaiIntegrationProcessor(Processor):
             nxprocess = NXprocess()
             try:
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
-            except ValueError:
+            except (NeXusError, ValueError):
                 # Copy nxroot if nxroot is read as read-only
                 nxroot = nxcopy(nxroot)
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess

@@ -33,7 +33,7 @@ from typing_extensions import Annotated
 # Local modules
 from CHAP.models import CHAPBaseModel
 from CHAP.common.models.map import Detector
-from CHAP.utils.models import Multipeak
+from CHAP.utils.models import MultipeakModel
 #from CHAP.utils.parfile import ParFile
 
 # Baseline configuration class
@@ -73,12 +73,26 @@ class _FitConfig(CHAPBaseModel):
     :ivar baseline: Automated baseline subtraction configuration,
         defaults to `False`.
     :vartype baseline: bool or BaselineConfig, optional
+    :ivar baseline_type: Automated baseline subtraction type,
+        one baseline per detector based on the mean spectrum
+        (`'mean'`), or a baseline for each spectrum per detector
+        (`'spectrum'`). Defaults to `mean`.
+    :vartype baseline_type: Literal['mean', 'spectrum'], optional
     :ivar centers_range: Peak centers range for peak fitting.
         The allowed range for the peak centers will be the initial
         values &pm; `centers_range` (in MCA channels for calibration
-        or keV for strain analysis). Defaults to `20` for calibration
-        and `2.0` for strain analysis.
+        or keV for strain analysis, ignored when `0.0`).
+        Defaults to `20` for calibration and `2.0` for strain analysis.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
     :vartype centers_range: float, optional
+    :ivar centers_range_fraction: Peak centers range for peak fitting.
+        The allowed range for the peak centers will be the initial
+        values &pm; `centers_range_fraction times the initial value`
+        (in keV) (ignored when `0.0`), defaults to `0.02`.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
+    :vartype centers_range_fraction: float, optional
     :ivar energy_mask_ranges: MCA energy mask ranges in keV for
         selecting the data to be included after applying a mask (bounds
         are inclusive). Specify either energy_mask_ranges or
@@ -98,13 +112,16 @@ class _FitConfig(CHAPBaseModel):
     :vartype mask_ranges: list[[int, int]], optional
     :ivar backgroundpeaks: Additional background peaks (their
         associated fit parameters in units of keV).
-    :vartype backgroundpeaks: Multipeak, optional
+    :vartype backgroundpeaks: MultipeakModel, optional
     """
 
     background: Optional[conlist(item_type=constr(
         strict=True, strip_whitespace=True, to_lower=True))] = ['constant']
     baseline: Optional[Union[bool, BaselineConfig]] = None
-    centers_range: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
+    baseline_type: Optional[Literal['mean', 'spectrum']] = 'mean'
+    centers_range: Optional[confloat(ge=0, allow_inf_nan=False)] = 20
+    centers_range_fraction: Optional[
+        confloat(ge=0, allow_inf_nan=False)] = 0.02
     energy_mask_ranges: Optional[conlist(
         min_length=1,
         item_type=conlist(
@@ -119,7 +136,7 @@ class _FitConfig(CHAPBaseModel):
             min_length=2,
             max_length=2,
             item_type=conint(ge=0)))] = None
-    backgroundpeaks: Optional[Multipeak] = None
+    backgroundpeaks: Optional[MultipeakModel] = None
 
     @field_validator('background', mode='before')
     @classmethod
@@ -414,10 +431,24 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     """Class representing the configuration to perform a strain
     analysis.
 
+    :ivar abs_height_cutoff: Absolute peak height cutoff for
+        peak fitting (any peak with a height smaller than
+        `abs_height_cutoff` gets removed from the fit model).
+    :vartype abs_height_cutoff: int, optional
     :ivar centers_range: Peak centers range for peak fitting.
         The allowed range for the peak centers will be the initial
-        values &pm; `centers_range` (in keV), defaults to `2.0`.
+        values &pm; `centers_range` (in keV) (ignored when `0.0`),
+        defaults to `2.0`.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
     :vartype centers_range: float, optional
+    :ivar centers_range_fraction: Peak centers range for peak fitting.
+        The allowed range for the peak centers will be the initial
+        values &pm; `centers_range_fraction times the initial value`
+        (in keV) (ignored when `0.0`), defaults to `0.02`.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
+    :vartype centers_range_fraction: float, optional
     :ivar fwhm_min: Minimum FWHM for peak fitting (in keV),
         defaults to `0.25`.
     :vartype fwhm_min: float, optional
@@ -431,7 +462,7 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     :ivar rel_height_cutoff: Relative peak height cutoff for
         peak fitting (any peak with a height smaller than
         `rel_height_cutoff` times the maximum height of all peaks 
-        gets removed from the fit model), defaults to `None`.
+        gets removed from the fit model).
     :vartype rel_height_cutoff: float, optional
     :ivar tth_map: Map of the 2&theta values.
     :vartype tth_map: numpy.ndarray, optional
@@ -440,7 +471,10 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     #:ivar tth_file: Path to the file with the 2&theta map.
     #:vartype tth_file: FilePath, optional
 
-    centers_range: Optional[confloat(gt=0, allow_inf_nan=False)] = 2
+    abs_height_cutoff: Optional[conint(gt=0)] = None
+    centers_range: Optional[confloat(ge=0, allow_inf_nan=False)] = 2
+    centers_range_fraction: Optional[
+        confloat(ge=0, allow_inf_nan=False)] = 0.02
     fwhm_min: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.25
     fwhm_max: Optional[confloat(gt=0, allow_inf_nan=False)] = 2.0
     processor_type: Literal['strainanalysis']
@@ -450,7 +484,7 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
             item_type=Literal['gaussian', 'lorentzian', 'pvoigt']),
         Literal['gaussian', 'lorentzian', 'pvoigt']] = 'gaussian'
     rel_height_cutoff: Optional[
-        confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
+        confloat(gt=0, lt=1, allow_inf_nan=False)] = None
 #    tth_file: Optional[FilePath] = None
     tth_map: Optional[np.ndarray] = None
 
@@ -876,6 +910,12 @@ class StrainAnalysisConfig(MCACalibrationConfig):
     and :class:`~CHAP.edd.processor.StrainAnalysisProcessor`,
     respectively.
 
+    :ivar abs_height_cutoff: Used to excluded peaks based on the
+        `find_peak` parameter as well as for peak fitting exclusion
+        of the individual detector spectra (see the strain detector
+        configuration
+        :class:`~CHAP.edd.models.MCADetectorStrainAnalysis`).
+    :vartype abs_height_cutoff: int, optional
     :ivar find_peak_cutoff: Use scipy.signal.find_peaks to exclude
         peaks for all spectra for a given detector and user specified
         mask. A particular HKL peak is removed from the set of HKLs,
@@ -905,12 +945,13 @@ class StrainAnalysisConfig(MCACalibrationConfig):
     #:ivar oversampling: FIX
     #:vartype oversampling: FIX
 
-    find_peak_cutoff: Optional[confloat(ge=0.0, allow_inf_nan=False)] = 0.0
+    abs_height_cutoff: Optional[conint(gt=0)] = None
+    find_peak_cutoff: Optional[confloat(ge=0, allow_inf_nan=False)] = 0.0
     max_nfev: Optional[conint(gt=0)] = None
     num_proc: Optional[conint(gt=0)] = max(1, os.cpu_count()//4)
     #oversampling: dict = {'num': 10}
     rel_height_cutoff: Optional[
-        confloat(gt=0.0, lt=1.0, allow_inf_nan=False)] = None
+        confloat(gt=0, lt=1, allow_inf_nan=False)] = None
     skip_animation: Optional[bool] = False
     sum_axes: Optional[
         Union[bool, conlist(min_length=1, item_type=str)]] = True

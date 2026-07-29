@@ -3,14 +3,19 @@ classes.
 """
 
 # System modules
+import os
 from typing import (
+    ClassVar,
     Literal,
     Optional,
+    Type,
     Union,
 )
 
 # Third party imports
+import lmfit.models as lmfit_models
 from pydantic import (
+    BaseModel,
     Field,
     PrivateAttr,
     StrictBool,
@@ -19,6 +24,7 @@ from pydantic import (
     confloat,
     constr,
     field_validator,
+    model_validator,
 )
 from typing_extensions import Annotated
 import numpy as np
@@ -27,9 +33,6 @@ import numpy as np
 from CHAP.models import CHAPBaseModel
 from CHAP.utils.general import not_zero, tiny
 
-# pylint: disable=no-member
-tiny = np.finfo(np.float64).resolution
-# pylint: enable=no-member
 s2pi = np.sqrt(2*np.pi)
 s2ln2 = np.sqrt(2*np.log(2))
 
@@ -39,7 +42,7 @@ def constant(x, c=0.0):
 
     :param c: Constant, defaults to `0`.
     :type c: float, optional
-    :returns: The function evaluations.
+    :returns: Function evaluations.
     :rtype: numpy.ndarray
 
     .. math::
@@ -58,7 +61,7 @@ def linear(x, slope=1.0, intercept=0.0):
     :type slope: float, optional
     :param intercept: Intercept, defaults to `0`.
     :type intercept: float, optional
-    :returns: The function evaluations.
+    :returns: Function evaluations.
     :rtype: numpy.ndarray
 
     .. math::
@@ -71,8 +74,8 @@ def linear(x, slope=1.0, intercept=0.0):
     return slope * x + intercept
 
 
-#def quadratic(x, a=0.5, b=0.4, c=0.1):
-def quadratic(x, a=0.0, b=0.0, c=0.0):
+#def parabolic(x, a=0.5, b=0.4, c=0.1):
+def parabolic(x, a=0.0, b=0.0, c=0.0):
     r"""Return a parabolic function.
 
     :param a: Quadratic polynomial coefficient, defaults to an
@@ -84,7 +87,7 @@ def quadratic(x, a=0.0, b=0.0, c=0.0):
     :param c: Constant polynomial coefficient, defaults to an
         initial value of `0`.
     :type c: float, optional
-    :returns: The function evaluations.
+    :returns: Function evaluations.
     :rtype: numpy.ndarray
 
     .. math::
@@ -104,7 +107,7 @@ def exponential(x, amplitude=1.0, decay=1.0):
     :type amplitude: float, optional
     :param decay: Exponential decay, defaults to `1`.
     :type decay: float, optional
-    :returns: The function evaluations.
+    :returns: Function evaluations.
     :rtype: numpy.ndarray
 
     .. math::
@@ -128,7 +131,7 @@ def gaussian(x, amplitude=1.0, center=0.0, sigma=1.0):
     :type center: float, optional
     :param sigma: Standard deviation, defaults to `1`.
     :type sigma: float, optional
-    :returns: The function evaluations.
+    :returns: Function evaluations.
     :rtype: numpy.ndarray
 
     .. math::
@@ -160,7 +163,7 @@ def lorentzian(x, amplitude=1.0, center=0.0, sigma=1.0):
     :type center: float, optional
     :param sigma: Standard deviation, defaults to `1`.
     :type sigma: float, optional
-    :returns: The function evaluations.
+    :returns: Function evaluations.
     :rtype: numpy.ndarray
 
     .. math::
@@ -196,7 +199,7 @@ def pvoigt(x, amplitude=1.0, center=0.0, sigma=1.0, fraction=0.5):
     :param fraction: Relative weight of the Gaussian and Lorentzian
         components, defaults to `0.5`.
     :type fraction: float, optional
-    :returns: The function evaluations.
+    :returns: Function evaluations.
     :rtype: numpy.ndarray
 
     .. math::
@@ -248,7 +251,7 @@ def rectangle(
         - ``'logistic'``: Sigmoidal (logistic function) transitions.
     :type form: str, optional
 
-    :returns: The evaluated rectangle function values.
+    :returns: Evaluated rectangle function values.
     :rtype: float or numpy.ndarray
 
     .. note::
@@ -289,53 +292,6 @@ def rectangle(
     return amplitude*rect
 
 
-def validate_parameters(parameters, info):
-    """Validate the parameters.
-
-    :param parameters: Fit model parameters.
-    :type parameters: list[FitParameter]
-    :param info: Model parameter validation information.
-    :type info: pydantic.ValidationInfo
-    :return: List of fit model parameters.
-    :rtype: list[FitParameter]
-    """
-    # System imports
-    from inspect import signature
-
-    if 'model' in info.data:
-        model = info.data['model']
-    else:
-        model = None
-    if model is None or model == 'expression':
-        return parameters
-    sig = dict(signature(models[model]['name']).parameters.items())
-    sig.pop('x')
-
-    # Check input model parameter validity
-    for par in parameters:
-        if par.name not in sig:
-            raise ValueError('Invalid parameter {par.name} in {model} model')
-
-    # Set model parameters
-    output_parameters = []
-    for sig_name, sig_par in sig.items():
-        if model == 'rectangle' and sig_name == 'form':
-            continue
-        for par in parameters:
-            if sig_name == par.name:
-                break
-        else:
-            par = FitParameter(name=sig_name)
-        if sig_par.default != sig_par.empty:
-            par._default = sig_par.default
-        if model == 'pvoigt' and sig_name == 'fraction':
-            par.min = 0.0
-            par.max = 1.0
-        output_parameters.append(par)
-
-    return output_parameters
-
-
 class FitParameter(CHAPBaseModel):
     """Class representing a specific fit parameter for the fit
     processor.
@@ -355,6 +311,11 @@ class FitParameter(CHAPBaseModel):
         value during the fit. To remove a constraint you must
         supply an empty string.
     :vartype expr: str, optional
+    :ivar description: Free-text description of the parameter, defaults
+        to `"unspecified"`.
+    :vartype description: str, optional
+    :ivar units: Units of the parameter, defaults to `"unspecified"`.
+    :vartype units: str, optional
     """
 
     name: constr(strip_whitespace=True, min_length=1)
@@ -363,6 +324,9 @@ class FitParameter(CHAPBaseModel):
     max: Optional[confloat()] = np.inf
     vary: StrictBool = True
     expr: Optional[constr(strip_whitespace=True, min_length=1)] = None
+
+    description: Optional[str] = 'unspecified'
+    units: Optional[str] = 'unspecified'
 
     _default: float = PrivateAttr()
     _init_value: float = PrivateAttr()
@@ -417,6 +381,10 @@ class FitParameter(CHAPBaseModel):
             return self._init_value
         return None
 
+    @init_value.setter
+    def init_value(self, value):
+        self._init_value = value
+
     @property
     def prefix(self):
         """Return the parametr prefix.
@@ -425,7 +393,21 @@ class FitParameter(CHAPBaseModel):
         """
         if hasattr(self, '_prefix'):
             return self._prefix
-        return None
+        return ''
+
+    @property
+    def long_name(self):
+        """Return the fully-qualified parameter name, combining the
+        model prefix (if any) with the parameter name.
+
+        When no prefix is set, returns :attr:`name` unchanged.
+
+        :type: str
+        """
+        prefix = self.prefix
+        if prefix is None:
+            return self.name
+        return f'{self.prefix}_{self.name}'
 
     @property
     def stderr(self):
@@ -437,7 +419,12 @@ class FitParameter(CHAPBaseModel):
             return self._stderr
         return None
 
-    def set(self, value=None, min=None, max=None, vary=None, expr=None):
+    @stderr.setter
+    def stderr(self, value):
+        self._stderr = value
+
+    def set(self, value=None, min=None, max=None, vary=None, expr=None,
+            is_init_value=True):
         """Set or update FitParameter attributes.
 
         :param value: Parameter value.
@@ -454,6 +441,9 @@ class FitParameter(CHAPBaseModel):
             value during the fit. To remove a constraint you must
             supply an empty string.
         :type expr: str, optional
+        :param is_init_value: Whether to set the intial value when
+            setting the parameter value, default to `True`.
+        :type is_init_value: bool, optional
         """
         if expr is not None:
             if not isinstance(expr, str):
@@ -488,237 +478,572 @@ class FitParameter(CHAPBaseModel):
             elif self.value < self.min:
                 self.value = self.min
             self.expr = None
+            if is_init_value:
+                self._init_value = value
 
-class Constant(CHAPBaseModel):
+    def zarr_tree(self, dataset_shape, dataset_chunks, nxlinks=None):
+        """Return a nested dict representing the Zarr group tree for
+        this fit parameter's output container.
+
+        The group contains one dataset per parameter attribute
+        (``value``, ``error``, ``initial``, ``min``, ``max``,
+        ``vary``, ``expression``), each shaped to hold one scalar per
+        point in the scan map.
+
+        :param dataset_shape: Shape of the measurement (scan) dimensions
+            of the output dataset, excluding the signal dimensions.
+        :type dataset_shape: tuple[int, ...]
+        :param dataset_chunks: Chunk shape along the scan dimensions, or
+            ``'auto'``.
+        :type dataset_chunks: list[int] or str
+        :param nxlinks: NeXus path(s) to link into the ``data`` group.
+            When the zarr tree is written to a ``.zarr`` file and
+            converted to ``.nxs`` with
+            :class:`~CHAP.common.processor.ZarrToNexusProcessor`, each
+            path produces an ``NXlink`` whose name is
+            ``os.path.basename(path)``.  Accepts a single path string or
+            a list of path strings.  All links must be explicit; none are
+            auto-generated.
+        :type nxlinks: str or list[str], optional
+        :returns: Nested dict representing the zarr group tree for this
+            parameter.
+        :rtype: dict
+        """
+        data_attrs = {
+            'NX_class': 'NXdata',
+            'description': self.description,
+        }
+        if isinstance(nxlinks, str):
+            nxlinks = [nxlinks]
+        if nxlinks:
+            data_attrs['__nxlinks__'] = {
+                os.path.basename(p): p for p in nxlinks
+            }
+        if nxlinks:
+            data_attrs['__nxlinks__'] = {
+                os.path.basename(p): p for p in nxlinks
+            }
+        return {
+            'attributes': data_attrs,
+            'children': {
+                'value': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'error': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'initial': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'min': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'max': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'vary': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                    },
+                    'dtype': 'bool',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'expression': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                    },
+                    'dtype': 'str',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+            },
+        }
+
+
+class FitModel(CHAPBaseModel):
+    """Abstract base class representing a generic model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :vartype model: Literal['constant', 'linear', 'parabolic',
+        'exponential', 'gaussian', 'lorentzian', 'pvoigt',
+        'rectangle', 'expression']
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the function signature (excluding the
+        independent variable).
+    :vartype parameters: list[FitParameter], optional
+    :ivar prefix: Model prefix, defaults to `''`.
+    :vartype prefix: str, optional
+    """
+
+    LINEAR_PARAMETERS: ClassVar[list[str]] = ['c']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.ConstantModel
+    MODEL_PARAMETERS: ClassVar[list[str]] = []
+    MODEL_IDENTIFIERS: ClassVar[list[str]] = []
+    model_type: str
+    parameters: Annotated[
+        conlist(item_type=FitParameter),
+        Field(validate_default=True)] = []
+    prefix: Optional[str] = ''
+
+    _func: PrivateAttr
+    _func_args: PrivateAttr
+
+    @model_validator(mode='after')
+    def validate_model_after(self):
+        """Validate the model configuration and initialize the
+        appropriate parameters from the model function signature.
+
+        :return: Validated and initialized configuration.
+        :rtype: Model
+        """
+        # System imports
+        from inspect import signature
+
+        if self.model_type == 'expression':
+            return self
+        self._func = globals()[self.model_type]
+        sig = dict(signature(self._func).parameters)
+        sig.pop('x')
+        self._func_args = [
+            arg for arg in sig.keys() if arg not in self.MODEL_IDENTIFIERS]
+
+        # Check input model parameter validity
+        par_names = []
+        for par in self.parameters:
+            if par.name not in sig:
+                raise ValueError(
+                    'Invalid parameter {par.name} in {self.model_type} model '
+                    f'valid function arguments: {list(sig.keys())}')
+            par_names.append(par.name)
+
+        # Set model parameters
+        for sig_name, sig_par in sig.items():
+            if sig_name in self.MODEL_IDENTIFIERS or sig_name in par_names:
+#            if ((self.model_type == 'rectangle' and sig_name == 'form')
+#                    or sig_name in par_names):
+                continue
+            par = FitParameter(name=sig_name)
+            if sig_par.default != sig_par.empty:
+                par._default = sig_par.default
+            self.parameters.append(par)
+            par_names.append(par.name)
+
+        # Perform any additional validation of model parameters
+        if hasattr(self, '_validate_parameters'):
+            self._validate_parameters()
+        return self
+
+    @property
+    def func(self):
+        """Return the model function
+
+        :type: function
+        """
+        if hasattr(self, '_func'):
+            return self._func
+        return None
+
+    @property
+    def func_args(self):
+        """Return the model function arguments
+
+        :type: list[str]
+        """
+        if hasattr(self, '_func_args'):
+            return self._func_args
+        return None
+
+#    def linear_parameters(self, prefix=''):
+#        """Return the linear parameters.
+#
+#        :param prefix: Model prefix.
+#        :type prefix: str, optional
+#        :returns: The list of linear function parameters.
+#        :rtype: list[str]
+#        """
+#        return [f'{prefix}{v}' for v in self.LINEAR_PARAMETERS]
+
+    @property
+    def long_name(self):
+        """Return the fully-qualified model name, combining the model
+        prefix (if any) with :attr:`model_type`.
+
+        :type: str
+        """
+        return f'{self.prefix}{self.model_type}'
+
+    def zarr_tree(self, dataset_shape, dataset_chunks,
+                  signal_shape, nxlinks=None):
+        """Return a nested dict representing the Zarr group tree for
+        this model component's output container.
+
+        The group contains a ``parameters`` sub-group (one entry per
+        parameter, structured by
+        :meth:`~CHAP.utils.models.FitParameter.zarr_tree`) and a
+        ``data`` sub-group with a ``best_fit`` dataset shaped to hold
+        the component's fitted curve for every point in the scan map.
+
+        :param dataset_shape: Shape of the measurement (scan) dimensions
+            of the output dataset, excluding the signal dimensions.
+        :type dataset_shape: tuple[int, ...]
+        :param dataset_chunks: Chunk shape along the scan dimensions, or
+            ``'auto'``.
+        :type dataset_chunks: list[int] or str
+        :param signal_shape: Shape of one frame of the 1-D signal being
+            fit (the signal dimension).
+        :type signal_shape: tuple[int, ...]
+        :param nxlinks: NeXus path(s) to link into the ``data`` group.
+            When the zarr tree is written to a ``.zarr`` file and
+            converted to ``.nxs`` with
+            :class:`~CHAP.common.processor.ZarrToNexusProcessor`, each
+            path produces an ``NXlink`` whose name is
+            ``os.path.basename(path)``.  Accepts a single path string or
+            a list of path strings.  All links must be explicit; none are
+            auto-generated.
+        :type nxlinks: str or list[str], optional
+        :returns: Nested dict representing the zarr group tree for this
+            model component.
+        :rtype: dict
+        """
+        if isinstance(nxlinks, str):
+            nxlinks = [nxlinks]
+        data_attrs = {}
+        if nxlinks:
+            data_attrs['__nxlinks__'] = {
+                os.path.basename(p): p for p in nxlinks
+            }
+        return {
+            'attributes': {
+                'NX_class': 'NXcollection',
+            },
+            'children': {
+                'parameters': {
+                    'attributes': {
+                        'model': self.model_type,
+                        'NX_class': 'NXparameters',
+                    },
+                    'children': {
+                        param.long_name: param.zarr_tree(
+                            dataset_shape, dataset_chunks, nxlinks=nxlinks
+                        ) for param in self.parameters
+                    }
+                },
+                'data': {
+                    'attributes': data_attrs,
+                    'children': {
+                        'best_fit': {
+                            'shape': (*dataset_shape, *signal_shape),
+                            'dtype': 'float64',
+                        }
+                    }
+                }
+            }
+        }
+
+
+class ConstantModel(FitModel):
     """Class representing a Constant model component.
 
-    :ivar model: The model component base name (a prefix will be added
-        if multiple identical model components are added).
-    :vartype model: Literal['constant']
+    :ivar model_type: Model component base name (a prefix will be
+        added if multiple identical model components are added).
+    :vartype model_type: Literal['constant']
     :ivar parameters: Function parameters, defaults to those auto
         generated from the function signature (excluding the
         independent variable).
     :vartype parameters: list[FitParameter], optional
-    :ivar prefix: The model prefix, defaults to `''`.
+    :ivar prefix: Model prefix, defaults to `''`.
     :vartype prefix: str, optional
     """
 
-    model: Literal['constant']
-    parameters: Annotated[
-        conlist(item_type=FitParameter),
-        Field(validate_default=True)] = []
-    prefix: Optional[str] = ''
-
-    _validate_parameters_parameters = field_validator(
-        'parameters')(validate_parameters)
+    LINEAR_PARAMETERS: ClassVar[list[str]] = ['c']
+    model_type: Literal['constant']
 
 
-class Linear(CHAPBaseModel):
+class LinearModel(ConstantModel):
     """Class representing a Linear model component.
 
-    :ivar model: The model component base name (a prefix will be added
-        if multiple identical model components are added).
-    :vartype model: Literal['linear']
-    :ivar parameters: Function parameters, defaults to those auto
-        generated from the function signature (excluding the
-        independent variable).
-    :vartype parameters: list[FitParameter], optional
-    :ivar prefix: The model prefix, defaults to `''`.
-    :vartype prefix: str, optional
+    :ivar model_type: Model component type.
+    :vartype model_type: Literal['linear']
     """
 
-    model: Literal['linear']
-    parameters: Annotated[
-        conlist(item_type=FitParameter),
-        Field(validate_default=True)] = []
-    prefix: Optional[str] = ''
-
-    _validate_parameters_parameters = field_validator(
-        'parameters')(validate_parameters)
+    LINEAR_PARAMETERS: ClassVar[list[str]] = ['slope', 'intercept']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.LinearModel
+    model_type: Literal['linear']
 
 
-class Quadratic(CHAPBaseModel):
+class QuadraticModel(ConstantModel):
     """Class representing a Quadratic model component.
 
-    :ivar model: The model component base name (a prefix will be added
-        if multiple identical model components are added).
-    :vartype model: Literal['quadratic']
-    :ivar parameters: Function parameters, defaults to those auto
-        generated from the function signature (excluding the
-        independent variable).
-    :vartype parameters: list[FitParameter], optional
-    :ivar prefix: The model prefix, defaults to `''`.
-    :vartype prefix: str, optional
+    :ivar model_type: Model component type.
+    :vartype model_type: Literal['parabolic']
     """
 
-    model: Literal['quadratic']
-    parameters: Annotated[
-        conlist(item_type=FitParameter),
-        Field(validate_default=True)] = []
-    prefix: Optional[str] = ''
-
-    _validate_parameters_parameters = field_validator(
-        'parameters')(validate_parameters)
+    LINEAR_PARAMETERS: ClassVar[list[str]] = ['a', 'b', 'c']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.QuadraticModel
+    model_type: Literal['parabolic']
 
 
-class Exponential(CHAPBaseModel):
+class ExponentialModel(ConstantModel):
     """Class representing an Exponential model component.
 
-    :ivar model: The model component base name (a prefix will be added
-        if multiple identical model components are added).
-    :vartype model: Literal['exponential']
-    :ivar parameters: Function parameters, defaults to those auto
-        generated from the function signature (excluding the
-        independent variable).
-    :vartype parameters: list[FitParameter], optional
-    :ivar prefix: The model prefix, defaults to `''`.
-    :vartype prefix: str, optional
+    :ivar model_type: Model component type.
+    :vartype model_type: Literal['exponential']
     """
 
-    model: Literal['exponential']
-    parameters: Annotated[
-        conlist(item_type=FitParameter),
-        Field(validate_default=True)] = []
-    prefix: Optional[str] = ''
-
-    _validate_parameters_parameters = field_validator(
-        'parameters')(validate_parameters)
+    LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.ExponentialModel
+    model_type: Literal['exponential']
 
 
-class Gaussian(CHAPBaseModel):
+class GaussianModel(ConstantModel):
     """Class representing a Gaussian model component.
 
-    :ivar model: The model component base name (a prefix will be added
-        if multiple identical model components are added).
-    :vartype model: Literal['gaussian']
-    :ivar parameters: Function parameters, defaults to those auto
-        generated from the function signature (excluding the
-        independent variable).
-    :vartype parameters: list[FitParameter], optional
-    :ivar prefix: The model prefix, defaults to `''`.
-    :vartype prefix: str, optional
+    :ivar model_type: Model component type.
+    :vartype model_type: Literal['gaussian']
     """
 
-    model: Literal['gaussian']
-    parameters: Annotated[
-        conlist(item_type=FitParameter),
-        Field(validate_default=True)] = []
-    prefix: Optional[str] = ''
+    LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.GaussianModel
+    model_type: Literal['gaussian']
 
-    _validate_parameters_parameters = field_validator(
-        'parameters')(validate_parameters)
+    def _validate_parameters(self):
+        """Validate the model parameters."""
+        for par in self.parameters:
+            if par.name == 'sigma':
+                par.min = 0.0
 
 
-class Lorentzian(CHAPBaseModel):
+class LorentzianModel(ConstantModel):
     """Class representing a Lorentzian model component.
 
-    :ivar model: The model component base name (a prefix will be added
-        if multiple identical model components are added).
-    :vartype model: Literal['lorentzian']
-    :ivar parameters: Function parameters, defaults to those auto
-        generated from the function signature (excluding the
-        independent variable).
-    :vartype parameters: list[FitParameter], optional
-    :ivar prefix: The model prefix, defaults to `''`.
-    :vartype prefix: str, optional
+    :ivar model_type: Model component type.
+    :vartype model_type: Literal['lorentzian']
     """
 
-    model: Literal['lorentzian']
-    parameters: Annotated[
-        conlist(item_type=FitParameter),
-        Field(validate_default=True)] = []
-    prefix: Optional[str] = ''
+    LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.LorentzianModel
+    model_type: Literal['lorentzian']
 
-    _validate_parameters_parameters = field_validator(
-        'parameters')(validate_parameters)
+    def _validate_parameters(self):
+        """Validate the model parameters."""
+        for par in self.parameters:
+            if par.name == 'sigma':
+                par.min = 0.0
 
 
-class PseudoVoigt(CHAPBaseModel):
+class PseudoVoigtModel(ConstantModel):
     """Class representing a PseudoVoigt model component.
 
-    :ivar model: The model component base name (a prefix will be added
-        if multiple identical model components are added).
-    :vartype model: Literal['pvoigt']
-    :ivar parameters: Function parameters, defaults to those auto
-        generated from the function signature (excluding the
-        independent variable).
-    :vartype parameters: list[FitParameter], optional
-    :ivar prefix: The model prefix, defaults to `''`.
-    :vartype prefix: str, optional
+    :ivar model_type: Model component type.
+    :vartype model_type: Literal['pvoigt']
     """
 
-    model: Literal['pvoigt']
-    parameters: Annotated[
-        conlist(item_type=FitParameter),
-        Field(validate_default=True)] = []
-    prefix: Optional[str] = ''
+    LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.PseudoVoigtModel
+    MODEL_PARAMETERS: ClassVar[list[str]] = ['fraction']
+    model_type: Literal['pvoigt']
 
-    _validate_parameters_parameters = field_validator(
-        'parameters')(validate_parameters)
+    def _validate_parameters(self):
+        """Validate the model parameters."""
+        for par in self.parameters:
+            if par.name == 'fraction':
+                par.min = 0.0
+                par.max = 1.0
+            elif par.name == 'sigma':
+                par.min = 0.0
 
 
-class Rectangle(CHAPBaseModel):
+class RectangleModel(ConstantModel):
     """Class representing a Rectangle model component.
 
-    :ivar model: The model component base name (a prefix will be added
-        if multiple identical model components are added).
-    :vartype model: Literal['rectangle']
-    :ivar parameters: Function parameters, defaults to those auto
-        generated from the function signature (excluding the
-        independent variable).
-    :vartype parameters: list[FitParameter], optional
-    :ivar prefix: The model prefix, defaults to `''`.
-    :vartype prefix: str, optional
+    :ivar form: Shape type of the transition edges, defaults to
+        `'linear'`.
+    :vartype form: Literal[
+        'linear', 'atan', 'arctan', 'erf', 'logistic'], optional
+    :ivar model_type: Model component type.
+    :vartype model_type: Literal['rectangle']
     """
 
-    model: Literal['rectangle']
-    parameters: Annotated[
-        conlist(item_type=FitParameter),
-        Field(validate_default=True)] = []
-    prefix: Optional[str] = ''
+    LINEAR_PARAMETERS: ClassVar[list[str]] = ['amplitude']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.RectangleModel
+    MODEL_IDENTIFIERS: ClassVar[list[str]] = ['form']
+    form: Literal['linear', 'atan', 'arctan', 'erf', 'logistic'] = 'linear'
+    model_type: Literal['rectangle']
 
-    _validate_parameters_parameters = field_validator(
-        'parameters')(validate_parameters)
+    def _validate_parameters(self):
+        """Validate the model parameters."""
+        for par in self.parameters:
+            if par.name == 'form':
+                assert form in ('linear', 'atan', 'arctan', 'erf', 'logistic')
+            elif par.name == 'sigma1':
+                par.min = 0.0
+            elif par.name == 'sigma2':
+                par.min = 0.0
 
 
-class Expression(CHAPBaseModel):
+class ExpressionModel(ConstantModel):
     """Class representing an Expression model component.
 
-    :ivar model: The model component base name (a prefix will be added
-        if multiple identical model components are added).
-    :vartype model: Literal['expression']
+    :ivar model_type: Model component type.
+    :vartype model_type: Literal['expression']
     :ivar expr: Mathematical expression to represent the model
         component.
     :vartype expr: str
-    :ivar parameters: Function parameters, defaults to those auto
-        generated from the model expression (excluding the
-        independent variable).
-    :vartype parameters: list[FitParameter], optional
-    :ivar prefix: The model prefix, defaults to `''`.
-    :vartype prefix: str, optional
     """
 
-    model: Literal['expression']
+    model_type: Literal['expression']
     expr: constr(strip_whitespace=True, min_length=1)
-    parameters: Annotated[
-        conlist(item_type=FitParameter),
-        Field(validate_default=True)] = []
-    prefix: Optional[str] = ''
 
-    _validate_parameters_parameters = field_validator(
-        'parameters')(validate_parameters)
+    @model_validator(mode='after')
+    def add_params(self):
+        """Parse :attr:`expr` for free variable names and append a
+        :class:`~CHAP.utils.models.FitParameter` for each one not
+        already present in :attr:`parameters` and not a built-in
+        ``asteval`` symbol or the independent variable ``x``.
+
+        :return: Validated and updated model instance.
+        :rtype: ExpressionModel
+        """
+        from asteval import (
+            Interpreter,
+            get_ast_names,
+        )
+        ast = Interpreter()
+        current_params = [param.name for param in self.parameters]
+        new_params = [
+            name for name in get_ast_names(ast.parse(self.expr))
+            if (name != 'x' and name not in current_params
+                and name not in ast.symtable)]
+        for name in new_params:
+            self.parameters.append(FitParameter(name=name))
+        return self
+
+    def lmfit_model(self, prefix=None, parameters=None):
+        """Return the corresponding lmfit model.
+
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        :returns: Corresponding lmfit model.
+        :rtype: lmfit.models.ExpressionModel
+        """
+        # Third party modules
+        from asteval import (
+            Interpreter,
+            get_ast_names,
+        )
+        from lmfit.models import ExpressionModel as LmfitModel
+        from sympy import diff
+
+        if parameters is None:
+            parameters = []
+        for par in self.parameters:
+            if par.expr is not None:
+                raise KeyError(
+                    f'Invalid "expr" key ({par.expr}) in '
+                    f'parameter ({par}) for an expression model')
+        ast = Interpreter()
+        expr = self.expr
+        expr_parameters = [
+            name for name in get_ast_names(ast.parse(expr))
+            if (name != 'x' and name not in parameters
+                and name not in ast.symtable)]
+        if prefix is not None:
+            for name in expr_parameters:
+                expr = sub(rf'\b{name}\b', f'{prefix}{name}', expr)
+            expr_parameters = [
+                f'{prefix}{name}' for name in expr_parameters]
+
+        return lmfit_models.ExpressionModel(expr=expr, name=self.model_type)
 
 
-class Multipeak(CHAPBaseModel):
+# Available models for components of the fitting function
+#MODEL_CLASSES = [
+#    ConstantModel,
+#    LinearModel,
+#    QuadraticModel,
+#    ExponentialModel,
+#    GaussianModel,
+#    LorentzianModel,
+#    PseudoVoigtModel,
+#    RectangleModel,
+#    ExpressionModel,
+#]
+
+# Reusable Discriminator Union for supported fit model components.
+Model = Annotated[
+# FIX for Python 3.11+    Union[*MODEL_CLASSES],
+    Union[
+        ConstantModel,
+        LinearModel,
+        QuadraticModel,
+        ExponentialModel,
+        GaussianModel,
+        LorentzianModel,
+        PseudoVoigtModel,
+        RectangleModel,
+        ExpressionModel,
+    ],
+    Field(discriminator='model_type')
+]
+
+# Peak-like models: with amplitude, center and sigma as their
+# function arguments
+PEAK_LIKE_MODELS = {
+    'gaussian': GaussianModel,
+    'lorentzian': LorentzianModel,
+    'pvoigt': PseudoVoigtModel,
+}
+
+
+class MultipeakModel(CHAPBaseModel):
     """Class representing a multipeak model.
 
-    :ivar model: The model component base name (a prefix will be added
-        if multiple identical model components are added).
-    :vartype model: Literal['expression']
+    :ivar model_type: Model component type.
+    :vartype model_type: Literal['expression']
     :ivar centers: Peak centers.
     :vartype center: list[float]
-    :ivar centers_range: Range of peak centers around their centers.
+    :ivar centers_range: Range of peak centers around their centers,
+        defaults to `0.0` in which case it is ignored.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
     :vartype centers_range: float, optional
+    :ivar centers_range_fraction: Range of peak centers around their
+        centers as a fraction of their position, defaults to `0.05`.
+        The actual values used are the larger of the ones determined
+        from `centers_range` and `centers_range_fraction`.
+    :vartype centers_range_fraction: float, optional
     :ivar fit_type: Type of fit, defaults to `'unconstrained'`.
     :vartype fit_type: Literal['uniform', 'unconstrained'], optional.
     :ivar fwhm_min: Lower limit of the fwhm of the peaks.
@@ -730,84 +1055,73 @@ class Multipeak(CHAPBaseModel):
         optional.
     """
 
-    model: Literal['multipeak']
+    model_type: Literal['multipeak']
     centers: conlist(item_type=confloat(allow_inf_nan=False), min_length=1)
-    centers_range: Optional[confloat(allow_inf_nan=False)] = None
+    centers_range: Optional[confloat(ge=0, allow_inf_nan=False)] = 0.0
+    centers_range_fraction: Optional[
+        confloat(ge=0, allow_inf_nan=False)] = 0.05
     fit_type: Optional[Literal['uniform', 'unconstrained']] = 'unconstrained'
     fwhm_min: Optional[confloat(allow_inf_nan=False)] = None
     fwhm_max: Optional[confloat(allow_inf_nan=False)] = None
     peak_models: Literal['gaussian', 'lorentzian', 'pvoigt'] = 'gaussian'
 
 
-models = {
-    'constant': {'name': constant, 'class': Constant},
-    'linear': {'name': linear, 'class': Linear},
-    'quadratic': {'name': quadratic, 'class': Quadratic},
-    'exponential': {'name': exponential, 'class': Exponential},
-    'gaussian': {'name': gaussian, 'class': Gaussian},
-    'lorentzian': {'name': lorentzian, 'class': Lorentzian},
-    'pvoigt': {'name': pvoigt, 'class': PseudoVoigt},
-    'rectangle': {'name': rectangle, 'class': Rectangle},
-}
-
-model_classes = (
-    Constant,
-    Linear,
-    Quadratic,
-    Exponential,
-    Gaussian,
-    Lorentzian,
-    PseudoVoigt,
-    Rectangle,
-)
-
-
 class FitConfig(CHAPBaseModel):
     """Class representing the configuration for the fit processor.
 
+    :ivar abs_height_cutoff: Absolute peak height cutoff for
+        peak fitting (any peak with a height smaller than
+        `abs_height_cutoff` gets removed from the fit model).
+    :vartype abs_height_cutoff: int, optional
     :ivar code: Specifies is lmfit is used to perform the fit or if
         the scipy fit method is called directly, default to `'lmfit'`.
     :vartype code: Literal['lmfit', 'scipy'], optional
+    :ivar max_nfev: Maximum number of function evaluations in the
+        the strain analysis peak fitting routine.
+    :vartype max_nfev: int, optional
+    :ivar memfolder: Folder name for the temporary memory map if
+        multiple processors are used, defaults to `'joblib_memmap'`.
+    :vartype memfolder: str, optional
+    :ivar method: SciPy non-linear fit method, defaults to
+        `"leastsq"`.
+    :vartype method: Literal[
+        'leastsq', 'trf', 'dogbox', 'lm', 'least_squares']
+    :ivar models: The component(s) of the (composite) fit model.
+    :vartype models: list[Model, MultipeakModel]
+    :ivar num_proc: The number of processors used in fitting a map
+        of data, defaults to `1`.
+    :vartype num_proc: int, optional
     :ivar parameters: Fit model parameters in addition to those
         implicitly defined through the build-in model functions,
         defaults to `[]`'
     :vartype parameters:
         list[:class:`~CHAP.utils.models.FitParameter`], optional
-    :ivar models: The component(s) of the (composite) fit model.
-    :vartype models:
-        list[:attr:`~CHAP.utils.models.FitConfig.models`]
-    :ivar rel_height_cutoff: Relative peak height cutoff for
-        peak fitting (any peak with a height smaller than
-        `rel_height_cutoff` times the maximum height of all peaks 
-        gets removed from the fit model).
-    :vartype rel_height_cutoff: float, optional
-    :ivar num_proc: The number of processors used in fitting a map
-        of data, defaults to `1`.
-    :vartype num_proc: int, optional
     :ivar plot: Whether a plot of the fit result is generated,
         defaults to `False`.
     :vartype plot: bool, optional.
     :ivar print_report:  Whether to generate a fit result printout,
         defaults to `False`.
     :vartype print_report: bool, optional.
-    :ivar memfolder: Folder name for the temporary memory map if
-        multiple processors are used, defaults to `'joblib_memmap'`.
-    :vartype memfolder: str, optional
+    :ivar rel_height_cutoff: Relative peak height cutoff for
+        peak fitting (any peak with a height smaller than
+        `rel_height_cutoff` times the maximum height of all peaks 
+        gets removed from the fit model).
+    :vartype rel_height_cutoff: float, optional
     """
 
+    abs_height_cutoff: Optional[conint(gt=0)] = None
     code: Literal['lmfit', 'scipy'] = 'scipy'
-    parameters: conlist(item_type=FitParameter) = []
-    models: conlist(item_type=Union[
-        Constant, Linear, Quadratic, Exponential, Gaussian, Lorentzian,
-        PseudoVoigt, Rectangle, Expression, Multipeak], min_length=1)
+    max_nfev: Optional[conint(gt=0)] = None
+    memfolder: str = 'joblib_memmap'
     method: Literal[
         'leastsq', 'trf', 'dogbox', 'lm', 'least_squares'] = 'leastsq'
-    rel_height_cutoff: Optional[
-        confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
+    models: conlist(item_type=Union[Model, MultipeakModel], min_length=1)
     num_proc: conint(gt=0) = 1
+    parameters: conlist(item_type=FitParameter) = []
     plot: StrictBool = False
     print_report:  StrictBool = False
-    memfolder: str = 'joblib_memmap'
+    rel_height_cutoff: Optional[
+        confloat(gt=0, lt=1, allow_inf_nan=False)] = None
 
     @field_validator('method')
     @classmethod
@@ -829,3 +1143,93 @@ class FitConfig(CHAPBaseModel):
             method = 'leastsq'
 
         return method
+
+    def zarr_tree(self, dataset_shape, dataset_chunks,
+                  signal_shape, nxlinks=None):
+        """Return a nested dict representing the Zarr group tree for
+        this fit's output container.
+
+        The tree contains a ``data`` group with global fit statistics
+        (``best_fit``, ``num_func_eval``, ``redchi``, ``residual``,
+        ``success``) and a ``components`` group with one sub-tree per
+        model component, structured by
+        :meth:`~CHAP.utils.models.FitModel.zarr_tree`.  The paths in
+        this tree correspond to those emitted by
+        :class:`~CHAP.utils.fit.UpdateValuesProcessor`.
+
+        :param dataset_shape: Shape of the measurement (scan) dimensions
+            of the output dataset, excluding the signal dimensions.
+        :type dataset_shape: tuple[int, ...]
+        :param dataset_chunks: Chunk shape along the scan dimensions, or
+            ``'auto'``.
+        :type dataset_chunks: list[int] or str
+        :param signal_shape: Shape of one frame of the 1-D signal being
+            fit (the signal dimension).
+        :type signal_shape: tuple[int, ...]
+        :param nxlinks: NeXus path(s) to link into the ``data`` group.
+            When the zarr tree is written to a ``.zarr`` file and
+            converted to ``.nxs`` with
+            :class:`~CHAP.common.processor.ZarrToNexusProcessor`, each
+            path produces an ``NXlink`` whose name is
+            ``os.path.basename(path)``.  Accepts a single path string or
+            a list of path strings.  All links must be explicit; none are
+            auto-generated.
+        :type nxlinks: str or list[str], optional
+        :returns: Nested dict representing the zarr group tree for this
+            fit.
+        :rtype: dict
+        """
+        if isinstance(nxlinks, str):
+            nxlinks = [nxlinks]
+        data_attrs = {}
+        if nxlinks:
+            data_attrs['__nxlinks__'] = {
+                os.path.basename(p): p for p in nxlinks
+            }
+        return {
+            'attributes': {
+                'description': '''Container for results from
+                CHAP.utils.fit.FitProcessor'''
+            },
+            'children': {
+                'data': {
+                    'attributes': {
+                        'NX_class': 'NXdata',
+                        **data_attrs,
+                    },
+                    'children': {
+                        'best_fit': {
+                            'shape': (*dataset_shape, *signal_shape),
+                            'dtype': 'float64',
+                        },
+                        'num_func_eval': {
+                            'shape': dataset_shape,
+                            'dtype': 'uint64',
+                        },
+                        'redchi': {
+                            'shape': dataset_shape,
+                            'dtype': 'float64',
+                        },
+                        'residual': {
+                            'shape': (*dataset_shape, *signal_shape),
+                            'dtype': 'float64',
+                        },
+                        'success': {
+                            'shape': dataset_shape,
+                            'dtype': 'bool'
+                        },
+                    }
+                },
+                'components': {
+                    'attributes': {
+                        'NX_class': 'NXcollection',
+                    },
+                    'children': {
+                        model.long_name: model.zarr_tree(
+                            dataset_shape, dataset_chunks,
+                            signal_shape, nxlinks=nxlinks
+                        ) for model in self.models
+                    }
+                }
+            }
+        }

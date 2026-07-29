@@ -137,10 +137,8 @@ class BinarizeProcessor(Processor):
         # Load the default data
         try:
             nxobject = self.get_data(data)
-            if config.nxpath is None:
-                dataset = nxobject.get_default()
-            else:
-                dataset = nxobject[config.nxpath]
+            dataset = nxobject.get_default() if config.nxpath is None \
+                else nxobject[config.nxpath]
             if isinstance(dataset, NXdata):
                 nxsignal = dataset.nxsignal
                 data = nxsignal.nxdata
@@ -337,10 +335,8 @@ class ConstructBaseline(Processor):
                 fig_subtitles.pop()
             if subtitle is None:
                 subtitle = r'$\lambda$ = 'f'{lambdas[-1]:.2e}, '
-                if maxed_out:
-                    subtitle += f'# iter = {num_iters[-1]} (maxed out) '
-                else:
-                    subtitle += f'# iter = {num_iters[-1]} '
+                subtitle += f'# iter = {num_iters[-1]} (maxed out) ' \
+                    if maxed_out else f'# iter = {num_iters[-1]} '
                 subtitle += f'error = {errors[-1]:.2e}'
             fig_subtitles.append(
                 plt.figtext(*subtitle_pos, subtitle, **subtitle_props))
@@ -460,10 +456,8 @@ class ConstructBaseline(Processor):
         ax.set_xlabel(xlabel, fontsize='x-large')
         ax.set_ylabel(ylabel, fontsize='x-large')
         ax.set_xlim(x[0], x[-1])
-        if title is None:
-            fig_title = plt.figtext(*title_pos, 'Baseline', **title_props)
-        else:
-            fig_title = plt.figtext(*title_pos, title, **title_props)
+        fig_title = plt.figtext(*title_pos, 'Baseline', **title_props) \
+            if title is None else plt.figtext(*title_pos, title, **title_props)
         if num_iter < max_iter:
             _change_fig_subtitle()
         else:
@@ -738,10 +732,8 @@ class ImageProcessor(Processor):
                 elif axis:
                     axes = [axes[2], axes[0], axes[1]]
                 axis_name = axes[0]
-                if 'units' in nxdata[axis_name].attrs:
-                    axis_unit = f' ({nxdata[axis_name].units})'
-                else:
-                    axis_unit = ''
+                axis_unit = f' ({nxdata[axis_name].units})' \
+                    if 'units' in nxdata[axis_name].attrs else ''
                 row_label = axes[2]
                 row_coords = nxdata[row_label].nxdata
                 column_label = axes[1]
@@ -798,10 +790,8 @@ class ImageProcessor(Processor):
             slice_ = slice(*tuple(index_range))
             data = data[slice_]
             axis_coords = axis_coords[slice_]
-        if self.config.vrange is None:
-            vrange = (float(data.min()), float(data.max()))
-        else:
-            vrange = self.config.vrange
+        vrange = (float(data.min()), float(data.max())) \
+            if self.config.vrange is None else self.config.vrange
         if vrange[0] is None:
             vrange[0] = float(data.min())
         if vrange[1] is None:
@@ -827,10 +817,8 @@ class ImageProcessor(Processor):
                 self.logger.warning(
                     'Ignoring animation parameter for a single image')
                 fileformat = 'png'
-            if self.config.fileformat is None:
-                fileformat = 'png'
-            else:
-                fileformat = self.config.fileformat
+            fileformat = 'png' \
+                if self.config.fileformat is None else self.config.fileformat
             fig, plt = self._create_figure(np.squeeze(data))
             if self.interactive:
                 plt.show()
@@ -848,10 +836,8 @@ class ImageProcessor(Processor):
             return nxdata
 
         # Create an animation for a set of image slices
-        if self.interactive or self.config.animation:
-            ani = self._create_animation(data)
-        else:
-            ani = None
+        ani = self._create_animation(data) \
+            if self.interactive or self.config.animation else None
 
         if self.save_figures:
             if self.config.animation:
@@ -872,10 +858,7 @@ class ImageProcessor(Processor):
                     if self.config.fileformat is not None:
                         self.logger.warning('Ignoring invalid fileformat '
                                             f'({self.config.fileformat})')
-                    if data.shape[0] == 1:
-                        fileformat = 'tif'
-                    else:
-                        fileformat = 'tifstack'
+                    fileformat = 'tif' if data.shape[0] == 1 else 'tifstack'
                 if fileformat != 'tifstack':
                     # Return the set of image slices as individual figs
                     num_digit = len(str(data.shape[0]))
@@ -1367,10 +1350,9 @@ class MapProcessor(Processor):
             if len(scans.scanparsers) > 0:
                 key = scans.scanparsers[0].scan_name
             else:
-                if str(scans.spec_file).endswith('spec.log'):
-                    key = str(scans.spec_file).split('/')[-2]
-                else:
-                    key = str(scans.spec_file).split('/')[-1]
+                key = str(scans.spec_file).split('/')[-2] \
+                    if str(scans.spec_file).endswith('spec.log') \
+                    else str(scans.spec_file).split('/')[-1]
             nxentry.spec_scans[key] = \
                 NXfield(value=scans.scan_numbers,
                         dtype='int8',
@@ -1681,10 +1663,9 @@ class MapProcessor(Processor):
         # in scanparser
         if self.config.experiment_type == 'TOMO':
             dtype = np.float32
-            if self.detector_config.roi is None:
-                detector_roi = [slice(None), slice(None)]
-            else:
-                detector_roi = self.detector_config.roitoslice()
+            detector_roi = [slice(None), slice(None)] \
+                if self.detector_config.roi is None \
+                else self.detector_config.roitoslice()
             ddata = scanparser.get_detector_data(
                 self.detector_config.detectors[0].get_id(),
                 detector_roi=detector_roi, dtype=dtype)
@@ -1710,10 +1691,8 @@ class MapProcessor(Processor):
                               f'{list_to_string(scan_numbers)}')
             datatype = dtlib.from_numpy_dtype(dtype)
             itemsize = datatype.Get_size()
-            if not rank:
-                nbytes = num_scan * np.prod(ddata.shape) * itemsize
-            else:
-                nbytes = 0
+            nbytes = num_scan * np.prod(ddata.shape) * itemsize \
+                if not rank else 0
             win = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
             buf, _ = win.Shared_query(0)
             #RV improve memory requirements ala single processor case?
@@ -1722,10 +1701,7 @@ class MapProcessor(Processor):
                 shape=(num_det, num_scan, *ddata.shape))
             datatype = dtlib.from_numpy_dtype(np.float64)
             itemsize = datatype.Get_size()
-            if not rank:
-                nbytes = num_scan * num_id * num_dim * itemsize
-            else:
-                nbytes = 0
+            nbytes = num_scan * num_id * num_dim * itemsize if not rank else 0
             win_id = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
             buf_id, _ = win_id.Shared_query(0)
             independent_dimensions = np.ndarray(
@@ -2209,6 +2185,7 @@ class NexusToZarrProcessor(Processor):
         from nexusformat.nexus import (
             NXfield,
             NXgroup,
+            NXlink,
         )
         # pylint: disable=import-error
         import zarr
@@ -2241,9 +2218,19 @@ class NexusToZarrProcessor(Processor):
                 else:
                     zarr_group.attrs[attr_key] = attr_value.nxvalue
 
-            # Copy datasets and sub-groups
+            # Copy datasets, sub-groups, and links
+            nxlinks = {}
             for key, item in nexus_group.items():
-                if isinstance(item, NXfield):
+                if isinstance(item, NXlink):
+                    self.logger.info(f'Recording link {item.nxpath}')
+                    if item.nxfilename is not None:
+                        nxlinks[key] = {
+                            'target': item.nxtarget,
+                            'file': item.nxfilename,
+                        }
+                    else:
+                        nxlinks[key] = item.nxtarget
+                elif isinstance(item, NXfield):
                     if isinstance(item.nxdata, np.ndarray):
                         try:
                             # Determine chunks
@@ -2260,16 +2247,26 @@ class NexusToZarrProcessor(Processor):
                             else:
                                 _chunks = chunks
                             # Copy dataset
+                            nxdata = item.nxdata
+                            if nxdata.dtype == object:
+                                zarr_dtype = 'str'
+                                nxdata = np.array(
+                                    [v.decode() if isinstance(v, bytes) else v
+                                     for v in nxdata.flat],
+                                    dtype=object,
+                                ).reshape(nxdata.shape)
+                            else:
+                                zarr_dtype = nxdata.dtype
                             zarr_dset = zarr_group.create_array(
                                 name=key,
                                 shape=item.nxdata.shape,
-                                dtype=item.nxdata.dtype,
+                                dtype=zarr_dtype,
                                 attributes={k: v.nxvalue
                                             for k, v in item.attrs.items()},
                                 chunks=_chunks,
                             )
                             self.logger.info(f'Copying {item.nxpath}')
-                            zarr_dset[:] = item.nxdata
+                            zarr_dset[:] = nxdata
                         except Exception as exc:
                             self.logger.error(f'{item.nxpath}: {exc}')
                     else:
@@ -2278,6 +2275,8 @@ class NexusToZarrProcessor(Processor):
                     # Recursively copy subgroup
                     zarr_subgroup = zarr_group.create_group(key)
                     copy_group(item, zarr_subgroup)
+            if nxlinks:
+                zarr_group.attrs['__nxlinks__'] = nxlinks
 
         copy_group(nexus_group, zarr_group)
         return zarr_group
@@ -3012,10 +3011,8 @@ class UnstructuredToStructuredProcessor(Processor):
                 signals.append(k)
                 if not data_point_shape:
                     data_point_shape.append(v.shape[1:])
-        if len(data_point_shape) == 1:
-            data_point_shape = data_point_shape[0]
-        else:
-            data_point_shape = []
+        data_point_shape = data_point_shape[0] \
+            if len(data_point_shape) == 1 else []
         for _ in data_point_shape:
             for k, v in nxdata.items():
                 if (isinstance(v, NXfield) and k not in axes
@@ -3514,22 +3511,37 @@ class ZarrToNexusProcessor(Processor):
                 :type: nexusformat.nexus.NXgroup
                 """
                 self.logger.info(f'Copying {zarr_group.path}')
-                # Copy attributes
+                # Copy attributes (skip the internal link-metadata key)
                 for attr_key, attr_value in zarr_group.attrs.items():
-                    nexus_group.attrs[attr_key] = attr_value
+                    if attr_key != '__nxlinks__':
+                        nexus_group.attrs[attr_key] = attr_value
 
                 # Copy datasets and sub-groups
                 for key, item in zarr_group.members():
                     if isinstance(item, zarr.Array):
                         self.logger.info(f'Copying {zarr_group.path}/{key}')
                         # Copy dataset
-                        nexus_dset = nexus_group.create_dataset(
-                            name=key,
-                            data=item.__array__(),
-                            # chunks=item.chunks, # FIXME
-                            compression='gzip',
-                            compression_opts=4  # GZIP compression level
-                        )
+                        data = item.__array__()
+                        if isinstance(data.dtype, np.dtypes.StringDType):
+                            data = np.array(data.tolist(), dtype=object)
+                            nexus_dset = nexus_group.create_dataset(
+                                name=key,
+                                data=data,
+                                dtype=h5py.string_dtype(),
+                                # chunks=item.chunks, # FIXME
+                                compression='gzip',
+                                compression_opts=4,  # GZIP compression level
+                                maxshape=(None, *item.shape[1:]),
+                            )
+                        else:
+                            nexus_dset = nexus_group.create_dataset(
+                                name=key,
+                                data=data,
+                                # chunks=item.chunks, # FIXME
+                                compression='gzip',
+                                compression_opts=4,  # GZIP compression level
+                                maxshape=(None, *item.shape[1:]),
+                            )
                         # Copy dataset attributes
                         for attr_key, attr_value in item.attrs.items():
                             nexus_dset.attrs[attr_key] = attr_value
@@ -3537,6 +3549,17 @@ class ZarrToNexusProcessor(Processor):
                         # Recursively copy subgroup
                         nexus_subgroup = nexus_group.create_group(key)
                         copy_group(item, nexus_subgroup)
+
+                # Recreate NXlinks
+                for link_name, link_target in \
+                        zarr_group.attrs.get('__nxlinks__', {}).items():
+                    self.logger.info(
+                        f'Creating link {zarr_group.path}/{link_name}')
+                    if isinstance(link_target, dict):
+                        nexus_group[link_name] = h5py.ExternalLink(
+                            link_target['file'], link_target['target'])
+                    else:
+                        nexus_group[link_name] = h5py.SoftLink(link_target)
 
             # Start copying from the root group
             copy_group(zarr_file, nexus_file)

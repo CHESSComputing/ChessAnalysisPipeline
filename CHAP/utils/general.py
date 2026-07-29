@@ -1743,7 +1743,8 @@ def baseline_arPLS(
         z = linalg.spsolve(W + H, W * y)
         d = y - z
         dn = d[d < 0]
-
+        if not dn.size:
+            break
         m = np.mean(dn)
         s = np.std(dn)
 

@@ -639,13 +639,13 @@ class NexusValuesWriter(Writer):
         only if the `"idx"` key is not present for an item in the
         newest `PipelineData` item in `data`. Defaults to
         `IndexSliceConfig()`.
-    :vartype idx_slice: CHAP.common.models.IndexSliceConfig, optional
+    :vartype idx_slice: CHAP.common.models.common.IndexSliceConfig, optional
     """
     path_prefix: str = ''
     resize_axis: Union[int, Literal[False]] = False
     idx_slice: Optional[IndexSliceConfig] = IndexSliceConfig()
 
-    def write(self, data, filename):
+    def write(self, data):
         """Write new values specified in `data` to the exising NeXus
         file `filename`.
 
@@ -655,17 +655,13 @@ class NexusValuesWriter(Writer):
         to be written, and `'idx'` identifying the index / indicies of
          the `NXfield` to which the data will be written.
         :type data: list[PipelineData]
-        :param filename: Name of an existing NeXus file to update.
-        :type filename: str
-        :param path_prefix: Prefix to use for all paths in input
-            `data`, defaults to `''`.
-        :type path_prefix: str, optional
         """
         # Third party modules
         from nexusformat.nexus import NXFile
 
         data = self.get_pipelinedata_item(data, remove=self.remove)
-        with NXFile(filename, 'a') as nxroot:
+        self.logger.info(f'data = {data}')
+        with NXFile(self.filename, 'a') as nxroot:
             for d in data:
                 try:
                     self.nxs_writer(
@@ -905,12 +901,24 @@ class ZarrValuesWriter(Writer):
     """Writer for updating values in arrays of an existing
     `Zarr <https://zarr.readthedocs.io/en/stable/>`__ file.
 
-    :ivar path_prefix: Prefix to prepend to all "path" fields in
-        `data` before writing. Defaults to `""`.
+    :ivar path_prefix: Prefix to use for all paths in input `data`,
+        defaults to `''`.
     :vartype path_prefix: str, optional
+    :ivar resize_axis: `False` OR the axis along which the dataset
+        should be resized if the target slice shape does not match the
+        data shape. If `False`, any mismatching shapes will just raise
+        an error. Defaults to `False`.
+    :vartype resize_axis: Union[int, Literal[False]], optional
+    :ivar idx_slice: Configuration for a slice object that will be
+        used to select the slice of the target array to write to. Used
+        only if the `"idx"` key is not present for an item in the
+        newest `PipelineData` item in `data`. Defaults to
+        `IndexSliceConfig()`.
+    :vartype idx_slice: CHAP.common.models.common.IndexSliceConfig, optional
     """
-
     path_prefix: Optional[str] = ''
+    resize_axis: Union[int, Literal[False]] = False
+    idx_slice: Optional[IndexSliceConfig] = IndexSliceConfig()
 
     def write(self, data):
         """Write values to specific paths and slices in an existing
@@ -930,11 +938,16 @@ class ZarrValuesWriter(Writer):
 
         # Get list of PyfaiIntegrationProcessor results to write
         for d in self.get_pipelinedata_item(data, remove=self.remove):
-            self.zarr_writer(
-                zarrfile=zarrfile,
-                path=os.path.join(self.path_prefix, d['path']),
-                idx=d['idx'],
-                data=d['data'])
+            try:
+                self.logger.info(f'd = {d}')
+                self.zarr_writer(
+                    zarrfile=zarrfile,
+                    path=os.path.join(self.path_prefix, d['path']),
+                    idx=d.get('idx', self.idx_slice._slice),
+                    data=d['data']
+                )
+            except Exception as exc:
+                self.logger.error(exc)
 
     def zarr_writer(self, zarrfile, path, idx, data):
         """Write data to a specific dataset.
@@ -962,18 +975,41 @@ class ZarrValuesWriter(Writer):
         # Check if the dataset exists
         if path not in zarrfile:
             raise ValueError(
-                f'Dataset "{path}" does not exist in the Zarr file.')
+                f'Dataset "{path}" does not exist in the Zarr file.'
+            )
 
         # Access the specified dataset
         dataset = zarrfile[path]
+        self.logger.debug(
+            f'chunks = {dataset.chunks}'
+        )
 
-        # Check that the slice shape matches the data shape
-        if dataset[idx].shape != data.shape and data.shape[0] == 1:
-            data = np.squeeze(data, axis=0)
+        data = np.asarray(data)
+
+        # Check the shape
+        self.logger.info(
+            f'data shape, target shape = {data.shape}, {dataset[idx].shape}'
+        )
         if dataset[idx].shape != data.shape:
-            raise ValueError(
-                f'Data shape {data.shape} does not match the target slice '
-                f'shape {dataset[idx].shape}.')
+            if self.resize_axis is not False:
+                # Resize along the specified axis
+                start = idx.start or 0
+                stop = start + data.shape[0]
+                newshape_axis = max(dataset.shape[self.resize_axis], stop)
+                oldshape = dataset.shape
+                newshape = (
+                    *oldshape[0:self.resize_axis],
+                    newshape_axis,
+                    *oldshape[self.resize_axis + 1:]
+                )
+                self.logger.info(
+                    f'Resizing {path} {oldshape} -> {newshape}'
+                )
+                dataset.resize(newshape)
+            else:
+                raise ValueError(
+                    f'Data shape {data.shape} does not match the target slice '
+                    f'shape {dataset[idx].shape}.')
 
         # Write the data to the specified slice
         dataset[idx] = data
