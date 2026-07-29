@@ -227,9 +227,9 @@ def set_logger(log_level='INFO'):
     logger.setLevel(log_level)
     log_handler = logging.StreamHandler()
     log_handler.setFormatter(logging.Formatter(
-        '{asctime}: {name:20}: {levelname}: {message}',
+        '{asctime}: {name:20} (L{lineno}): {levelname}: {message}',
         datefmt='%Y-%m-%d %H:%M:%S', style='{'))
-    logger.addHandler(log_handler)
+    logger.handlers = [log_handler]
     return logger, log_handler
 
 def run(
@@ -258,10 +258,7 @@ def run(
     from CHAP.pipeline import Pipeline
 
     # Make sure os.makedirs is only called from the root node
-    if comm is None:
-        rank = 0
-    else:
-        rank = comm.Get_rank()
+    rank = 0 if comm is None else comm.Get_rank()
 
     pipeline_args = []
     pipeline_mmcs = []
@@ -308,6 +305,7 @@ def run(
                 config['outputdir'] = outputdir
         else:
             name = item
+            item_args = {}
         split_name = name.split('.')
         cls_name = split_name[-1]
         mod_name = '.'.join(split_name[:-1])
@@ -341,11 +339,9 @@ def run(
                 mod_name += '.reader'
             if cls_name.endswith('Writer') and split_name[-2] != 'writer':
                 mod_name += '.writer'
-            if 'users' in name:
-                module_name = __import__(mod_name, fromlist=[cls_name])
-            else:
-                module_name = __import__(
-                    f'CHAP.{mod_name}', fromlist=[cls_name])
+            module_name = __import__(mod_name, fromlist=[cls_name]) \
+                if 'users' in name \
+                else __import__( f'CHAP.{mod_name}', fromlist=[cls_name])
             module = getattr(module_name, cls_name)
         pipeline_mmcs.append(module)
 

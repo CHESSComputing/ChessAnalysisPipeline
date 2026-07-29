@@ -550,7 +550,7 @@ class PandasReader(Reader):
     `pandas <https://pandas.pydata.org/docs/index.html>`__
     """
 
-    def read(self, filename, method='read_csv', comment='#', kwargs=None):
+    def read(self, filename, method='read_csv', comment='#', **kwargs):
         """Return a `pandas.DataFrame` read from the given file.
 
         :param filename: Name of file to read from.
@@ -561,9 +561,8 @@ class PandasReader(Reader):
         :param comment: Character to identify comment lines in the
             input file, defaults to `'#'`.
         :type comment: str, optional
-        :param kwargs: Additional keyword arguments to supply to the
+        :param \*\*kwargs: Additional keyword arguments to supply to the
             `pandas` reader.
-        :param kwargs: dict, optional.
         :rtype: `pandas.DataFrame`
         """
         # Third party modules
@@ -575,8 +574,6 @@ class PandasReader(Reader):
             raise ValueError(
                 f'{method} is not a callable pandas reader method')
 
-        if kwargs is None:
-            kwargs = {}
         if not isinstance(kwargs, dict):
             raise TypeError(
                 f'Invalid kwargs type ({type(kwargs)}, should be dict)')
@@ -587,6 +584,9 @@ class PandasReader(Reader):
 class NexusReader(Reader):
     """Reader for `NeXus <https://www.nexusformat.org>`__ files.
 
+    :ivar create_copy: Return a copy of the selected data, resolving
+        any and all linked NeXus objects, defaults to `False`..
+    :vartype create_copy: bool, optional
     :ivar nxpath: Path to a specific location in the NeXus file tree
         to read from, defaults to `'/'`.
     :vartype nxpath: str, optional
@@ -598,10 +598,11 @@ class NexusReader(Reader):
     :vartype nxmemory: int, optional
     """
 
-    nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = '/'
+    create_copy: Optional[bool] = False
     idx: Optional[conint(ge=0)] = None
     mode: Literal['r', 'rw', 'r+', 'w', 'a'] = 'r'
     nxmemory: Optional[conint(gt=0)] = None
+    nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = '/'
 
     def read(self):
         """Return the NeXus Style
@@ -620,11 +621,22 @@ class NexusReader(Reader):
             nxsetconfig,
         )
 
+        # Local modules
+        from CHAP.utils.general import nxcopy
+
         if self.nxmemory is not None:
             nxsetconfig(memory=self.nxmemory)
         if self.idx is not None:
-            return nxload(self.filename, mode=self.mode)[self.nxpath][self.idx]
-        return nxload(self.filename, mode=self.mode)[self.nxpath]
+            nxobject = nxload(
+                self.filename, mode=self.mode)[self.nxpath][self.idx]
+            if self.create_copy:
+                return nxcopy(nxobject)
+            return nxobject
+            #return nxload(self.filename, mode=self.mode)[self.nxpath][self.idx]
+        nxobject = nxload(self.filename, mode=self.mode)[self.nxpath]
+        if self.create_copy:
+            nxobject = nxcopy(nxobject)
+        return nxobject
 
 
 class NXdataReader(Reader):
@@ -906,10 +918,8 @@ class SpecReader(Reader):
                     nxdata.data = NXfield(
                         value=scanparser.get_detector_data(detectors_ids)[0])
                 else:
-                    if self.config.experiment_type == 'TOMO':
-                        dtype = np.float32
-                    else:
-                        dtype = None
+                    dtype = np.float32 \
+                        if self.config.experiment_type == 'TOMO' else None
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
 #                    nxpaths.append(
@@ -921,7 +931,6 @@ class SpecReader(Reader):
                             detector_roi=[
                                self.detector_config.roi[0].toslice(),
                                self.detector_config.roi[1].toslice()]
-                        print(f'\n\ndetector_roi: {detector_roi}\n\n')
                         nxdata[detector.get_id()] = NXfield(
                            value=scanparser.get_detector_data(
                                detector.get_id(),
@@ -1021,11 +1030,8 @@ class ZarrReader(Reader):
         root = zarr.open(filename, mode=mode)
 
         # Normalize path handling
-        if path in ('/', ''):
-            data = root
-        else:
-            # Remove leading slash for Zarr traversal
-            data = root[path.lstrip('/')]
+        # Remove leading slash for Zarr traversal
+        data = root if path in ('/', '') else root[path.lstrip('/')]
 
         # Optional indexing (arrays only)
         if idx is not None:
