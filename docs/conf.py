@@ -22,6 +22,7 @@ version = release = 'PACKAGE_VERSION'
 
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.viewcode',
     'sphinx.ext.doctest',
     'sphinx.ext.githubpages',
     'sphinx.ext.intersphinx',
@@ -91,6 +92,13 @@ html_sidebars = {
         'windows-sidebar.html',
         'searchbox.html'
     ],
+}
+
+# Add Github repo link for `sphinx_rtd_theme` theme
+# See also _templates/breadcrumbs.html and _templates/layout.html
+templates_path = ['_templates']
+html_context = {
+    'display_github': True,
 }
 
 # If true, links to the reST sources are added to the pages.

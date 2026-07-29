@@ -1063,7 +1063,7 @@ class LatticeParameterRefinementProcessor(_BaseStrainProcessor):
         if len(sskipped_detectors) == 1:
             self.logger.warning(
                 f'Skipping detector {sskipped_detectors[0]} '
-                '(no raw data)')
+                '(no calibration data)')
         elif sskipped_detectors:
             skipped_detectors = [int(d) for d in sskipped_detectors]
             self.logger.warning(
@@ -2877,7 +2877,7 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         if len(sskipped_detectors) == 1:
             self.logger.warning(
                 f'Skipping detector {sskipped_detectors[0]} '
-                '(no raw data)')
+                '(no calibration data)')
         elif sskipped_detectors:
             skipped_detectors = [int(d) for d in sskipped_detectors]
             self.logger.warning(
