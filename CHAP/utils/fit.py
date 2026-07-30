@@ -10,7 +10,6 @@ from os import (
     mkdir,
     path,
 )
-from re import sub
 from shutil import rmtree
 from sys import float_info
 #from time import time
@@ -404,23 +403,22 @@ class SetupProcessor(Processor):
 class Component():
     """A model fit component."""
 
-    def __init__(self, model, prefix=''):
+    def __init__(self, model):
         """Initialize Component.
 
-        :param model: A fit model class.
+        :param model: A fit model class (make sure its prefix is
+            specified in `model.prefix` for duplicative model names).
         :type model: :attr:`~CHAP.utils.models.FitConfig.models`
-        :param prefix: Model prefix, defaults to `''`.
-        :type prefix: str, optional
         """
+        names = [f'{par.name}' for par in model.parameters]
         self.func = model.func
         self.func_args = model.func_args
+        self.func_args_indices = [names.index(arg) for arg in self.func_args]
         self.model_identifiers = {
             k:getattr(model, k) for k in model.MODEL_IDENTIFIERS}
-        self.param_names = [f'{prefix}{par.name}' for par in model.parameters]
-        self.prefix = prefix
+        self.param_names = [model.prefix + name for name in names]
+        self.prefix = model.prefix
         self._name = model.model_type
-        names = [f'{par.name}' for par in model.parameters]
-        self.func_args_indices = [names.index(arg) for arg in self.func_args]
 
 
 class Components(dict):
@@ -474,8 +472,8 @@ class Parameters(dict):
         """Add a fit parameter.
 
         :param parameter: The fit parameter to add to the dictionary.
-        :type parameter: str or FitParameter
-        :param prefix: Prefix of the model to which this parameter
+        :type parameter: FitParameter
+        :param prefix: Prefix of the component to which this parameter
             belongs, defaults to `''`.
         :type prefix: str, optional
         """
@@ -483,15 +481,13 @@ class Parameters(dict):
         from CHAP.utils.models import FitParameter
 
         if isinstance(parameter, FitParameter):
-            name = f'{prefix}{parameter.name}'
+            name = prefix + parameter.name
             self.__setitem__(name, parameter)
         else:
             raise RuntimeError('Must test')
-            parameter = f'{prefix}{parameter}'
-            self.__setitem__(
-                parameter,
-                FitParameter(name=parameter))
-        setattr(self[parameter.name], '_prefix', prefix)
+            parameter = prefix + parameter
+            self.__setitem__(parameter, FitParameter(name=parameter))
+#        setattr(self[parameter.name], '_prefix', prefix)
 
 
 class ModelResult():
@@ -643,8 +639,7 @@ class ModelResult():
                 continue
             par_values = tuple(
                 parameters[par].value for par in component.param_names)
-            name = component._name if component.prefix == '' \
-                else component.prefix
+            name = component.prefix if component.prefix else component._name
             ppar_values = tuple(
                 par_values[i] for i in component.func_args_indices)
             result[name] = component.func(
@@ -806,7 +801,7 @@ class Fit:
 #                    self._norm = (y_min, self._y_range)
 
             # Setup fit model
-            self._setup_fit_model(config.parameters, config.models)
+            self._setup_fit_model(config.models, config.parameters)
 
     @property
     def best_errors(self):
@@ -919,12 +914,9 @@ class Fit:
                     name = name[:-1]
                 expr = component.expr
             else:
-                if prefix := component.prefix:
-                    if prefix[-1] == '_':
-                        prefix = prefix[:-1]
-                    name = f'{prefix} ({component._name})'
-                else:
-                    name = f'{component._name}'
+                prefix = prefix.rstrip('_')
+                name = prefix + ' ({component._name})' if prefix \
+                    else component._name
             if expr is None:
                 components[name] = {
                     'parameters': parameters,
@@ -1093,11 +1085,12 @@ class Fit:
         """Add a fit parameter to the fit model.
 
         :param parameter: A new parameter to be added to the fit model.
-        :type parameter: FitParameter
+        :type parameter: dict
         """
         # Local modules
         from CHAP.utils.models import FitParameter
 
+        assert isinstance(parameter, dict)
         if parameter.get('expr') is not None:
             raise KeyError(f'Invalid "expr" key in parameter {parameter}')
         name = parameter['name']
@@ -1116,38 +1109,48 @@ class Fit:
             self._parameters.add(**parameter)
         self._free_parameters.append(name)
 
-    def add_model(self, model, prefix):
+    def add_model(self, model):
         """Add a model component to the fit model.
 
-        :param model: A fit model class.
+        :param model: A fit model class (make sure its prefix is
+            specified in `model.prefix` for duplicative model names).
         :type model: :attr:`~CHAP.utils.models.FitConfig.models`
-        :param prefix: Model prefix.
-        :type prefix: str
         """
-        def _set_parameter_info_scipy(model, prefix):
+        # Local modules
+        from CHAP.utils.models import MODEL_CLASSES
+
+        assert isinstance(model, tuple(MODEL_CLASSES))
+
+        def _set_parameter_group(model, name, long_name):
+            if name in model.LINEAR_PARAMETERS:
+                self._linear_parameters.append(long_name)
+            elif name in model.MODEL_PARAMETERS:
+                self._model_parameters.append(long_name)
+            elif name not in model.MODEL_IDENTIFIERS:
+                self._nonlinear_parameters.append(long_name)
+
+        def _set_parameter_info_scipy(model):
             new_parameters = []
             for par in deepcopy(model.parameters):
                 name = par.name
-                self._parameters.add(par, prefix)
+                self._parameters.add(par, model.prefix)
                 if self._parameters[par.name].expr is None:
                     self._parameters[par.name].set(value=par.default)
                 new_parameters.append(par.name)
-                if name in model.LINEAR_PARAMETERS:
-                    self._linear_parameters.append(par.name)
-                elif name in model.MODEL_PARAMETERS:
-                    self._model_parameters.append(par.name)
-                elif name not in model.MODEL_IDENTIFIERS:
-                    self._nonlinear_parameters.append(par.name)
+                _set_parameter_group(model, name, par.name)
             self._res_num_pars += [len(model.parameters)]
             return new_parameters
 
-        def _set_parameter_info_lmfit(model, prefix):
+        def _set_parameter_info_lmfit(model):
             if model.model_type == 'expression':
+                # Third party modules
+                from sympy import diff
+
                 newmodel = model.lmfit_model(
-                    prefix=prefix, parameters=self._parameters)
+                    prefix=model.prefix, parameters=self._parameters)
                 # Remove already existing names
                 for name in newmodel.param_names.copy():
-                    if name not in expr_parameters:
+                    if name not in model.expr_parameters:
                         newmodel._func_allargs.remove(name)
                         newmodel._param_names.remove(name)
                 # Check linearity of expression model parameters
@@ -1161,21 +1164,11 @@ class Fit:
             else:
                 kwargs = {}
                 if model.model_type == 'rectangle':
-                    kwargs['form'] = 'atan'
-                newmodel = model.LMFITMODEL(prefix=prefix, **kwargs)
+                    kwargs['form'] = model.form
+                newmodel = model.LMFITMODEL(prefix=model.prefix, **kwargs)
                 for par in model.parameters:
-                    name = par.name
-                    nname = f'{prefix}{name}'
-                    if name in model.LINEAR_PARAMETERS:
-                        self._linear_parameters.append(nname)
-                    elif name in model.MODEL_PARAMETERS:
-                        self._model_parameters.append(nname)
-                    elif name not in model.MODEL_IDENTIFIERS:
-                        self._nonlinear_parameters.append(nname)
-#                self._linear_parameters.extend(
-#                        model.linear_parameters(prefix))
-#                self._nonlinear_parameters.extend(
-#                    model.nonlinear_parameters(prefix))
+                    _set_parameter_group(
+                        model, par.name, model.prefix + par.name)
             return newmodel
 
         def _set_default_initial_parameters(new_parameters):
@@ -1199,45 +1192,42 @@ class Fit:
                     par.set(value=par.value)
 
 
-        def _initialize_model_parameters(model, new_parameters, prefix):
-            for parameter in deepcopy(model.parameters):
-                name = parameter.name
+        def _initialize_model_parameters(model, new_parameters):
+            for par in deepcopy(model.parameters):
+                name = par.name
                 if name not in new_parameters:
-                    name = prefix+name
+                    name = model.prefix + name
                     if name not in new_parameters:
                         raise ValueError(f'Unable to match parameter {name}')
-                if parameter.expr is None:
+                if par.expr is None:
                     self._parameters[name].set(
-                        value=parameter.value, min=parameter.min,
-                        max=parameter.max, vary=parameter.vary)
+                        value=par.value, min=par.min, max=par.max,
+                        vary=par.vary)
                 else:
-                    if parameter.value is not None:
+                    if par.value is not None:
                         self._logger.warning(
                             'Ignoring input "value" for expression parameter'
-                            f'{name} = {parameter.expr}')
-                    if not np.isinf(parameter.min):
+                            f'{name} = {par.expr}')
+                    if not np.isinf(par.min):
                         self._logger.warning(
                             'Ignoring input "min" for expression parameter'
-                            f'{name} = {parameter.expr}')
-                    if not np.isinf(parameter.max):
+                            f'{name} = {par.expr}')
+                    if not np.isinf(par.max):
                         self._logger.warning(
                             'Ignoring input "max" for expression parameter'
-                            f'{name} = {parameter.expr}')
+                            f'{name} = {par.expr}')
                     self._parameters[name].set(
-                        value=None, min=-np.inf, max=np.inf,
-                        expr=parameter.expr)
-                par = self._parameters[name]
+                        value=None, min=-np.inf, max=np.inf, expr=par.expr)
 
         # Set model parameter info
-        assert prefix is not None
         if self._code == 'scipy':
-            new_parameters = _set_parameter_info_scipy(model, prefix)
+            new_parameters = _set_parameter_info_scipy(model)
             if self._model is None:
                 self._model = Components()
             self._model |= {
-                f'{prefix}{model.model_type}': Component(model, prefix)}
+                model.long_name: Component(model)}
         else:
-            newmodel = _set_parameter_info_lmfit(model, prefix)
+            newmodel = _set_parameter_info_lmfit(model)
             if self._model is None:
                 self._model = newmodel
             else:
@@ -1250,7 +1240,7 @@ class Fit:
             _set_default_initial_parameters(new_parameters)
 
         # Initialize the model parameters
-        _initialize_model_parameters(model, new_parameters, prefix)
+        _initialize_model_parameters(model, new_parameters)
 
     def eval(self, x, result=None):
         """Evaluate the best fit.
@@ -1488,10 +1478,8 @@ class Fit:
     def _create_prefixes(self, models):
         """Check for duplicate model names and create prefixes."""
         names = []
-        prefixes = []
         for model in models:
-            names.append(f'{model.prefix}{model.model_type}')
-            prefixes.append(model.prefix)
+            names.append(model.long_name)
         counts = Counter(names)
         for model, count in counts.items():
             if count > 1:
@@ -1499,25 +1487,27 @@ class Fit:
                 for i, name in enumerate(names):
                     if name == model:
                         n += 1
-                        prefixes[i] = f'{name}{n}_'
+                        models[i].prefix = f'{name}{n}_'
 
-        return prefixes
-
-    def _setup_fit_model(self, parameters, models):
+    def _setup_fit_model(self, models, parameters):
         """Setup the fit model."""
+        # Third party modules
+        from sympy import diff
+
         # Local modules
         from CHAP.utils.models import PEAK_LIKE_MODELS
 
         # Check for duplicate model names and create prefixes
-        prefixes = self._create_prefixes(models)
+        self._create_prefixes(models)
 
         # Add the free fit parameters
         for par in parameters:
-            self.add_parameter(par.model_dump())
+            self.add_parameter(
+                par.model_dump(exclude=('description', 'units')))
 
         # Add the model functions
-        for prefix, model in zip(prefixes, models):
-            self.add_model(model, prefix)
+        for model in models:
+            self.add_model(model)
 
         # Check linearity of free fit parameters
         for name in reversed(self._parameters):
@@ -1528,9 +1518,6 @@ class Fit:
                         and ('height' in name or 'fwhm' in name))):
                 for nname, par in self._parameters.items():
                     if par.expr is not None:
-                        # Third party modules
-                        from sympy import diff
-
                         expr = par.expr.replace('fraction', 'fraction_') \
                             if 'fraction' in par.expr else par.expr
                         nnname = 'fraction_' \
@@ -1558,9 +1545,10 @@ class Fit:
             )
 
             # Expand multipeak model if present
+            found_multipeak = False
             scale_factor = None
+            # RV FIX do I need multipeak_info here too?
             for i, model in enumerate(deepcopy(config.models)):
-                found_multipeak = False
                 if isinstance(model, MultipeakModel):
                     if found_multipeak:
                         raise ValueError(
@@ -1586,17 +1574,15 @@ class Fit:
                     if parameters:
                         config.parameters += parameters
                     config.models += models
-                    config.models.remove(model)
+                    config.models.pop(i)
                     found_multipeak = True
 
             # Check for duplicate model names and create prefixes
-            prefixes = self._create_prefixes(config.models)
-            if not isinstance(config, FitConfig):
-                raise ValueError(f'Invalid parameter config ({config})')
+            self._create_prefixes(config.models)
             parameters = config.parameters
-            for prefix, model in zip(prefixes, config.models):
+            for model in config.models:
                 for par in model.parameters:
-                    par.name = f'{prefix}{par.name}'
+                    par.name = model.prefix + par.name
                 parameters += model.parameters
 
             # Adjust parameters for refit as needed
@@ -1656,8 +1642,10 @@ class Fit:
                     'name': 'c',
                     'value': -self._norm[0],
                     'vary': False,
-                }])
-            self.add_model(model, 'tmp_normalization_offset_')
+                }],
+                prefix='tmp_normalization_offset_'
+            )
+            self.add_model(model)
 
         # Adjust existing parameters for refit:
         if config is not None:
@@ -1716,7 +1704,7 @@ class Fit:
             else:
                 model_parameters = component.param_names.copy()
                 for basename, hint in component.param_hints.items():
-                    name = f'{component.prefix}{basename}'
+                    name = component.prefix + basename
                     if hint.get('expr') is not None:
                         model_parameters.remove(name)
                 for name in model_parameters:
@@ -1772,7 +1760,7 @@ class Fit:
                 continue
             model_parameters += component.param_names
             for basename, hint in component.param_hints.items():
-                name = f'{component.prefix}{basename}'
+                name = component.prefix + basename
                 if hint.get('expr') is not None:
                     expr_parameters.pop(name)
                     model_parameters.remove(name)
@@ -2282,8 +2270,8 @@ class UpdateValuesProcessor(Processor):
                         comp_id = comp._name.rstrip('_')
                     else:
                         prefix = comp.prefix.rstrip('_')
-                        comp_id = (f'{prefix} ({comp._name})'
-                                   if prefix else comp._name)
+                        comp_id = f'{prefix} ({comp._name})' if prefix \
+                            else comp._name
                     if comp_id == component_name:
                         target_comp = comp
                         break
@@ -2458,7 +2446,7 @@ class FitMap(Fit):
             self._redchi_cutoff *= self._y_range**2
 
         # Setup fit model
-        self._setup_fit_model(config.parameters, config.models)
+        self._setup_fit_model(config.models, config.parameters)
 
     @property
     def best_errors(self):
@@ -2538,12 +2526,9 @@ class FitMap(Fit):
                     name = name[:-1]
                 expr = component.expr
             else:
-                if prefix := component.prefix:
-                    if prefix[-1] == '_':
-                        prefix = prefix[:-1]
-                    name = f'{prefix} ({component._name})'
-                else:
-                    name = f'{component._name}'
+                prefix = component.prefix.rstrip('_')
+                name  = prefix + f' ({component._name})' if prefix \
+                    else component._name
             if expr is None:
                 components[name] = {'parameters': parameters}
             else:
@@ -2811,17 +2796,11 @@ class FitMap(Fit):
             if 'tmp_normalization_offset_c' in component.param_names:
                 continue
             if isinstance(component, ExpressionModel):
-                prefix = component._name
-                if prefix[-1] == '_':
-                    prefix = prefix[:-1]
-                modelname = f'{prefix}: {component.expr}'
+                modelname = component._name.rstrip('_')+f' ({component.expr})'
             else:
-                if prefix := component.prefix:
-                    if prefix[-1] == '_':
-                        prefix = prefix[:-1]
-                    modelname = f'{prefix} ({component._name})'
-                else:
-                    modelname = f'{component._name}'
+                prefix = component.prefix.rstrip('_')
+                modelname = prefix + f' ({component._name})' if prefix \
+                    else component._name
             if len(modelname) > 20:
                 modelname = f'{modelname[0:16]} ...'
             y = component.eval(params=parameters, x=x[~mask])
@@ -3212,7 +3191,6 @@ class FitMap(Fit):
                 or (self._normalized and self._abs_height_cutoff is not None
                     and (y_max*self._norm[1] + self._norm[0]
                          < self._abs_height_cutoff))):
-#            print(f'\t------->skipping n={n}!!!!!!!!')
             self._logger.debug(f'Skipping fit {n} (rel norm = {y_max:.5f})')
             if self._code == 'scipy':
                 # Local modules
@@ -3240,12 +3218,12 @@ class FitMap(Fit):
             centers_range_fraction = \
                 self._multipeak_info.get('centers_range_fraction')
             model_type = self._multipeak_info.get('peak_models')
+            min_height = None if self._rel_height_cutoff is None \
+                else y_max*self._rel_height_cutoff
             use_peaks, _, peak_heights, peak_widths = \
                 self.guess_init_peak(
                     self._x, self._ymap_norm[n], centers, centers_range,
-                    centers_range_fraction,
-                    min_height=y_max*self._rel_height_cutoff,
-                    min_width=5)
+                    centers_range_fraction, min_height=min_height, min_width=5)
 
             ast = Interpreter()
             for i, (use_peak, height, width) in enumerate(zip(
@@ -3355,7 +3333,6 @@ class FitMap(Fit):
                     break
         self._out_of_bounds_flat[n] = out_of_bounds
         if self._try_no_bounds and out_of_bounds:
-#            print(f'\t------->refitting n={n} after out_of_bounds!!!!!!!!')
             # Rerun fit with parameter bounds in place
             for name, par in self._parameter_bounds.items():
                 if self._parameters[name].vary:

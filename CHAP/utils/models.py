@@ -296,7 +296,8 @@ class FitParameter(CHAPBaseModel):
     """Class representing a specific fit parameter for the fit
     processor.
 
-    :ivar name: Parameter name.
+    :ivar name: Parameter name (always includes the component prefix
+        if belonging to a model component)
     :vartype name: str
     :ivar value: Parameter value.
     :vartype value: float, optional
@@ -330,7 +331,7 @@ class FitParameter(CHAPBaseModel):
 
     _default: float = PrivateAttr()
     _init_value: float = PrivateAttr()
-    _prefix: str = PrivateAttr()
+#    _prefix: str = PrivateAttr()
     _stderr: float = PrivateAttr()
 
     @field_validator('min')
@@ -385,29 +386,31 @@ class FitParameter(CHAPBaseModel):
     def init_value(self, value):
         self._init_value = value
 
-    @property
-    def prefix(self):
-        """Return the parametr prefix.
+# FIX the parameter prefix may be needed to implement expression models
+# in scipy, this is not yet implemented
+#    @property
+#    def prefix(self):
+#        """Return the parameter prefix.
+#
+#        :type: str
+#        """
+#        if hasattr(self, '_prefix'):
+#            return self._prefix
+#        return ''
 
-        :type: str or None
-        """
-        if hasattr(self, '_prefix'):
-            return self._prefix
-        return ''
-
-    @property
-    def long_name(self):
-        """Return the fully-qualified parameter name, combining the
-        model prefix (if any) with the parameter name.
-
-        When no prefix is set, returns :attr:`name` unchanged.
-
-        :type: str
-        """
-        prefix = self.prefix
-        if prefix is None:
-            return self.name
-        return f'{self.prefix}_{self.name}'
+#    @property
+#    def long_name(self):
+#        """Return the fully-qualified parameter name, combining the
+#        model prefix (if any) with the parameter name.
+#
+#        When no prefix is set, returns :attr:`name` unchanged.
+#
+#        :type: str
+#        """
+#        prefix = self.prefix
+#        if not prefix:
+#            return self.name
+#        return f'{prefix}_{self.name}'
 
     @property
     def stderr(self):
@@ -594,21 +597,19 @@ class FitParameter(CHAPBaseModel):
 class FitModel(CHAPBaseModel):
     """Abstract base class representing a generic model component.
 
-    :ivar model: The model component base name (a prefix will be added
-        if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model: Literal['constant', 'linear', 'parabolic',
         'exponential', 'gaussian', 'lorentzian', 'pvoigt',
         'rectangle', 'expression']
-    :ivar parameters: Function parameters, defaults to those auto
-        generated from the function signature (excluding the
-        independent variable).
+    :ivar parameters: Function parameters (not including the `prefix`),
+        defaults to those auto generated from the function signature
+        (excluding the independent variable).
     :vartype parameters: list[FitParameter], optional
     :ivar prefix: Model prefix, defaults to `''`.
     :vartype prefix: str, optional
     """
 
-    LINEAR_PARAMETERS: ClassVar[list[str]] = ['c']
-    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.ConstantModel
+    LINEAR_PARAMETERS: ClassVar[list[str]] = []
     MODEL_PARAMETERS: ClassVar[list[str]] = []
     MODEL_IDENTIFIERS: ClassVar[list[str]] = []
     model_type: str
@@ -621,7 +622,7 @@ class FitModel(CHAPBaseModel):
     _func_args: PrivateAttr
 
     @model_validator(mode='after')
-    def validate_model_after(self):
+    def validate_fitmodel_after(self):
         """Validate the model configuration and initialize the
         appropriate parameters from the model function signature.
 
@@ -776,22 +777,16 @@ class FitModel(CHAPBaseModel):
 class ConstantModel(FitModel):
     """Class representing a Constant model component.
 
-    :ivar model_type: Model component base name (a prefix will be
-        added if multiple identical model components are added).
+    :ivar model_type: Model component type.
     :vartype model_type: Literal['constant']
-    :ivar parameters: Function parameters, defaults to those auto
-        generated from the function signature (excluding the
-        independent variable).
-    :vartype parameters: list[FitParameter], optional
-    :ivar prefix: Model prefix, defaults to `''`.
-    :vartype prefix: str, optional
     """
 
     LINEAR_PARAMETERS: ClassVar[list[str]] = ['c']
+    LMFITMODEL: ClassVar[Type[BaseModel]] = lmfit_models.ConstantModel
     model_type: Literal['constant']
 
 
-class LinearModel(ConstantModel):
+class LinearModel(FitModel):
     """Class representing a Linear model component.
 
     :ivar model_type: Model component type.
@@ -803,7 +798,7 @@ class LinearModel(ConstantModel):
     model_type: Literal['linear']
 
 
-class QuadraticModel(ConstantModel):
+class QuadraticModel(FitModel):
     """Class representing a Quadratic model component.
 
     :ivar model_type: Model component type.
@@ -815,7 +810,7 @@ class QuadraticModel(ConstantModel):
     model_type: Literal['parabolic']
 
 
-class ExponentialModel(ConstantModel):
+class ExponentialModel(FitModel):
     """Class representing an Exponential model component.
 
     :ivar model_type: Model component type.
@@ -827,7 +822,7 @@ class ExponentialModel(ConstantModel):
     model_type: Literal['exponential']
 
 
-class GaussianModel(ConstantModel):
+class GaussianModel(FitModel):
     """Class representing a Gaussian model component.
 
     :ivar model_type: Model component type.
@@ -845,7 +840,7 @@ class GaussianModel(ConstantModel):
                 par.min = 0.0
 
 
-class LorentzianModel(ConstantModel):
+class LorentzianModel(FitModel):
     """Class representing a Lorentzian model component.
 
     :ivar model_type: Model component type.
@@ -863,7 +858,7 @@ class LorentzianModel(ConstantModel):
                 par.min = 0.0
 
 
-class PseudoVoigtModel(ConstantModel):
+class PseudoVoigtModel(FitModel):
     """Class representing a PseudoVoigt model component.
 
     :ivar model_type: Model component type.
@@ -885,7 +880,7 @@ class PseudoVoigtModel(ConstantModel):
                 par.min = 0.0
 
 
-class RectangleModel(ConstantModel):
+class RectangleModel(FitModel):
     """Class representing a Rectangle model component.
 
     :ivar form: Shape type of the transition edges, defaults to
@@ -913,7 +908,7 @@ class RectangleModel(ConstantModel):
                 par.min = 0.0
 
 
-class ExpressionModel(ConstantModel):
+class ExpressionModel(FitModel):
     """Class representing an Expression model component.
 
     :ivar model_type: Model component type.
@@ -926,8 +921,10 @@ class ExpressionModel(ConstantModel):
     model_type: Literal['expression']
     expr: constr(strip_whitespace=True, min_length=1)
 
+    _expr_parameters: PrivateAttr
+
     @model_validator(mode='after')
-    def add_params(self):
+    def validate_expressionmodel_after(self):
         """Parse :attr:`expr` for free variable names and append a
         :class:`~CHAP.utils.models.FitParameter` for each one not
         already present in :attr:`parameters` and not a built-in
@@ -942,28 +939,42 @@ class ExpressionModel(ConstantModel):
         )
         ast = Interpreter()
         current_params = [param.name for param in self.parameters]
-        new_params = [
+        self._expr_parameters = [
             name for name in get_ast_names(ast.parse(self.expr))
             if (name != 'x' and name not in current_params
                 and name not in ast.symtable)]
-        for name in new_params:
+        for name in self._expr_parameters:
             self.parameters.append(FitParameter(name=name))
         return self
+
+    @property
+    def expr_parameters(self):
+        """Return the parameter expr_parameters.
+
+        :type: str or None
+        """
+        if hasattr(self, '_expr_parameters'):
+            return self._expr_parameters
+        return []
 
     def lmfit_model(self, prefix=None, parameters=None):
         """Return the corresponding lmfit model.
 
         :param prefix: Model prefix.
         :type prefix: str, optional
+        :param parameters: Current model parameters.
+        :type parameters: lmfit.Parameters
         :returns: Corresponding lmfit model.
         :rtype: lmfit.models.ExpressionModel
         """
+        # System modules
+        from re import sub
+
         # Third party modules
         from asteval import (
             Interpreter,
             get_ast_names,
         )
-        from lmfit.models import ExpressionModel as LmfitModel
         from sympy import diff
 
         if parameters is None:
@@ -975,31 +986,31 @@ class ExpressionModel(ConstantModel):
                     f'parameter ({par}) for an expression model')
         ast = Interpreter()
         expr = self.expr
-        expr_parameters = [
-            name for name in get_ast_names(ast.parse(expr))
-            if (name != 'x' and name not in parameters
-                and name not in ast.symtable)]
+        self._expr_parameters = [
+                name for name in get_ast_names(ast.parse(expr))
+                if (name != 'x' and name not in parameters
+                    and name not in ast.symtable)]
         if prefix is not None:
-            for name in expr_parameters:
+            for name in self.expr_parameters:
                 expr = sub(rf'\b{name}\b', f'{prefix}{name}', expr)
-            expr_parameters = [
-                f'{prefix}{name}' for name in expr_parameters]
+            self._expr_parameters = [
+                f'{prefix}{name}' for name in self.expr_parameters]
 
         return lmfit_models.ExpressionModel(expr=expr, name=self.model_type)
 
 
 # Available models for components of the fitting function
-#MODEL_CLASSES = [
-#    ConstantModel,
-#    LinearModel,
-#    QuadraticModel,
-#    ExponentialModel,
-#    GaussianModel,
-#    LorentzianModel,
-#    PseudoVoigtModel,
-#    RectangleModel,
-#    ExpressionModel,
-#]
+MODEL_CLASSES = [
+    ConstantModel,
+    LinearModel,
+    QuadraticModel,
+    ExponentialModel,
+    GaussianModel,
+    LorentzianModel,
+    PseudoVoigtModel,
+    RectangleModel,
+    ExpressionModel,
+]
 
 # Reusable Discriminator Union for supported fit model components.
 Model = Annotated[
