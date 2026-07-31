@@ -1993,7 +1993,8 @@
         <span class="n">z</span> <span class="o">=</span> <span class="n">linalg</span><span class="o">.</span><span class="n">spsolve</span><span class="p">(</span><span class="n">W</span> <span class="o">+</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span> <span class="o">*</span> <span class="n">y</span><span class="p">)</span>
         <span class="n">d</span> <span class="o">=</span> <span class="n">y</span> <span class="o">-</span> <span class="n">z</span>
         <span class="n">dn</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="n">d</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span>
-
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dn</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="k">break</span>
         <span class="n">m</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dn</span><span class="p">)</span>
         <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">dn</span><span class="p">)</span>
 
@@ -3006,9 +3007,8 @@
 <span class="sd">    :type grid_linewidth: int, optional</span>
 <span class="sd">    :param colorbar: Include a colorbar, defaults to `False`.</span>
 <span class="sd">    :type colorbar: bool, optional</span>
-<span class="sd">    :param kwargs: Any additional keyword parameters to pass on to</span>
+<span class="sd">    :param \*\*kwargs: Any additional keyword parameters to pass on to</span>
 <span class="sd">        `matplotlib.pyplot.imshow &lt;https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.imshow.html&gt;`__.</span>
-<span class="sd">    :type kwargs: dict, optional</span>
 <span class="sd">    :raise: ValueError for invalid input data or parameters. </span>
 <span class="sd">    :return: In-memory object as a byte stream represention if</span>
 <span class="sd">        `return_fig` is set.</span>
@@ -3127,9 +3127,8 @@
 <span class="sd">    :type save_only: bool, optional</span>
 <span class="sd">    :param block: Wait for the image to be closed before returning.</span>
 <span class="sd">    :type block: bool, optional</span>
-<span class="sd">    :param kwargs: Any additional keyword parameters to pass on to</span>
+<span class="sd">    :param \*\*kwargs: Any additional keyword parameters to pass on to</span>
 <span class="sd">        `matplotlib.pyplot.plot &lt;https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html&gt;`__</span>
-<span class="sd">    :type kwargs: dict, optional</span>
 <span class="sd">    :raise: ValueError for invalid input data or parameters. </span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1">#FIX: Update with return_buf</span>

@@ -198,7 +198,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">id_</span><span class="p">:</span> <span class="n">constr</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">alias</span><span class="o">=</span><span class="s1">&#39;id&#39;</span><span class="p">)</span>
-    <span class="n">shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">attrs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
 <div class="viewcode-block" id="Detector.validate_id">
@@ -338,7 +338,7 @@
 
     <span class="n">spec_file</span><span class="p">:</span> <span class="n">FilePath</span>
     <span class="n">scan_numbers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
-        <span class="n">constr</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span>
+        <span class="n">constr</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">))]</span>
     <span class="n">par_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FilePath</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="SpecScans.validate_spec_file">
@@ -595,9 +595,11 @@
     <span class="n">label</span><span class="p">:</span> <span class="n">constr</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">units</span><span class="p">:</span> <span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">data_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
-        <span class="s1">&#39;expression&#39;</span><span class="p">,</span> <span class="s1">&#39;detector_log_timestamps&#39;</span><span class="p">,</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;scan_start_time&#39;</span><span class="p">,</span> <span class="s1">&#39;scan_step_index&#39;</span><span class="p">,</span> <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;spec_motor&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;spec_motor_absolute&#39;</span><span class="p">,</span> <span class="s1">&#39;spec_motor_static&#39;</span><span class="p">]</span>
+        <span class="s1">&#39;detector_log_timestamps&#39;</span><span class="p">,</span> <span class="s1">&#39;expression&#39;</span><span class="p">,</span> <span class="s1">&#39;scan_column&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;scan_number&#39;</span><span class="p">,</span> <span class="s1">&#39;scan_start_time&#39;</span><span class="p">,</span> <span class="s1">&#39;scan_step_index&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;smb_par&#39;</span><span class="p">,</span> <span class="s1">&#39;spec_motor&#39;</span><span class="p">,</span> <span class="s1">&#39;spec_motor_absolute&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;spec_motor_static&#39;</span>
+    <span class="p">]</span>
     <span class="n">name</span><span class="p">:</span> <span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">ndigits</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -817,6 +819,8 @@
                 <span class="k">return</span> <span class="n">scan_step_index</span>
             <span class="n">scanparser</span> <span class="o">=</span> <span class="n">get_scanparser</span><span class="p">(</span><span class="n">spec_scans</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span> <span class="n">scan_number</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">scanparser</span><span class="o">.</span><span class="n">spec_scan_npts</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_type</span> <span class="o">==</span> <span class="s1">&#39;scan_number&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">scan_number</span>
         <span class="k">return</span> <span class="kc">None</span></div>
 </div>
 
@@ -1052,7 +1056,9 @@
         <span class="k">if</span> <span class="n">data_source</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">values</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">data</span>
             <span class="k">if</span> <span class="n">data_source</span><span class="o">.</span><span class="n">data_type</span> <span class="o">==</span> <span class="s1">&#39;expression&#39;</span><span class="p">:</span>
-                <span class="n">data_source</span><span class="o">.</span><span class="n">validate_for_scalar_data</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="s1">&#39;scalar_data&#39;</span><span class="p">])</span>
+                <span class="k">if</span> <span class="s1">&#39;scalar_data&#39;</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+                    <span class="n">data_source</span><span class="o">.</span><span class="n">validate_for_scalar_data</span><span class="p">(</span>
+                        <span class="n">values</span><span class="p">[</span><span class="s1">&#39;scalar_data&#39;</span><span class="p">])</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">import_scanparser</span><span class="p">(</span>
                     <span class="n">values</span><span class="p">[</span><span class="s1">&#39;station&#39;</span><span class="p">],</span> <span class="n">values</span><span class="p">[</span><span class="s1">&#39;experiment_type&#39;</span><span class="p">])</span>
@@ -1450,6 +1456,7 @@
                 <span class="sa">f</span><span class="s1">&#39;For station </span><span class="si">{</span><span class="n">station</span><span class="si">}</span><span class="s1">, allowed experiment types are &#39;</span>
                 <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">allowed_experiment_types</span><span class="p">)</span><span class="si">}</span><span class="s1">. &#39;</span>
                 <span class="sa">f</span><span class="s1">&#39;Supplied experiment type </span><span class="si">{</span><span class="n">experiment_type</span><span class="si">}</span><span class="s1"> is not allowed.&#39;</span><span class="p">)</span>
+        <span class="n">import_scanparser</span><span class="p">(</span><span class="n">station</span><span class="p">,</span> <span class="n">experiment_type</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">experiment_type</span></div>
 
 
@@ -1473,6 +1480,21 @@
         <span class="k">return</span> <span class="n">data</span></div>
 
 
+<div class="viewcode-block" id="MapConfig.validate_scalar_data_expressions">
+<a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.map.MapConfig.validate_scalar_data_expressions">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_scalar_data_expressions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate any expression-type items in scalar_data against</span>
+<span class="sd">        the complete scalar_data list. This deferred check is necessary</span>
+<span class="sd">        because field validation of scalar_data runs before the list is</span>
+<span class="sd">        fully constructed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">data_source</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scalar_data</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">data_source</span><span class="o">.</span><span class="n">data_type</span> <span class="o">==</span> <span class="s1">&#39;expression&#39;</span><span class="p">:</span>
+                <span class="n">data_source</span><span class="o">.</span><span class="n">validate_for_scalar_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scalar_data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
     <span class="c1">#RV maybe better to use model_validator, see v2 docs?</span>
 <div class="viewcode-block" id="MapConfig.validate_attrs">
 <a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.map.MapConfig.validate_attrs">[docs]</a>
@@ -1493,13 +1515,17 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Get the map&#39;s scan_type for EDD experiments</span>
         <span class="n">values</span> <span class="o">=</span> <span class="n">info</span><span class="o">.</span><span class="n">data</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">values</span><span class="p">[</span><span class="s1">&#39;validate_data_present&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">attrs</span>
         <span class="n">station</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="s1">&#39;station&#39;</span><span class="p">]</span>
         <span class="n">experiment_type</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="s1">&#39;experiment_type&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">station</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;id1a3&#39;</span><span class="p">,</span> <span class="s1">&#39;id3a&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">experiment_type</span> <span class="o">==</span> <span class="s1">&#39;EDD&#39;</span><span class="p">:</span>
             <span class="n">scan_type</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_smb_par_attr</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s1">&#39;scan_type&#39;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">scan_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;scan_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scan_type</span>
-            <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;config_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_smb_par_attr</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s1">&#39;config_id&#39;</span><span class="p">)</span>
+            <span class="n">config_id</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_smb_par_attr</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="s1">&#39;config_id&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">config_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;config_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">config_id</span>
             <span class="n">dataset_id</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_smb_par_attr</span><span class="p">(</span>
                 <span class="n">values</span><span class="p">,</span> <span class="s1">&#39;dataset_id&#39;</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">dataset_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1554,6 +1580,8 @@
 <span class="c1">#                        f&#39;{scans.spec_file}.&#39;)</span>
                     <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
         <span class="n">values</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">values</span><span class="p">))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">values</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">unique</span><span class="p">:</span>

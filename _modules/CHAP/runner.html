@@ -348,9 +348,9 @@
     <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">log_level</span><span class="p">)</span>
     <span class="n">log_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
     <span class="n">log_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span>
-        <span class="s1">&#39;</span><span class="si">{asctime}</span><span class="s1">: </span><span class="si">{name:20}</span><span class="s1">: </span><span class="si">{levelname}</span><span class="s1">: </span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;</span><span class="si">{asctime}</span><span class="s1">: </span><span class="si">{name:20}</span><span class="s1"> (L</span><span class="si">{lineno}</span><span class="s1">): </span><span class="si">{levelname}</span><span class="s1">: </span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span>
         <span class="n">datefmt</span><span class="o">=</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;{&#39;</span><span class="p">))</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">log_handler</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">log_handler</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">logger</span><span class="p">,</span> <span class="n">log_handler</span></div>
 
 
@@ -382,10 +382,7 @@
     <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
 
     <span class="c1"># Make sure os.makedirs is only called from the root node</span>
-    <span class="k">if</span> <span class="n">comm</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">rank</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">rank</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span>
+    <span class="n">rank</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">comm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">comm</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span>
 
     <span class="n">pipeline_args</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">pipeline_mmcs</span> <span class="o">=</span> <span class="p">[]</span>
@@ -432,6 +429,7 @@
                 <span class="n">config</span><span class="p">[</span><span class="s1">&#39;outputdir&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">outputdir</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">name</span> <span class="o">=</span> <span class="n">item</span>
+            <span class="n">item_args</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">split_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
         <span class="n">cls_name</span> <span class="o">=</span> <span class="n">split_name</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">mod_name</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">split_name</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
@@ -465,11 +463,9 @@
                 <span class="n">mod_name</span> <span class="o">+=</span> <span class="s1">&#39;.reader&#39;</span>
             <span class="k">if</span> <span class="n">cls_name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;Writer&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">split_name</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;writer&#39;</span><span class="p">:</span>
                 <span class="n">mod_name</span> <span class="o">+=</span> <span class="s1">&#39;.writer&#39;</span>
-            <span class="k">if</span> <span class="s1">&#39;users&#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
-                <span class="n">module_name</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">fromlist</span><span class="o">=</span><span class="p">[</span><span class="n">cls_name</span><span class="p">])</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">module_name</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s1">&#39;CHAP.</span><span class="si">{</span><span class="n">mod_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">fromlist</span><span class="o">=</span><span class="p">[</span><span class="n">cls_name</span><span class="p">])</span>
+            <span class="n">module_name</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="n">fromlist</span><span class="o">=</span><span class="p">[</span><span class="n">cls_name</span><span class="p">])</span> \
+                <span class="k">if</span> <span class="s1">&#39;users&#39;</span> <span class="ow">in</span> <span class="n">name</span> \
+                <span class="k">else</span> <span class="nb">__import__</span><span class="p">(</span> <span class="sa">f</span><span class="s1">&#39;CHAP.</span><span class="si">{</span><span class="n">mod_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">fromlist</span><span class="o">=</span><span class="p">[</span><span class="n">cls_name</span><span class="p">])</span>
             <span class="n">module</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module_name</span><span class="p">,</span> <span class="n">cls_name</span><span class="p">)</span>
         <span class="n">pipeline_mmcs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
 

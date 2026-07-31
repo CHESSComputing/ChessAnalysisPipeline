@@ -712,7 +712,7 @@
 
 <div class="viewcode-block" id="PandasReader.read">
 <a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.PandasReader.read">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;read_csv&#39;</span><span class="p">,</span> <span class="n">comment</span><span class="o">=</span><span class="s1">&#39;#&#39;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;read_csv&#39;</span><span class="p">,</span> <span class="n">comment</span><span class="o">=</span><span class="s1">&#39;#&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a `pandas.DataFrame` read from the given file.</span>
 
 <span class="sd">        :param filename: Name of file to read from.</span>
@@ -723,9 +723,8 @@
 <span class="sd">        :param comment: Character to identify comment lines in the</span>
 <span class="sd">            input file, defaults to `&#39;#&#39;`.</span>
 <span class="sd">        :type comment: str, optional</span>
-<span class="sd">        :param kwargs: Additional keyword arguments to supply to the</span>
+<span class="sd">        :param \*\*kwargs: Additional keyword arguments to supply to the</span>
 <span class="sd">            `pandas` reader.</span>
-<span class="sd">        :param kwargs: dict, optional.</span>
 <span class="sd">        :rtype: `pandas.DataFrame`</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Third party modules</span>
@@ -737,8 +736,6 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s1"> is not a callable pandas reader method&#39;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">kwargs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kwargs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s1">&#39;Invalid kwargs type (</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span><span class="si">}</span><span class="s1">, should be dict)&#39;</span><span class="p">)</span>
@@ -753,6 +750,9 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">NexusReader</span><span class="p">(</span><span class="n">Reader</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Reader for `NeXus &lt;https://www.nexusformat.org&gt;`__ files.</span>
 
+<span class="sd">    :ivar create_copy: Return a copy of the selected data, resolving</span>
+<span class="sd">        any and all linked NeXus objects, defaults to `False`..</span>
+<span class="sd">    :vartype create_copy: bool, optional</span>
 <span class="sd">    :ivar nxpath: Path to a specific location in the NeXus file tree</span>
 <span class="sd">        to read from, defaults to `&#39;/&#39;`.</span>
 <span class="sd">    :vartype nxpath: str, optional</span>
@@ -764,10 +764,11 @@
 <span class="sd">    :vartype nxmemory: int, optional</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">nxpath</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span>
+    <span class="n">create_copy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="s1">&#39;rw&#39;</span><span class="p">,</span> <span class="s1">&#39;r+&#39;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;r&#39;</span>
     <span class="n">nxmemory</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">nxpath</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span>
 
 <div class="viewcode-block" id="NexusReader.read">
 <a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.reader.NexusReader.read">[docs]</a>
@@ -788,11 +789,22 @@
             <span class="n">nxsetconfig</span><span class="p">,</span>
         <span class="p">)</span>
 
+        <span class="c1"># Local modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">nxcopy</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nxmemory</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">nxsetconfig</span><span class="p">(</span><span class="n">memory</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nxmemory</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">nxload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">nxpath</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">nxload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">nxpath</span><span class="p">]</span></div>
+            <span class="n">nxobject</span> <span class="o">=</span> <span class="n">nxload</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">nxpath</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_copy</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">nxcopy</span><span class="p">(</span><span class="n">nxobject</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">nxobject</span>
+            <span class="c1">#return nxload(self.filename, mode=self.mode)[self.nxpath][self.idx]</span>
+        <span class="n">nxobject</span> <span class="o">=</span> <span class="n">nxload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">nxpath</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_copy</span><span class="p">:</span>
+            <span class="n">nxobject</span> <span class="o">=</span> <span class="n">nxcopy</span><span class="p">(</span><span class="n">nxobject</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">nxobject</span></div>
 </div>
 
 
@@ -1095,10 +1107,8 @@
                     <span class="n">nxdata</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span>
                         <span class="n">value</span><span class="o">=</span><span class="n">scanparser</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span><span class="n">detectors_ids</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_type</span> <span class="o">==</span> <span class="s1">&#39;TOMO&#39;</span><span class="p">:</span>
-                        <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="n">dtype</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span> \
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experiment_type</span> <span class="o">==</span> <span class="s1">&#39;TOMO&#39;</span> <span class="k">else</span> <span class="kc">None</span>
                     <span class="n">nxdata</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">()</span>
                     <span class="n">nxscans</span><span class="p">[</span><span class="n">scan_number</span><span class="p">]</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">nxdata</span>
 <span class="c1">#                    nxpaths.append(</span>
@@ -1110,7 +1120,6 @@
                             <span class="n">detector_roi</span><span class="o">=</span><span class="p">[</span>
                                <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span><span class="o">.</span><span class="n">roi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">toslice</span><span class="p">(),</span>
                                <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span><span class="o">.</span><span class="n">roi</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">toslice</span><span class="p">()]</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">\n\n</span><span class="s1">detector_roi: </span><span class="si">{</span><span class="n">detector_roi</span><span class="si">}</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
                         <span class="n">nxdata</span><span class="p">[</span><span class="n">detector</span><span class="o">.</span><span class="n">get_id</span><span class="p">()]</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span>
                            <span class="n">value</span><span class="o">=</span><span class="n">scanparser</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span>
                                <span class="n">detector</span><span class="o">.</span><span class="n">get_id</span><span class="p">(),</span>
@@ -1228,11 +1237,8 @@
         <span class="n">root</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">)</span>
 
         <span class="c1"># Normalize path handling</span>
-        <span class="k">if</span> <span class="n">path</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">):</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">root</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Remove leading slash for Zarr traversal</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">root</span><span class="p">[</span><span class="n">path</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)]</span>
+        <span class="c1"># Remove leading slash for Zarr traversal</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">root</span> <span class="k">if</span> <span class="n">path</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">root</span><span class="p">[</span><span class="n">path</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)]</span>
 
         <span class="c1"># Optional indexing (arrays only)</span>
         <span class="k">if</span> <span class="n">idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>

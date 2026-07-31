@@ -9,6 +9,14 @@ CHAP.saxswaxs package
 Submodules
 ----------
 
+CHAP.saxswaxs.models module
+---------------------------
+
+.. automodule:: CHAP.saxswaxs.models
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 CHAP.saxswaxs.processor module
 ------------------------------
 
@@ -21,6 +29,14 @@ CHAP.saxswaxs.reader module
 ---------------------------
 
 .. automodule:: CHAP.saxswaxs.reader
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+CHAP.saxswaxs.utils module
+--------------------------
+
+.. automodule:: CHAP.saxswaxs.utils
    :members:
    :undoc-members:
    :show-inheritance:

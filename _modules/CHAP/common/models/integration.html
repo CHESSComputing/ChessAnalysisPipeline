@@ -438,6 +438,12 @@
 <span class="sd">        direction of the azimuthal coordinate from pyFAI&#39;s convention,</span>
 <span class="sd">        defaults to `True`.</span>
 <span class="sd">    :vartype right_handed: bool, optional</span>
+<span class="sd">    :ivar input_name: When set, names a</span>
+<span class="sd">        :class:`~CHAP.saxswaxs.models.CorrectionConfig` whose</span>
+<span class="sd">        corrected detector images are used as input to this integration</span>
+<span class="sd">        instead of raw detector data.  When ``None`` (default), raw</span>
+<span class="sd">        detector images are used as input.</span>
+<span class="sd">    :vartype input_name: str, optional</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">name</span><span class="p">:</span> <span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
@@ -448,6 +454,7 @@
         <span class="n">Integrate1dConfig</span><span class="p">,</span> <span class="n">Integrate2dConfig</span><span class="p">,</span> <span class="n">IntegrateRadialConfig</span><span class="p">]</span>
     <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">right_handed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">input_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="n">_placeholder_result</span><span class="p">:</span> <span class="n">PrivateAttr</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -787,17 +794,37 @@
 
 <div class="viewcode-block" id="PyfaiIntegratorConfig.zarr_tree">
 <a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.zarr_tree">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">zarr_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset_shape</span><span class="p">,</span> <span class="n">dataset_chunks</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">zarr_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset_shape</span><span class="p">,</span> <span class="n">dataset_chunks</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">nxlinks</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a dictionary representing a `zarr.group` that can be</span>
 <span class="sd">        used to contain results from this integration.</span>
 
-<span class="sd">        :return: A `zarr.group` that can be used to contain the</span>
-<span class="sd">            integration results.</span>
+<span class="sd">        :param dataset_shape: Shape of the measurement (scan) dimensions</span>
+<span class="sd">            of the output dataset, excluding the integration dimensions.</span>
+<span class="sd">        :type dataset_shape: tuple[int, ...]</span>
+<span class="sd">        :param dataset_chunks: Chunk shape along the scan dimensions, or</span>
+<span class="sd">            ``&#39;auto&#39;``, defaults to ``&#39;auto&#39;``.</span>
+<span class="sd">        :type dataset_chunks: list[int] or str, optional</span>
+<span class="sd">        :param nxlinks: NeXus path(s) to link into the ``data`` group.</span>
+<span class="sd">            When the zarr tree is written to a ``.zarr`` file and</span>
+<span class="sd">            converted to ``.nxs`` with</span>
+<span class="sd">            :class:`~CHAP.common.processor.ZarrToNexusProcessor`, each</span>
+<span class="sd">            path produces an ``NXlink`` whose name is</span>
+<span class="sd">            ``os.path.basename(path)``.  Accepts a single path string or</span>
+<span class="sd">            a list of path strings.</span>
+<span class="sd">        :type nxlinks: str or list[str], optional</span>
+<span class="sd">        :returns: Nested dict representing the zarr group tree for this</span>
+<span class="sd">            integration.</span>
 <span class="sd">        :rtype: dict</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Third party modules</span>
         <span class="c1">#import json</span>
 
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxlinks</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">nxlinks</span> <span class="o">=</span> <span class="p">[</span><span class="n">nxlinks</span><span class="p">]</span>
+        <span class="n">data_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">get_axes_indices</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset_shape</span><span class="p">))}</span>
+        <span class="k">if</span> <span class="n">nxlinks</span><span class="p">:</span>
+            <span class="n">data_attrs</span><span class="p">[</span><span class="s1">&#39;__nxlinks__&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">p</span><span class="p">):</span> <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">nxlinks</span><span class="p">}</span>
         <span class="n">tree</span> <span class="o">=</span> <span class="p">{</span>
             <span class="c1"># NXprocess</span>
             <span class="s1">&#39;attributes&#39;</span><span class="p">:</span> <span class="p">{</span>
@@ -807,10 +834,7 @@
             <span class="s1">&#39;children&#39;</span><span class="p">:</span> <span class="p">{</span>
                 <span class="s1">&#39;data&#39;</span><span class="p">:</span> <span class="p">{</span>
                     <span class="c1"># NXdata</span>
-                    <span class="s1">&#39;attributes&#39;</span><span class="p">:</span> <span class="p">{</span>
-                        <span class="c1"># &#39;axes&#39;: self.result_axes(),</span>
-                        <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">get_axes_indices</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset_shape</span><span class="p">))</span>
-                    <span class="p">},</span>
+                    <span class="s1">&#39;attributes&#39;</span><span class="p">:</span> <span class="n">data_attrs</span><span class="p">,</span>
                     <span class="s1">&#39;children&#39;</span><span class="p">:</span> <span class="p">{</span>
                         <span class="s1">&#39;I&#39;</span><span class="p">:</span> <span class="p">{</span>
                             <span class="c1"># NXfield</span>
@@ -894,28 +918,50 @@
 
 <div class="viewcode-block" id="PyfaiIntegrationConfig.zarr_tree">
 <a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegrationConfig.zarr_tree">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">zarr_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset_shape</span><span class="p">,</span> <span class="n">dataset_chunks</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">zarr_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset_shape</span><span class="p">,</span> <span class="n">dataset_chunks</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">nxlinks</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a dictionary representing a `zarr.group` that can be</span>
 <span class="sd">        used to contain results from</span>
 <span class="sd">        :class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.</span>
 
-<span class="sd">        :return: A `zarr.group` that can be used to contain the</span>
-<span class="sd">            integration results.</span>
+<span class="sd">        Each integration defined in :attr:`integrations` gets its own</span>
+<span class="sd">        sub-group keyed by the integration&#39;s ``name``.  See</span>
+<span class="sd">        :meth:`PyfaiIntegratorConfig.zarr_tree` for the structure of</span>
+<span class="sd">        each sub-group.</span>
+
+<span class="sd">        :param dataset_shape: Shape of the measurement (scan) dimensions</span>
+<span class="sd">            of the output dataset, excluding the integration dimensions.</span>
+<span class="sd">        :type dataset_shape: tuple[int, ...]</span>
+<span class="sd">        :param dataset_chunks: Chunk shape along the scan dimensions, or</span>
+<span class="sd">            ``&#39;auto&#39;``, defaults to ``&#39;auto&#39;``.</span>
+<span class="sd">        :type dataset_chunks: list[int] or str, optional</span>
+<span class="sd">        :param nxlinks: NeXus links to inject into each integration&#39;s</span>
+<span class="sd">            ``data`` group.  May be a single path string or list of path</span>
+<span class="sd">            strings (forwarded to every integration), or a dict keyed by</span>
+<span class="sd">            integration name mapping each integration to its own path(s).</span>
+<span class="sd">            See :meth:`PyfaiIntegratorConfig.zarr_tree` for details on</span>
+<span class="sd">            how individual paths are handled.</span>
+<span class="sd">        :type nxlinks: str or list[str] or dict[str, str or list[str]],</span>
+<span class="sd">            optional</span>
+<span class="sd">        :returns: Nested dict representing the zarr group tree for all</span>
+<span class="sd">            integrations.</span>
 <span class="sd">        :rtype: dict</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">ais</span> <span class="o">=</span> <span class="p">{</span><span class="n">ai</span><span class="o">.</span><span class="n">get_id</span><span class="p">():</span> <span class="n">ai</span> <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">azimuthal_integrators</span><span class="p">}</span>
         <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrations</span><span class="p">:</span>
             <span class="n">integration</span><span class="o">.</span><span class="n">init_placeholder_results</span><span class="p">(</span><span class="n">ais</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxlinks</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">nxlinks</span> <span class="o">=</span> <span class="p">{</span><span class="n">intg</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">nxlinks</span> <span class="k">for</span> <span class="n">intg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrations</span><span class="p">}</span>
         <span class="n">tree</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s1">&#39;root&#39;</span><span class="p">:</span> <span class="p">{</span>
                 <span class="s1">&#39;attributes&#39;</span><span class="p">:</span> <span class="p">{</span>
                     <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="s1">&#39;Container for processed SAXS/WAXS data&#39;</span>
                 <span class="p">},</span>
-                <span class="s1">&#39;children&#39;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">integration</span><span class="o">.</span><span class="n">zarr_tree</span><span class="p">(</span>
-                        <span class="n">dataset_shape</span><span class="p">,</span> <span class="n">dataset_chunks</span><span class="p">)</span>
-                    <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrations</span>
-                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="s1">&#39;children&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">integration</span><span class="o">.</span><span class="n">zarr_tree</span><span class="p">(</span>
+                    <span class="n">dataset_shape</span><span class="p">,</span> <span class="n">dataset_chunks</span><span class="p">,</span>
+                    <span class="n">nxlinks</span><span class="o">=</span><span class="n">nxlinks</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">integration</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">integration</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrations</span>
             <span class="p">}</span>
         <span class="p">}</span>
         <span class="k">return</span> <span class="n">tree</span></div>

@@ -143,7 +143,7 @@
 <span class="c1"># Local modules</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">CHAPBaseModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="n">Detector</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Multipeak</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultipeakModel</span>
 <span class="c1">#from CHAP.utils.parfile import ParFile</span>
 
 <span class="c1"># Baseline configuration class</span>
@@ -188,12 +188,26 @@
 <span class="sd">    :ivar baseline: Automated baseline subtraction configuration,</span>
 <span class="sd">        defaults to `False`.</span>
 <span class="sd">    :vartype baseline: bool or BaselineConfig, optional</span>
+<span class="sd">    :ivar baseline_type: Automated baseline subtraction type,</span>
+<span class="sd">        one baseline per detector based on the mean spectrum</span>
+<span class="sd">        (`&#39;mean&#39;`), or a baseline for each spectrum per detector</span>
+<span class="sd">        (`&#39;spectrum&#39;`). Defaults to `mean`.</span>
+<span class="sd">    :vartype baseline_type: Literal[&#39;mean&#39;, &#39;spectrum&#39;], optional</span>
 <span class="sd">    :ivar centers_range: Peak centers range for peak fitting.</span>
 <span class="sd">        The allowed range for the peak centers will be the initial</span>
 <span class="sd">        values &amp;pm; `centers_range` (in MCA channels for calibration</span>
-<span class="sd">        or keV for strain analysis). Defaults to `20` for calibration</span>
-<span class="sd">        and `2.0` for strain analysis.</span>
+<span class="sd">        or keV for strain analysis, ignored when `0.0`).</span>
+<span class="sd">        Defaults to `20` for calibration and `2.0` for strain analysis.</span>
+<span class="sd">        The actual values used are the larger of the ones determined</span>
+<span class="sd">        from `centers_range` and `centers_range_fraction`.</span>
 <span class="sd">    :vartype centers_range: float, optional</span>
+<span class="sd">    :ivar centers_range_fraction: Peak centers range for peak fitting.</span>
+<span class="sd">        The allowed range for the peak centers will be the initial</span>
+<span class="sd">        values &amp;pm; `centers_range_fraction times the initial value`</span>
+<span class="sd">        (in keV) (ignored when `0.0`), defaults to `0.02`.</span>
+<span class="sd">        The actual values used are the larger of the ones determined</span>
+<span class="sd">        from `centers_range` and `centers_range_fraction`.</span>
+<span class="sd">    :vartype centers_range_fraction: float, optional</span>
 <span class="sd">    :ivar energy_mask_ranges: MCA energy mask ranges in keV for</span>
 <span class="sd">        selecting the data to be included after applying a mask (bounds</span>
 <span class="sd">        are inclusive). Specify either energy_mask_ranges or</span>
@@ -213,13 +227,16 @@
 <span class="sd">    :vartype mask_ranges: list[[int, int]], optional</span>
 <span class="sd">    :ivar backgroundpeaks: Additional background peaks (their</span>
 <span class="sd">        associated fit parameters in units of keV).</span>
-<span class="sd">    :vartype backgroundpeaks: Multipeak, optional</span>
+<span class="sd">    :vartype backgroundpeaks: MultipeakModel, optional</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">background</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">constr</span><span class="p">(</span>
         <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">to_lower</span><span class="o">=</span><span class="kc">True</span><span class="p">))]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;constant&#39;</span><span class="p">]</span>
     <span class="n">baseline</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">BaselineConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">centers_range</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">20</span>
+    <span class="n">baseline_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span> <span class="s1">&#39;spectrum&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">&#39;mean&#39;</span>
+    <span class="n">centers_range</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">20</span>
+    <span class="n">centers_range_fraction</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">confloat</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.02</span>
     <span class="n">energy_mask_ranges</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span>
         <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
         <span class="n">item_type</span><span class="o">=</span><span class="n">conlist</span><span class="p">(</span>
@@ -234,7 +251,7 @@
             <span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
             <span class="n">max_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
             <span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)))]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">backgroundpeaks</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Multipeak</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">backgroundpeaks</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MultipeakModel</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="FitConfig.validate_background">
 <a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.models.FitConfig.validate_background">[docs]</a>
@@ -568,10 +585,24 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Class representing the configuration to perform a strain</span>
 <span class="sd">    analysis.</span>
 
+<span class="sd">    :ivar abs_height_cutoff: Absolute peak height cutoff for</span>
+<span class="sd">        peak fitting (any peak with a height smaller than</span>
+<span class="sd">        `abs_height_cutoff` gets removed from the fit model).</span>
+<span class="sd">    :vartype abs_height_cutoff: int, optional</span>
 <span class="sd">    :ivar centers_range: Peak centers range for peak fitting.</span>
 <span class="sd">        The allowed range for the peak centers will be the initial</span>
-<span class="sd">        values &amp;pm; `centers_range` (in keV), defaults to `2.0`.</span>
+<span class="sd">        values &amp;pm; `centers_range` (in keV) (ignored when `0.0`),</span>
+<span class="sd">        defaults to `2.0`.</span>
+<span class="sd">        The actual values used are the larger of the ones determined</span>
+<span class="sd">        from `centers_range` and `centers_range_fraction`.</span>
 <span class="sd">    :vartype centers_range: float, optional</span>
+<span class="sd">    :ivar centers_range_fraction: Peak centers range for peak fitting.</span>
+<span class="sd">        The allowed range for the peak centers will be the initial</span>
+<span class="sd">        values &amp;pm; `centers_range_fraction times the initial value`</span>
+<span class="sd">        (in keV) (ignored when `0.0`), defaults to `0.02`.</span>
+<span class="sd">        The actual values used are the larger of the ones determined</span>
+<span class="sd">        from `centers_range` and `centers_range_fraction`.</span>
+<span class="sd">    :vartype centers_range_fraction: float, optional</span>
 <span class="sd">    :ivar fwhm_min: Minimum FWHM for peak fitting (in keV),</span>
 <span class="sd">        defaults to `0.25`.</span>
 <span class="sd">    :vartype fwhm_min: float, optional</span>
@@ -585,7 +616,7 @@
 <span class="sd">    :ivar rel_height_cutoff: Relative peak height cutoff for</span>
 <span class="sd">        peak fitting (any peak with a height smaller than</span>
 <span class="sd">        `rel_height_cutoff` times the maximum height of all peaks </span>
-<span class="sd">        gets removed from the fit model), defaults to `None`.</span>
+<span class="sd">        gets removed from the fit model).</span>
 <span class="sd">    :vartype rel_height_cutoff: float, optional</span>
 <span class="sd">    :ivar tth_map: Map of the 2&amp;theta values.</span>
 <span class="sd">    :vartype tth_map: numpy.ndarray, optional</span>
@@ -594,7 +625,10 @@
     <span class="c1">#:ivar tth_file: Path to the file with the 2&amp;theta map.</span>
     <span class="c1">#:vartype tth_file: FilePath, optional</span>
 
-    <span class="n">centers_range</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">abs_height_cutoff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">centers_range</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">centers_range_fraction</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
+        <span class="n">confloat</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.02</span>
     <span class="n">fwhm_min</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.25</span>
     <span class="n">fwhm_max</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">2.0</span>
     <span class="n">processor_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;strainanalysis&#39;</span><span class="p">]</span>
@@ -604,7 +638,7 @@
             <span class="n">item_type</span><span class="o">=</span><span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;gaussian&#39;</span><span class="p">,</span> <span class="s1">&#39;lorentzian&#39;</span><span class="p">,</span> <span class="s1">&#39;pvoigt&#39;</span><span class="p">]),</span>
         <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;gaussian&#39;</span><span class="p">,</span> <span class="s1">&#39;lorentzian&#39;</span><span class="p">,</span> <span class="s1">&#39;pvoigt&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">&#39;gaussian&#39;</span>
     <span class="n">rel_height_cutoff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
-        <span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">lt</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">lt</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="c1">#    tth_file: Optional[FilePath] = None</span>
     <span class="n">tth_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -1096,6 +1130,12 @@
 <span class="sd">    and :class:`~CHAP.edd.processor.StrainAnalysisProcessor`,</span>
 <span class="sd">    respectively.</span>
 
+<span class="sd">    :ivar abs_height_cutoff: Used to excluded peaks based on the</span>
+<span class="sd">        `find_peak` parameter as well as for peak fitting exclusion</span>
+<span class="sd">        of the individual detector spectra (see the strain detector</span>
+<span class="sd">        configuration</span>
+<span class="sd">        :class:`~CHAP.edd.models.MCADetectorStrainAnalysis`).</span>
+<span class="sd">    :vartype abs_height_cutoff: int, optional</span>
 <span class="sd">    :ivar find_peak_cutoff: Use scipy.signal.find_peaks to exclude</span>
 <span class="sd">        peaks for all spectra for a given detector and user specified</span>
 <span class="sd">        mask. A particular HKL peak is removed from the set of HKLs,</span>
@@ -1103,15 +1143,17 @@
 <span class="sd">        the maximum mean intensity for that detector. Defaults to `0`</span>
 <span class="sd">        in which case this step is ignored.</span>
 <span class="sd">    :vartype find_peak_cutoff: float, optional</span>
+<span class="sd">    :ivar max_nfev: Maximum number of function evaluations in the</span>
+<span class="sd">        the strain analysis peak fitting routine.</span>
+<span class="sd">    :vartype max_nfev: int, optional</span>
 <span class="sd">    :ivar num_proc: Number of processors to be used by the strain</span>
 <span class="sd">        analysis peak fitting routine.</span>
-<span class="sd">    :vartype num_proc: int</span>
+<span class="sd">    :vartype num_proc: int, optional</span>
 <span class="sd">    :ivar rel_height_cutoff: Used to excluded peaks based on the</span>
 <span class="sd">        `find_peak` parameter as well as for peak fitting exclusion</span>
 <span class="sd">        of the individual detector spectra (see the strain detector</span>
 <span class="sd">        configuration</span>
 <span class="sd">        :class:`~CHAP.edd.models.MCADetectorStrainAnalysis`).</span>
-<span class="sd">        Defaults to `None`.</span>
 <span class="sd">    :vartype rel_height_cutoff: float, optional</span>
 <span class="sd">    :ivar skip_animation: Skip the animation and plotting of</span>
 <span class="sd">        the strain analysis fits, defaults to `False`.</span>
@@ -1123,11 +1165,13 @@
     <span class="c1">#:ivar oversampling: FIX</span>
     <span class="c1">#:vartype oversampling: FIX</span>
 
-    <span class="n">find_peak_cutoff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">abs_height_cutoff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">find_peak_cutoff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">max_nfev</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">num_proc</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span><span class="o">//</span><span class="mi">4</span><span class="p">)</span>
     <span class="c1">#oversampling: dict = {&#39;num&#39;: 10}</span>
     <span class="n">rel_height_cutoff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
-        <span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">lt</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">lt</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">skip_animation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">sum_axes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
         <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">conlist</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">item_type</span><span class="o">=</span><span class="nb">str</span><span class="p">)]]</span> <span class="o">=</span> <span class="kc">True</span></div>

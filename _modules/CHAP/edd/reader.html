@@ -126,6 +126,7 @@
     <span class="n">conlist</span><span class="p">,</span>
     <span class="n">constr</span><span class="p">,</span>
     <span class="n">field_validator</span><span class="p">,</span>
+    <span class="n">model_validator</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># Local modules</span>
@@ -907,11 +908,12 @@
 <span class="sd">    object and slices all fields according to the provided slicing</span>
 <span class="sd">    parameters.</span>
 <span class="sd"> </span>
-<span class="sd">    :ivar scan_number: SPEC scan number.</span>
-<span class="sd">    :vartype scan_number: int</span>
+<span class="sd">    :ivar scan_numbers: Numbers of scans from which to read slices of</span>
+<span class="sd">        raw data.</span>
+<span class="sd">    :vartype scan_numbers: list[int]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">scan_number</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">scan_number</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">scan_numbers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">))]</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="SliceNXdataReader.read">
 <a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader.read">[docs]</a>
@@ -930,31 +932,96 @@
         <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">NXentry</span><span class="p">,</span> <span class="n">NXfield</span>
 
         <span class="c1"># Local modules</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">NexusReader</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">NexusReader</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">nxcopy</span>
 
+        <span class="c1"># Read NXroot</span>
         <span class="n">reader</span> <span class="o">=</span> <span class="n">NexusReader</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">model_dump</span><span class="p">())</span>
-        <span class="n">nxroot</span> <span class="o">=</span> <span class="n">nxcopy</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
-        <span class="n">nxdata</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">for</span> <span class="n">nxname</span><span class="p">,</span> <span class="n">nxobject</span> <span class="ow">in</span> <span class="n">nxroot</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxobject</span><span class="p">,</span> <span class="n">NXentry</span><span class="p">):</span>
-                <span class="n">nxdata</span> <span class="o">=</span> <span class="n">nxobject</span><span class="o">.</span><span class="n">data</span>
-        <span class="k">if</span> <span class="n">nxdata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Could not find NXdata group&#39;</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="n">nxroot</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span>
-            <span class="n">nxdata</span><span class="o">.</span><span class="n">SCAN_N</span><span class="o">.</span><span class="n">nxdata</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">nxname</span><span class="p">,</span> <span class="n">nxobject</span> <span class="ow">in</span> <span class="n">nxdata</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nxobject</span><span class="p">,</span> <span class="n">NXfield</span><span class="p">):</span>
-                <span class="n">nxdata</span><span class="p">[</span><span class="n">nxname</span><span class="p">]</span> <span class="o">=</span> <span class="n">NXfield</span><span class="p">(</span>
-                    <span class="n">value</span><span class="o">=</span><span class="n">nxobject</span><span class="o">.</span><span class="n">nxdata</span><span class="p">[</span><span class="n">indices</span><span class="p">],</span>
-                    <span class="n">dtype</span><span class="o">=</span><span class="n">nxdata</span><span class="p">[</span><span class="n">nxname</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
-                    <span class="n">attrs</span><span class="o">=</span><span class="n">nxdata</span><span class="p">[</span><span class="n">nxname</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
-                <span class="p">)</span>
+        <span class="c1"># Locate NXentry</span>
+        <span class="n">nxentry</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">obj</span> <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">nxroot</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">NXentry</span><span class="p">)),</span>
+            <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">nxentry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Could not find NXentry group&#39;</span><span class="p">)</span>
+        <span class="n">nxentry_nxpath</span> <span class="o">=</span> <span class="n">nxentry</span><span class="o">.</span><span class="n">nxpath</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Using NXentry at: </span><span class="si">{</span><span class="n">nxentry_nxpath</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Make a copy of the NXroot, excluding everything but the</span>
+        <span class="c1"># NXentry of interest. Do this so we can just slice the</span>
+        <span class="c1"># NXfields in place in the copy (because copy is not tied to</span>
+        <span class="c1"># the original input file).</span>
+        <span class="n">exclude_nxpaths</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">nxroot</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">nxpath</span> <span class="o">!=</span> <span class="n">nxentry_nxpath</span><span class="p">:</span>
+                <span class="n">exclude_nxpaths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">nxpath</span><span class="p">)</span>
+        <span class="n">nxroot</span> <span class="o">=</span> <span class="n">nxcopy</span><span class="p">(</span><span class="n">nxroot</span><span class="p">,</span> <span class="n">exclude_nxpaths</span><span class="o">=</span><span class="n">exclude_nxpaths</span><span class="p">)</span>
+        <span class="n">nxentry</span> <span class="o">=</span> <span class="n">nxroot</span><span class="p">[</span><span class="n">nxentry_nxpath</span><span class="p">]</span>
+
+        <span class="c1"># Locate NXdata containining the &quot;SCAN_N&quot; NXfield</span>
+        <span class="n">nxdata</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">nxentry</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">nxdata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;NXdata group missing — searching fallback&#39;</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">nxentry</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="s1">&#39;SCAN_N&#39;</span><span class="p">):</span>
+                    <span class="n">nxdata</span> <span class="o">=</span> <span class="n">v</span>
+                    <span class="k">break</span>
+
+            <span class="k">if</span> <span class="n">nxdata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Cannot find SCAN_N dataset&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Using NXdata at: </span><span class="si">{</span><span class="n">nxdata</span><span class="o">.</span><span class="n">nxpath</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Get indicies of SCAN_N that match self.scan_number</span>
+        <span class="n">scan_field</span> <span class="o">=</span> <span class="n">nxdata</span><span class="p">[</span><span class="s1">&#39;SCAN_N&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">scan_field</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">indices</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;scan_number </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="si">}</span><span class="s1"> not found in SCAN_N&#39;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Slicing NXfields with: </span><span class="si">{</span><span class="n">indices</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Slice only NXfields</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">obj</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">nxdata</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">NXfield</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Slicing NXfield at: </span><span class="si">{</span><span class="n">obj</span><span class="o">.</span><span class="n">nxpath</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">nxdata</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">obj</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="n">nxroot</span></div>
+
+
+<div class="viewcode-block" id="SliceNXdataReader.fill_scan_numbers">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader.fill_scan_numbers">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fill_scan_numbers</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">data</span>
+        <span class="k">if</span> <span class="s1">&#39;scan_numbers&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span> <span class="ow">or</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;scan_numbers&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;scan_number&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">data</span><span class="p">[</span><span class="s1">&#39;scan_numbers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;scan_number&#39;</span><span class="p">]]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;scan_numbers&#39;</span><span class="p">],</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;scan_numbers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;scan_numbers&#39;</span><span class="p">]]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;scan_numbers&#39;</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">string_to_list</span>
+            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;scan_numbers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">string_to_list</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;scan_numbers&#39;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="SliceNXdataReader.validate_scan_numbers">
+<a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader.validate_scan_numbers">[docs]</a>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_scan_numbers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_numbers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s1">&#39;scan_numbers is required; alternatively, provide scan_number&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> \
+           <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scan_numbers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_number</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
 </div>
 
 
@@ -1113,7 +1180,7 @@
         <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">nxload</span>
 
         <span class="c1"># Local modules</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">NXdataReader</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">NXdataReader</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.parfile</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParFile</span>
 
         <span class="c1"># Parse existing NXdata</span>

@@ -194,18 +194,16 @@
         <span class="c1"># System modules</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">inspect</span><span class="w"> </span><span class="kn">import</span> <span class="n">signature</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span> \
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="n">log_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
             <span class="n">log_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span>
-                <span class="s1">&#39;</span><span class="si">{asctime}</span><span class="s1">: </span><span class="si">{name:20}</span><span class="s1">: </span><span class="si">{levelname}</span><span class="s1">: </span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;</span><span class="si">{asctime}</span><span class="s1">: </span><span class="si">{name:20}</span><span class="s1"> (L</span><span class="si">{lineno}</span><span class="s1">): </span><span class="si">{levelname}</span><span class="s1">: </span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span>
                 <span class="n">datefmt</span><span class="o">=</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H:%M:%S&#39;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;{&#39;</span><span class="p">))</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">log_handler</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">log_handler</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_level</span><span class="p">)</span>
         <span class="c1"># Optinal, but it&#39;s already available in the &#39;name&#39; field</span>
         <span class="c1">#if self.get_schema() is None:</span>
@@ -404,7 +402,7 @@
 <span class="sd">        `NXobject &lt;https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0&gt;`__</span>
 <span class="sd">        object or matches a given name or schema. Pick the last item for which</span>
 <span class="sd">        the `&#39;name&#39;` key matches `name` if set or the `&#39;schema&#39;` key matches</span>
-<span class="sd">        `schema` if set, pick the last match for a `NXobjecta` object</span>
+<span class="sd">        `schema` if set, pick the last match for a `NXobject` object</span>
 <span class="sd">        otherwise. Return the data object.</span>
 
 <span class="sd">        :param data: Input data.</span>
@@ -560,7 +558,7 @@
 <span class="sd">        :return: Matching data item.</span>
 <span class="sd">        :rtype: Any</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="n">PipelineData</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">remove</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">index</span><span class="p">)[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
             <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="n">index</span><span class="p">][</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
@@ -594,18 +592,17 @@
 
 <div class="viewcode-block" id="PipelineItem.execute">
 <a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.execute">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span><span class="c1">#, metadata, provenance):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span><span class="c1">#, metadata, provenance):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Execute the appropriate method of the object and return the</span>
 <span class="sd">        result.</span>
 
 <span class="sd">        :param data: Input data.</span>
-<span class="sd">        :type data: list[PipelineData]</span>
+<span class="sd">        :type data: list[PipelineData], optional</span>
 <span class="sd">        :return: Wrapped result of executing read, process, or write.</span>
 <span class="sd">        :rtype: PipelineData | tuple[PipelineData]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 <span class="c1">#        self._metadata = metadata</span>
 <span class="c1">#        self._provenance = provenance</span>
-
         <span class="k">if</span> <span class="s1">&#39;data&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_allowed_args</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_args</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>
         <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
@@ -616,6 +613,57 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="sa">f</span><span class="s1">&#39;Finished &quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_method</span><span class="si">}</span><span class="s1">&quot; in </span><span class="si">{</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">t0</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> seconds</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="PipelineItem.run">
+<a class="viewcode-back" href="../../CHAP.html#CHAP.pipeline.PipelineItem.run">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Execute the appropriate method of the object and return the</span>
+<span class="sd">        result.</span>
+
+<span class="sd">        This class method gets and executes the appropriate method</span>
+<span class="sd">        (process, read or write) from the pipeline item it&#39;s called</span>
+<span class="sd">        from.  It is intended to be called from a script or notebook</span>
+<span class="sd">        only and should not be called from other CHAP Processors,</span>
+<span class="sd">        Readers or Writers.</span>
+
+<span class="sd">        The method expects the same parameters as those used to</span>
+<span class="sd">        instantiate its class object and run the process, read or</span>
+<span class="sd">        write method, in addition to any run time parameter in the</span>
+<span class="sd">        pipeline file config dictionary (see:</span>
+<span class="sd">        :class:`~CHAP.models.RunConfig)`.</span>
+
+<span class="sd">        :param \*\*kwargs: Optional keyword arguments, including:</span>
+<span class="sd">        :keyword config: Initialization parameters for an instance</span>
+<span class="sd">            of the pipeline item this method is called from (often</span>
+<span class="sd">            used by Readers and Processors).</span>
+<span class="sd">        :type config: dict, optional</span>
+<span class="sd">        :keyword data: Input data (required for any Processor, but</span>
+<span class="sd">            is allowed to be `None` or `[]`).</span>
+<span class="sd">        :type data: list[PipelineData], optional</span>
+<span class="sd">        :keyword filename: Name of file to read (required for most</span>
+<span class="sd">            Readers and Writers).</span>
+<span class="sd">        :type filename: str, optional</span>
+<span class="sd">        :keyword force_overwrite: Flag to allow data in `filename`</span>
+<span class="sd">            to be overwritten if it already exists, defaults to</span>
+<span class="sd">            `False` (optional for Writers).</span>
+<span class="sd">        :type force_overwrite: bool, optional</span>
+<span class="sd">        :keyword remove: Flag to remove the dictionary from `data`,</span>
+<span class="sd">            defaults to `False` (optional for Writers).</span>
+<span class="sd">        :type remove: bool, optional</span>
+<span class="sd">        :return: Returned result from executing the underlying read,</span>
+<span class="sd">            process, or write method.</span>
+<span class="sd">        :rtype: Any</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># System modules</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">importlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">import_module</span>
+
+        <span class="n">cls_name</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">package</span> <span class="o">=</span> <span class="n">import_module</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span> <span class="n">cls_name</span><span class="p">)</span>
+        <span class="n">mmc</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">cls_name</span><span class="p">)</span>
+        <span class="n">item</span> <span class="o">=</span> <span class="n">mmc</span><span class="p">(</span><span class="n">modelmetaclass</span><span class="o">=</span><span class="n">mmc</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">item</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">))</span></div>
 </div>
 
 

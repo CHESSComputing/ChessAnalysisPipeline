@@ -268,6 +268,28 @@
 
 
 
+<div class="viewcode-block" id="IndexSliceConfig">
+<a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.common.IndexSliceConfig">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IndexSliceConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for a python `sslice` object.</span>
+
+<span class="sd">    :ivar start: A `start` parameter for `slice()`, defaults to 0.</span>
+<span class="sd">    :vartype start: int, optional</span>
+<span class="sd">    :ivar stop: A `stop` parameter for `slice()`, defaults to -1.</span>
+<span class="sd">    :vartype stop: int, optional</span>
+<span class="sd">    :ivar step: A `step` parameter for `slice()`, defaults to 1.</span>
+<span class="sd">    :vartype step: int, optional</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">stop</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">step</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_slice</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">slice</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">)</span></div>
+
+
+
 <div class="viewcode-block" id="UnstructuredToStructuredConfig">
 <a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.common.UnstructuredToStructuredConfig">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">UnstructuredToStructuredConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>

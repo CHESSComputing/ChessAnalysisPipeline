@@ -661,7 +661,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">integration_method</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;integration_method&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">integration_method</span> <span class="o">==</span> <span class="s1">&#39;integrate2d_grazing_incidence&#39;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="s1">&#39;multi_geometry&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;multi_geometry&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Invalid parameter multi_geometry &#39;</span><span class="p">,</span>
                                  <span class="sa">f</span><span class="s1">&#39;(invalid for </span><span class="si">{</span><span class="n">integration_method</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>

@@ -1439,22 +1439,24 @@
     <span class="p">)</span>
 
     <span class="c1"># Local modules</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipelineData</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.fit</span><span class="w"> </span><span class="kn">import</span> <span class="n">FitProcessor</span>
 
-    <span class="n">num_proc</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;num_proc&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">num_proc</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;num_proc&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">max_nfev</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;max_nfev&#39;</span><span class="p">,</span> <span class="mi">64000</span><span class="p">)</span>
+    <span class="n">abs_height_cutoff</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">abs_height_cutoff</span>
     <span class="n">rel_height_cutoff</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">rel_height_cutoff</span>
     <span class="n">num_peak</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">peak_locations</span><span class="p">)</span>
-    <span class="n">nxdata</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span><span class="n">NXfield</span><span class="p">(</span><span class="n">spectra</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">),</span> <span class="n">NXfield</span><span class="p">(</span><span class="n">energies</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">))</span>
 
     <span class="c1"># Construct the fit model</span>
     <span class="n">models</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="n">detector</span><span class="o">.</span><span class="n">background</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">detector</span><span class="o">.</span><span class="n">background</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">models</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="p">{</span><span class="s1">&#39;model&#39;</span><span class="p">:</span> <span class="n">detector</span><span class="o">.</span><span class="n">background</span><span class="p">,</span> <span class="s1">&#39;prefix&#39;</span><span class="p">:</span> <span class="s1">&#39;bkgd_&#39;</span><span class="p">})</span>
+                <span class="p">{</span><span class="s1">&#39;model_type&#39;</span><span class="p">:</span> <span class="n">detector</span><span class="o">.</span><span class="n">background</span><span class="p">,</span> <span class="s1">&#39;prefix&#39;</span><span class="p">:</span> <span class="s1">&#39;bkgd_&#39;</span><span class="p">})</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">detector</span><span class="o">.</span><span class="n">background</span><span class="p">:</span>
-                <span class="n">models</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;model&#39;</span><span class="p">:</span> <span class="n">model</span><span class="p">,</span> <span class="s1">&#39;prefix&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s1">_&#39;</span><span class="p">})</span>
+                <span class="n">models</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;model_type&#39;</span><span class="p">:</span> <span class="n">model</span><span class="p">,</span> <span class="s1">&#39;prefix&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s1">_&#39;</span><span class="p">})</span>
     <span class="k">if</span> <span class="n">detector</span><span class="o">.</span><span class="n">backgroundpeaks</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">backgroundpeaks</span> <span class="o">=</span> <span class="n">FitProcessor</span><span class="o">.</span><span class="n">create_multipeak_model</span><span class="p">(</span>
             <span class="n">detector</span><span class="o">.</span><span class="n">backgroundpeaks</span><span class="p">)</span>
@@ -1462,15 +1464,20 @@
             <span class="n">peak</span><span class="o">.</span><span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;bkgd_</span><span class="si">{</span><span class="n">peak</span><span class="o">.</span><span class="n">prefix</span><span class="si">}</span><span class="s1">&#39;</span>
         <span class="n">models</span> <span class="o">+=</span> <span class="n">backgroundpeaks</span>
     <span class="n">models</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-        <span class="p">{</span><span class="s1">&#39;model&#39;</span><span class="p">:</span> <span class="s1">&#39;multipeak&#39;</span><span class="p">,</span> <span class="s1">&#39;centers&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">peak_locations</span><span class="p">),</span>
+        <span class="p">{</span><span class="s1">&#39;model_type&#39;</span><span class="p">:</span> <span class="s1">&#39;multipeak&#39;</span><span class="p">,</span> <span class="s1">&#39;centers&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">peak_locations</span><span class="p">),</span>
          <span class="s1">&#39;fit_type&#39;</span><span class="p">:</span> <span class="s1">&#39;uniform&#39;</span><span class="p">,</span> <span class="s1">&#39;peak_models&#39;</span><span class="p">:</span> <span class="n">detector</span><span class="o">.</span><span class="n">peak_models</span><span class="p">,</span>
          <span class="s1">&#39;centers_range&#39;</span><span class="p">:</span> <span class="n">detector</span><span class="o">.</span><span class="n">centers_range</span><span class="p">,</span>
+         <span class="s1">&#39;centers_range_fraction&#39;</span><span class="p">:</span> <span class="n">detector</span><span class="o">.</span><span class="n">centers_range_fraction</span><span class="p">,</span>
          <span class="s1">&#39;fwhm_min&#39;</span><span class="p">:</span> <span class="n">detector</span><span class="o">.</span><span class="n">fwhm_min</span><span class="p">,</span> <span class="s1">&#39;fwhm_max&#39;</span><span class="p">:</span> <span class="n">detector</span><span class="o">.</span><span class="n">fwhm_max</span><span class="p">})</span>
     <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s1">&#39;code&#39;</span><span class="p">:</span> <span class="s1">&#39;lmfit&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;abs_height_cutoff&#39;</span><span class="p">:</span> <span class="n">abs_height_cutoff</span><span class="p">,</span>
+<span class="c1">#        &#39;code&#39;: &#39;lmfit&#39;,</span>
+        <span class="s1">&#39;code&#39;</span><span class="p">:</span> <span class="s1">&#39;scipy&#39;</span><span class="p">,</span>
         <span class="s1">&#39;models&#39;</span><span class="p">:</span> <span class="n">models</span><span class="p">,</span>
 <span class="c1">#        &#39;plot&#39;: True,</span>
+<span class="c1">#        &#39;print_report&#39;: True,</span>
         <span class="s1">&#39;num_proc&#39;</span><span class="p">:</span> <span class="n">num_proc</span><span class="p">,</span>
+        <span class="s1">&#39;max_nfev&#39;</span><span class="p">:</span> <span class="n">max_nfev</span><span class="p">,</span>
         <span class="s1">&#39;rel_height_cutoff&#39;</span><span class="p">:</span> <span class="n">rel_height_cutoff</span><span class="p">,</span>
 <span class="c1">#        &#39;method&#39;: &#39;trf&#39;,</span>
         <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;leastsq&#39;</span><span class="p">,</span>
@@ -1480,8 +1487,10 @@
 
     <span class="c1"># Perform uniform fit</span>
     <span class="c1"># FIX make more generic for fit parameters</span>
-    <span class="n">fit</span> <span class="o">=</span> <span class="n">FitProcessor</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-    <span class="n">uniform_fit</span> <span class="o">=</span> <span class="n">fit</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">nxdata</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+    <span class="n">uniform_fit</span> <span class="o">=</span> <span class="n">FitProcessor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+        <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="n">PipelineData</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;signal&#39;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">spectra</span><span class="p">),</span>
+              <span class="n">PipelineData</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;coordinates&#39;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">energies</span><span class="p">)],</span>
+        <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="n">uniform_success</span> <span class="o">=</span> <span class="n">uniform_fit</span><span class="o">.</span><span class="n">success</span>
     <span class="k">if</span> <span class="n">spectra</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">uniform_success</span><span class="p">:</span>
@@ -1648,7 +1657,9 @@
 
     <span class="c1"># Perform unconstrained fit</span>
     <span class="n">config</span><span class="p">[</span><span class="s1">&#39;models&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;fit_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;unconstrained&#39;</span>
-    <span class="n">unconstrained_fit</span> <span class="o">=</span> <span class="n">fit</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">uniform_fit</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+    <span class="n">unconstrained_fit</span> <span class="o">=</span> <span class="n">FitProcessor</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+        <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="n">PipelineData</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">uniform_fit</span><span class="p">)],</span>
+        <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="n">unconstrained_success</span> <span class="o">=</span> <span class="n">unconstrained_fit</span><span class="o">.</span><span class="n">success</span>
     <span class="k">if</span> <span class="n">spectra</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">unconstrained_success</span><span class="p">:</span>
