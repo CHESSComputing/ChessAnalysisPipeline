@@ -3292,32 +3292,33 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
             self.config.model_dump_json()
 
         # Add the Rosette strains fields
-        num_points = self._nxdata_detectors[0].nxsignal.shape[0]
-        nxprocess.strain_rosette = NXparameters()
-        nxprocess.strain_rosette.e_xx = NXdata(
-            NXfield(
-                dtype=np.float64, name='values', shape=(num_points,),
-                maxshape=(None,), chunks=(1,)),
-            NXfield(
-                dtype=np.float64, name='errors', shape=(num_points,),
-                maxshape=(None,), chunks=(1,)),
-        )
-        nxprocess.strain_rosette.e_yy = NXdata(
-            NXfield(
-                dtype=np.float64, shape=(num_points,), maxshape=(None,),
-                chunks=(1,), name='values'),
-            NXfield(
-                dtype=np.float64, shape=(num_points,), maxshape=(None,),
-                chunks=(1,), name='errors'),
-        )
-        nxprocess.strain_rosette.e_xy = NXdata(
-            NXfield(
-                dtype=np.float64, shape=(num_points,), maxshape=(None,),
-                chunks=(1,), name='values'),
-            NXfield(
-                dtype=np.float64, shape=(num_points,), maxshape=(None,),
-                chunks=(1,), name='errors'),
-        )
+        if self.config.calc_rosette_strains:
+            num_points = self._nxdata_detectors[0].nxsignal.shape[0]
+            nxprocess.strain_rosette = NXparameters()
+            nxprocess.strain_rosette.e_xx = NXdata(
+                NXfield(
+                    dtype=np.float64, name='values', shape=(num_points,),
+                    maxshape=(None,), chunks=(1,)),
+                NXfield(
+                    dtype=np.float64, name='errors', shape=(num_points,),
+                    maxshape=(None,), chunks=(1,)),
+            )
+            nxprocess.strain_rosette.e_yy = NXdata(
+                NXfield(
+                    dtype=np.float64, shape=(num_points,), maxshape=(None,),
+                    chunks=(1,), name='values'),
+                NXfield(
+                    dtype=np.float64, shape=(num_points,), maxshape=(None,),
+                    chunks=(1,), name='errors'),
+            )
+            nxprocess.strain_rosette.e_xy = NXdata(
+                NXfield(
+                    dtype=np.float64, shape=(num_points,), maxshape=(None,),
+                    chunks=(1,), name='values'),
+                NXfield(
+                    dtype=np.float64, shape=(num_points,), maxshape=(None,),
+                    chunks=(1,), name='errors'),
+            )
 
         if len(self._peak_fit_info) == 0:
             # FIX this is a temporary fix to be able to run update
@@ -3839,16 +3840,17 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     unconstrained_results['best_fits'], detector.get_id())
 
         # Calculate and add the Rosette strains
-        popt, perr = self._fit_strain_rosette(normal_strains, det_angles)
-        if self.json_results:
-            results.update({
-                'strain_rosette/e_xx/values': np.asarray([popt[0]]),
-                'strain_rosette/e_xx/errors': np.asarray([perr[0]]),
-                'strain_rosette/e_yy/values': np.asarray([popt[1]]),
-                'strain_rosette/e_yy/errors': np.asarray([perr[1]]),
-                'strain_rosette/e_xy/values': np.asarray([popt[2]]),
-                'strain_rosette/e_xy/errors': np.asarray([perr[2]]),
-            })
+        if self.config.calc_rosette_strains:
+            popt, perr = self._fit_strain_rosette(normal_strains, det_angles)
+            if self.json_results:
+                results.update({
+                    'strain_rosette/e_xx/values': np.asarray([popt[0]]),
+                    'strain_rosette/e_xx/errors': np.asarray([perr[0]]),
+                    'strain_rosette/e_yy/values': np.asarray([popt[1]]),
+                    'strain_rosette/e_yy/errors': np.asarray([perr[1]]),
+                    'strain_rosette/e_xy/values': np.asarray([popt[2]]),
+                    'strain_rosette/e_xy/errors': np.asarray([perr[2]]),
+                })
 
         return results
 
