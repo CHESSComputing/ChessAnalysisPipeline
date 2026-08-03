@@ -442,8 +442,14 @@ class TomoCHESSMapConverter(Processor):
         # Load and validate the tomography fields
         tomofields = self.get_default_nxentry(
             self.get_data(data, schema='tomofields'))
-        detector_prefix = str(tomofields.detector_ids)
-        tomo_stacks = tomofields.data[detector_prefix].nxdata
+        detector_id = str(tomofields.detector_ids)
+        detector_config = DetectorConfig(
+            **loads(str(tomofields.detector_config)))
+        assert len(detector_config.detectors) == 1
+        detector = detector_config.detectors[0]
+        assert detector.get_id() == detector_id
+
+        tomo_stacks = tomofields.data[detector_id].nxdata
         tomo_stack_shape = tomo_stacks.shape
         assert len(tomo_stack_shape) == 3
 
@@ -469,7 +475,7 @@ class TomoCHESSMapConverter(Processor):
                     if scan_type == 'df1':
                         darkfield = scanparser
                         data_darkfield = darkfield.get_detector_data(
-                            detector_prefix)
+                            detector_id)
                         data_shape = data_darkfield.shape
                         break
             except (IOError, OSError, RuntimeError, ValueError) as exc:
@@ -483,7 +489,7 @@ class TomoCHESSMapConverter(Processor):
                         if scan_type == 'df2':
                             darkfield = scanparser
                             data_darkfield = darkfield.get_detector_data(
-                                detector_prefix)
+                                detector_id)
                             data_shape = data_darkfield.shape
                             break
                 except (IOError, OSError, RuntimeError, ValueError) as exc:
@@ -512,13 +518,6 @@ class TomoCHESSMapConverter(Processor):
                 raise ValueError('Unable to load bright field')
         else:
             brightfield = self.get_default_nxentry(brightfield)
-
-        # Load and validate detector config if supplied
-        try:
-            detector_config = self.get_config(
-                data=data, schema='tomo.models.Detector')
-        except ValueError:
-            detector_config = None
 
         # Construct NXroot
         nxroot = NXroot()
@@ -585,8 +584,7 @@ class TomoCHESSMapConverter(Processor):
         # Add configuration fields
         nxentry.definition = 'NXtomo'
         nxentry.map_config = map_config.model_dump_json()
-        nxentry.detector_config = DetectorConfig(
-            **loads(str(tomofields.detector_config))).model_dump_json()
+        nxentry.detector_config = detector_config.model_dump_json()
 
         # Add a NXinstrument to the NXentry
         nxinstrument = NXinstrument()
@@ -607,26 +605,17 @@ class TomoCHESSMapConverter(Processor):
         # (do not fill in data fields yet)
         nxdetector = NXdetector()
         nxinstrument.detector = nxdetector
-        nxdetector.local_name = detector_prefix
-        if detector_config is None:
-            detector_attrs = tomofields.data[detector_prefix].attrs
-        else:
-            detector_attrs = {
-                'pixel_size': detector_config.pixel_size,
-                'lens_magnification': detector_config.lens_magnification}
-        pixel_size = detector_attrs['pixel_size']
+        nxdetector.local_name = detector_id
+        pixel_size = detector.attrs['pixel_size']
+        lens_magnification = detector.attrs['lens_magnification']
         if is_num(pixel_size, log=False):
             pixel_size = [pixel_size]
         if len(pixel_size) == 1:
-            nxdetector.row_pixel_size = \
-                pixel_size[0]/detector_attrs['lens_magnification']
-            nxdetector.column_pixel_size = \
-                pixel_size[0]/detector_attrs['lens_magnification']
+            nxdetector.row_pixel_size = pixel_size[0]/lens_magnification
+            nxdetector.column_pixel_size = pixel_size[0]/lens_magnification
         else:
-            nxdetector.row_pixel_size = \
-                pixel_size[0]/detector_attrs['lens_magnification']
-            nxdetector.column_pixel_size = \
-                pixel_size[1]/detector_attrs['lens_magnification']
+            nxdetector.row_pixel_size = pixel_size[0]/lens_magnification
+            nxdetector.column_pixel_size = pixel_size[1]/lens_magnification
         nxdetector.row_pixel_size.units = 'mm'
         nxdetector.column_pixel_size.units = 'mm'
         nxdetector.rows = tomo_stack_shape[1]
@@ -654,7 +643,7 @@ class TomoCHESSMapConverter(Processor):
             nxentry.dark_field_config = darkfield.config
             for scan in darkfield.spec_scans.values():
                 for nxcollection in scan.values():
-                    data_shape = nxcollection.data[detector_prefix].shape
+                    data_shape = nxcollection.data[detector_id].shape
                     assert len(data_shape) == 3
                     assert data_shape[1] == nxdetector.rows
                     assert data_shape[2] == nxdetector.columns
@@ -662,7 +651,7 @@ class TomoCHESSMapConverter(Processor):
                     image_keys += num_image*[2]
                     sequence_numbers += list(range(num_image))
                     image_stacks.append(
-                        nxcollection.data[detector_prefix].nxdata)
+                        nxcollection.data[detector_id].nxdata)
                     rotation_angles += num_image*[0.0]
                     if (x_translation_data_type == 'spec_motor' or
                             z_translation_data_type == 'spec_motor'):
@@ -739,7 +728,7 @@ class TomoCHESSMapConverter(Processor):
             nxentry.bright_field_config = brightfield.config
             for scan in brightfield.spec_scans.values():
                 for nxcollection in scan.values():
-                    data_shape = nxcollection.data[detector_prefix].shape
+                    data_shape = nxcollection.data[detector_id].shape
                     assert len(data_shape) == 3
                     assert data_shape[1] == nxdetector.rows
                     assert data_shape[2] == nxdetector.columns
@@ -747,7 +736,7 @@ class TomoCHESSMapConverter(Processor):
                     image_keys += num_image*[1]
                     sequence_numbers += list(range(num_image))
                     image_stacks.append(
-                        nxcollection.data[detector_prefix].nxdata)
+                        nxcollection.data[detector_id].nxdata)
                     rotation_angles += num_image*[0.0]
                     if (x_translation_data_type == 'spec_motor' or
                             z_translation_data_type == 'spec_motor'):
@@ -778,7 +767,7 @@ class TomoCHESSMapConverter(Processor):
                         presample_intensities += scan_columns[
                             presample_intensity.attrs['local_name']]
         else:
-            data_brightfield = brightfield.get_detector_data(detector_prefix)
+            data_brightfield = brightfield.get_detector_data(detector_id)
             data_shape = data_brightfield.shape
             assert len(data_shape) == 3
             assert data_shape[1] == nxdetector.rows
@@ -3626,8 +3615,13 @@ class TomoSimFieldProcessor(Processor):
     """
 
     pipeline_fields: dict = Field(
-        default = {'config': 'tomo.models.TomoSimConfig'}, init_var=True)
+        default = {
+            'config': 'tomo.models.TomoSimConfig',
+            'detector_config': 'common.models.map.DetectorConfig',
+        },
+        init_var=True)
     config: TomoSimConfig
+    detector_config: DetectorConfig
 
     def process(self, data):
         """Process the input configuration and return a NeXus style
@@ -3666,23 +3660,28 @@ class TomoSimFieldProcessor(Processor):
         beam_intensity = self.config.beam_intensity
         background_intensity = self.config.background_intensity
         slit_size = self.config.slit_size
-        detector = self.config.detector
-        pixel_size = detector.pixel_size
+        if len(self.detector_config.detectors) != 1:
+            raise ValueError('Detector configuration must have a single '
+                             f'detector {self.detector_config.detectors}')
+        detector = self.detector_config.detectors[0]
+        pixel_size = detector.attrs['pixel_size']
+        lens_magnification = detector.attrs.get('lens_magnification', 1.0)
+        if isinstance(pixel_size, (int, float)):
+            pixel_size = [pixel_size]
         if len(pixel_size) == 1:
             pixel_size = (
-                pixel_size[0]/detector.lens_magnification,
-                pixel_size[0]/detector.lens_magnification,
+                pixel_size[0]/lens_magnification,
+                pixel_size[0]/lens_magnification,
             )
         else:
             pixel_size = (
-                pixel_size[0]/detector.lens_magnification,
-                pixel_size[1]/detector.lens_magnification,
+                pixel_size[0]/lens_magnification,
+                pixel_size[1]/lens_magnification,
             )
-        detector_size = (detector.rows, detector.columns)
-        if slit_size-0.5*pixel_size[0] > detector_size[0]*pixel_size[0]:
+        if slit_size-0.5*pixel_size[0] > detector.shape[0]*pixel_size[0]:
             raise ValueError(
                 f'Slit size ({slit_size}) larger than detector height '
-                f'({detector_size[0]*pixel_size[0]})')
+                f'({detector.shape[0]*pixel_size[0]})')
 
         # Get the rotation angles (start at a arbitrarily choose angle
         # and add thetas for a full 360 degrees rotation series)
@@ -3700,10 +3699,10 @@ class TomoSimFieldProcessor(Processor):
         if (sample_size) == 3:
             num_tomo_stack = 1 + int(
                 (max(sample_size[1:2])*np.sqrt(2)-pixel_size[1])
-                / (detector_size[1]*pixel_size[1]))
+                / (detector.shape[1]*pixel_size[1]))
         else:
             num_tomo_stack = 1 + int((sample_size[1]*np.sqrt(2)-pixel_size[1])
-                                     / (detector_size[1]*pixel_size[1]))
+                                     / (detector.shape[1]*pixel_size[1]))
         if num_tomo_stack > 1:
             raise ValueError('Sample is too wide for the detector')
 
@@ -3712,7 +3711,7 @@ class TomoSimFieldProcessor(Processor):
         path_lengths_solid = None
         if sample_type != 'hollow_pyramid':
             path_lengths_solid = self._create_pathlength_solid_square(
-                    sample_size[1], thetas, pixel_size[1], detector_size[1])
+                    sample_size[1], thetas, pixel_size[1], detector.shape[1])
 
         # Create the x-ray path length through a hollow square
         # crosssection for a set of rotation angles.
@@ -3721,7 +3720,7 @@ class TomoSimFieldProcessor(Processor):
             path_lengths_hollow = path_lengths_solid \
                 - self._create_pathlength_solid_square(
                     sample_size[1] - 2*wall_thickness, thetas,
-                    pixel_size[1], detector_size[1])
+                    pixel_size[1], detector.shape[1])
 
         # Get the number of stacks
         num_tomo_stack = 1 + int((sample_size[0]-pixel_size[0])/slit_size)
@@ -3729,16 +3728,16 @@ class TomoSimFieldProcessor(Processor):
             raise ValueError('Sample is to tall for the detector')
 
         # Get the column coordinates
-        img_row_offset = -0.5 * (detector_size[0]*pixel_size[0]
+        img_row_offset = -0.5 * (detector.shape[0]*pixel_size[0]
                                + slit_size * (num_tomo_stack-1))
         img_row_coords = np.flip(img_row_offset
-            + pixel_size[0] * (0.5 + np.asarray(range(int(detector_size[0])))))
+            + pixel_size[0] * (0.5 + np.asarray(range(int(detector.shape[0])))))
 
         # Get the transmitted intensities
         num_theta = len(thetas)
         vertical_shifts = []
         tomo_fields_stack = []
-        len_img_y = (detector_size[1]+1)//2
+        len_img_y = (detector.shape[1]+1)//2
         if len_img_y%2:
             len_img_y = 2*len_img_y - 1
         else:
@@ -3748,7 +3747,7 @@ class TomoSimFieldProcessor(Processor):
         intensities_hollow = None
         for n in range(num_tomo_stack):
             vertical_shifts.append(img_row_offset + n*slit_size
-                                   + 0.5*detector_size[0]*pixel_size[0])
+                                   + 0.5*detector.shape[0]*pixel_size[0])
             tomo_field = beam_intensity * np.ones((num_theta, *img_dim))
             if sample_type == 'square_rod':
                 intensities_solid = \
@@ -3772,7 +3771,7 @@ class TomoSimFieldProcessor(Processor):
                     path_lengths_solid = self._create_pathlength_solid_square(
                         baselength - ratio*(
                             img_row_coords[i] + 0.5*sample_size[0]),
-                        thetas, pixel_size[1], detector_size[1])
+                        thetas, pixel_size[1], detector.shape[1])
                     intensities_solid = \
                         beam_intensity * np.exp(-mu*path_lengths_solid)
                     for n in range(num_theta):
@@ -3782,11 +3781,11 @@ class TomoSimFieldProcessor(Processor):
                         self._create_pathlength_solid_square(
                             baselength - ratio*(
                                 img_row_coords[i] + 0.5*sample_size[0]),
-                            thetas, pixel_size[1], detector_size[1])
+                            thetas, pixel_size[1], detector.shape[1])
                         - self._create_pathlength_solid_square(
                             baselength - 2*wall_thickness - ratio*(
                                 img_row_coords[i] + 0.5*sample_size[0]),
-                            thetas, pixel_size[1], detector_size[1]))
+                            thetas, pixel_size[1], detector.shape[1]))
                     intensities_hollow = \
                         beam_intensity * np.exp(-mu*path_lengths_hollow)
                     for n in range(num_theta):
@@ -3862,7 +3861,7 @@ class TomoSimFieldProcessor(Processor):
         nxinstrument.source.slit_size = slit_size
         nxdetector = NXdetector()
         nxinstrument.detector = nxdetector
-        nxdetector.local_name = detector.prefix
+        nxdetector.local_name = detector.get_id()
         nxdetector.row_pixel_size = pixel_size[0]
         nxdetector.column_pixel_size = pixel_size[1]
         nxdetector.row_pixel_size.units = 'mm'
