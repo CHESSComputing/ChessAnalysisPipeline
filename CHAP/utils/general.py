@@ -3157,9 +3157,13 @@ def dictionary_update(target, source, merge_key_paths=None, sort=False):
             if isinstance(merge_key_paths, str):
                 merge_key_path = merge_key_paths
                 merge_key_type = None
+                merge_source_only = False
             elif isinstance(merge_key_paths, dict):
                 merge_key_path = merge_key_paths.get('key_path')
                 merge_key_type = merge_key_paths.get('type')
+                merge_source_only_attr = merge_key_paths.get(
+                    'merge_source_only', False)
+                merge_source_only = source.get(merge_source_only_attr, False)
             elif merge_key_path is not None:
                 raise NotImplementedError(
                     'Invalid/unimplemeted  parameter type "merge_key_path" '
@@ -3184,14 +3188,15 @@ def dictionary_update(target, source, merge_key_paths=None, sort=False):
 #                merge_path = None
             target[k] = list_dictionary_update(
                 target.get(k), v, key=merge_key, key_type=merge_key_type,
-                sort=sort)
+                merge_source_only=merge_source_only, sort=sort)
         else:
             target[k] = v
     return target
 
 
 def list_dictionary_update(
-        target, source, key=None, key_type=None, sort=False):
+        target, source, key=None, key_type=None, merge_source_only=True,
+        sort=False):
     """Recursively updates a target list of dictionaries with values
     from a source list of dictionaries. Each list item is updated item
     by item based on the key if given and equal to a key that is shared
@@ -3252,7 +3257,8 @@ def list_dictionary_update(
                 ssource.pop(i)
                 break
         else:
-            merged.append(target_dict)
+            if not merge_source_only:
+                merged.append(target_dict)
     merged.extend(ssource)
     if sorted:
         if key_type is None:

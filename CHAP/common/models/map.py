@@ -71,13 +71,13 @@ class Detector(CHAPBaseModel):
     :ivar id: Detector ID (e.g. name or channel index).
     :vartype id: str
     :ivar shape: Detector's raw data shape.
-    :vartype shape: tuple[int,int], optional
+    :vartype shape: int or tuple[int] or tuple[int,int], optional
     :ivar attrs: Additional detector configuration attributes.
     :vartype attrs: dict, optional
     """
 
     id_: constr(min_length=1) = Field(alias='id')
-    shape: Optional[Union[tuple[int, int], tuple[int]]] = None
+    shape: Optional[Union[tuple[int], tuple[int, int]]] = None
     attrs: Optional[dict] = {}
 
     @field_validator('id_', mode='before')
@@ -93,6 +93,20 @@ class Detector(CHAPBaseModel):
         if isinstance(id_, int):
             return str(id_)
         return id_
+
+    @field_validator('shape', mode='before')
+    @classmethod
+    def validate_shape(cls, shape):
+        """Validate the detector's raw data shape.
+
+        :param shape: Detector's raw data shape.
+        :type shape: int or tuple[int] or tuple[int,int], optional
+        :return: Validated raw data shape.
+        :rtype: tuple[int] or tuple[int,int]
+        """
+        if isinstance(shape, int):
+            return (shape, )
+        return shape
 
     @model_validator(mode='after')
     def validate_detector_after(self):

@@ -56,6 +56,7 @@ class Processor(PipelineItem):
                         if is_str_or_str_series(v, log=False):
                             schema = v
                             merge_key_paths = None
+                            merge_source_only = False
                         else:
                             schema = v.get('schema')
                             merge_key_paths = v.get('merge_key_paths')

@@ -1227,7 +1227,10 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
             'detector_config': {
                 'schema': ['edd.models.MCAEnergyCalibrationConfig',
                            'edd.models.MCADetectorConfig'],
-                'merge_key_paths': {'key_path': 'detectors/id', 'type': int}},
+                'merge_key_paths': {
+                    'key_path': 'detectors/id',
+                    'merge_source_only': 'incl_listed_detectors_only',
+                    'type': int}},
         },
         init_var=True)
     config: MCAEnergyCalibrationConfig
@@ -1251,6 +1254,8 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'calibration'
+            if 'incl_listed_detectors_only' not in detector_config:
+                detector_config['incl_listed_detectors_only'] = True
             data['detector_config'] = detector_config
         return data
 

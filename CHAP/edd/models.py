@@ -592,6 +592,7 @@ class MCADetectorConfig(FitConfig):
     processor_type: Literal[
         'calibration', 'diffractionvolumelength', 'strainanalysis']
     detectors: Optional[conlist(min_length=1, item_type=MCADetector)] = []
+    incl_listed_detectors_only: Optional[bool] = None
 
     _exclude = set(vars(FitConfig()).keys())
 
