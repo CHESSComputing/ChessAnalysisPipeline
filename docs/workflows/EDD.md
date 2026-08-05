@@ -72,7 +72,7 @@ The optional output figures can be viewed directly by any PNG image viewer. The 
 (edd_pipeline)=
 ## Creating the pipeline file
 
-Create a workflow `pipeline.yaml` file according to the [CHAP pipeline instructions](chap_pipeline). A generic pipeline input file for an energy calibration and strain analysis workflow is as follows (note that spaces and indentation are important in `.yaml` files):
+Create a workflow `pipeline.yaml` file according to the [CHAP pipeline instructions](chap_pipeline_ref). A generic pipeline input file for an energy calibration and strain analysis workflow is as follows (note that spaces and indentation are important in `.yaml` files):
 ```yaml
 config:
   root: .                   # Change as desired
@@ -224,7 +224,7 @@ The "config" block defines the CHAP generic configuration parameters:
 
 - `log_level`: The [Python logging level](https://docs.python.org/3/library/logging.html#levels).
 
-The remainder of the file contains the actual workflow pipeline, in this example it consists of four blocks, `energy`, `twotheta`, `map`, and `strain`, which can be executed individually or all at once [as described here](chap_pipeline). In addition to the readers and writers of the intermediate results, nine toplevel processes get executed successively in the combined four pipeline blocks:
+The remainder of the file contains the actual workflow pipeline, in this example it consists of four blocks, `energy`, `twotheta`, `map`, and `strain`, which can be executed individually or all at once [as described here](chap_pipeline_ref). In addition to the readers and writers of the intermediate results, nine toplevel processes get executed successively in the combined four pipeline blocks:
 
 - The EDD/XRF energy calibration consists of two processes:
 
