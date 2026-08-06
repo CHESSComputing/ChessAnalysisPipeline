@@ -1,4 +1,4 @@
-(chap_pipeline)=
+(chap_pipeline_ref)=
 # CHAP Pipeline
 
 To run a CHESS Analysis Pipeline (`CHAP`), you will need:
