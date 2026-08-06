@@ -3197,11 +3197,15 @@ class FitMap(Fit):
                 from CHAP.utils.fit import ModelResult
 
                 result = ModelResult(self._model, deepcopy(self._parameters))
+                result.init_params = deepcopy(self._parameters)
             else:
                 # Third party modules
                 from lmfit.model import ModelResult
 
                 result = ModelResult(self._model, deepcopy(self._parameters))
+            result.init_values = {}
+            for name, par in result.init_params.items():
+                result.init_values[name] = par.value
             result.success = False
             # Renormalize the data and results
             self._renormalize(n, result)
@@ -3375,6 +3379,11 @@ class FitMap(Fit):
 
     def _renormalize(self, n, result):
         self._success_flat[n] = result.success
+        if (hasattr(result, 'init_params')
+                and result.init_params is not None):
+            have_init_params = True
+        else:
+            have_init_params = False
         if result.success:
             self._redchi_flat[n] = np.float64(result.redchi)
         if self._norm is None or not self._normalized:
@@ -3385,16 +3394,21 @@ class FitMap(Fit):
                     result.params[name].value)
                 self._best_vary_flat[i][n] = (
                     result.params[name].vary and result.success)
-                self._init_values_flat[i][n] = np.float64(
-                    result.init_params[name].value)
+                if have_init_params:
+                    self._init_values_flat[i][n] = np.float64(
+                        result.init_params[name].value)
+                else:
+                    self._init_values_flat[i][n] = np.float64(
+                        result.params[name].value)
             if result.success:
                 self._best_fit_flat[n] = result.best_fit
         else:
             for name, par in result.params.items():
-                init_value = result.init_params[name].value
-                if init_value is not None:
-                    par.init_value = init_value*self._norm[1]
+                par.init_value = result.init_params[name].value \
+                    if have_init_params else par.value
                 if name in self._linear_parameters:
+                    if par.init_value is not None:
+                        par.init_value *= self._norm[1]
                     if par.stderr is not None:
                         par.stderr *= self._norm[1]
                     if par.expr is None:

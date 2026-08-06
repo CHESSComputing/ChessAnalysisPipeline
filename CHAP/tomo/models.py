@@ -18,36 +18,6 @@ from pydantic import (
 from CHAP.models import CHAPBaseModel
 
 
-class Detector(CHAPBaseModel):
-    """Properties of the tomography image detector.
-
-    Detector properties of the detector used in the tomography
-    experiment. The image origin is assumed to be in the top-left
-    corner, with rows down ($-z$ in lab frame) and columns sideways
-    ($+x$ in lab frame).
-
-    :ivar prefix: Prefix of the detector in the SPEC file.
-    :vartype prefix: str
-    :ivar rows: Number of pixel rows on the detector.
-    :vartype rows: int
-    :ivar columns: Number of pixel columns on the detector.
-    :vartype columns: int
-    :ivar pixel_size: Pixel size of the detector in $mm$.
-    :vartype pixel_size: int or list[int]
-    :ivar lens_magnification: Lens magnification for the detector,
-        defaults to `1.0`.
-    :vartype lens_magnification: float, optional
-    """
-
-    prefix: constr(strip_whitespace=True, min_length=1)
-    rows: conint(gt=0)
-    columns: conint(gt=0)
-    pixel_size: conlist(
-        item_type=confloat(gt=0, allow_inf_nan=False),
-        min_length=1, max_length=2)
-    lens_magnification: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.0
-
-
 class TomoCombineConfig(CHAPBaseModel):
     """Configuration for the combine tomography stacks processor
     :class:`~CHAP.tomo.processor.TomoCombineProcessor`.
@@ -184,9 +154,6 @@ class TomoSimConfig(CHAPBaseModel):
 
     :ivar station: The station name (in 'idxx' format).
     :vartype station: Literal['id1a3', 'id3a', 'id3b']
-    :ivar detector: Detector configuration in the tomography
-        experiment.
-    :vartype detector: Detector
     :ivar sample_type: Sample type for the tomography simulator.
     :vartype sample_type: Literal['square_rod', 'square_pipe',
         'hollow_cube', 'hollow_brick', 'hollow_pyramid']
@@ -216,7 +183,6 @@ class TomoSimConfig(CHAPBaseModel):
     """
 
     station: Literal['id1a3', 'id3a', 'id3b']
-    detector: Detector
     sample_type: Literal[
         'square_rod', 'square_pipe', 'hollow_cube', 'hollow_brick',
         'hollow_pyramid']

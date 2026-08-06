@@ -592,6 +592,7 @@ class MCADetectorConfig(FitConfig):
     processor_type: Literal[
         'calibration', 'diffractionvolumelength', 'strainanalysis']
     detectors: Optional[conlist(min_length=1, item_type=MCADetector)] = []
+    incl_listed_detectors_only: Optional[bool] = None
 
     _exclude = set(vars(FitConfig()).keys())
 
@@ -916,6 +917,9 @@ class StrainAnalysisConfig(MCACalibrationConfig):
         configuration
         :class:`~CHAP.edd.models.MCADetectorStrainAnalysis`).
     :vartype abs_height_cutoff: int, optional
+    :ivar calc_rosette_strains: Compute and add the rosette strain
+         fields defaults to `False`.
+    :vartype calc_rosette_strains: bool, optional
     :ivar find_peak_cutoff: Use scipy.signal.find_peaks to exclude
         peaks for all spectra for a given detector and user specified
         mask. A particular HKL peak is removed from the set of HKLs,
@@ -946,6 +950,7 @@ class StrainAnalysisConfig(MCACalibrationConfig):
     #:vartype oversampling: FIX
 
     abs_height_cutoff: Optional[conint(gt=0)] = None
+    calc_rosette_strains: Optional[bool] = False
     find_peak_cutoff: Optional[confloat(ge=0, allow_inf_nan=False)] = 0.0
     max_nfev: Optional[conint(gt=0)] = None
     num_proc: Optional[conint(gt=0)] = max(1, os.cpu_count()//4)
