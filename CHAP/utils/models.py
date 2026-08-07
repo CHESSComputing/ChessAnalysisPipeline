@@ -705,6 +705,22 @@ class FitModel(CHAPBaseModel):
         """
         return f'{self.prefix}{self.model_type}'
 
+    def eval(self, x, **kwargs):
+        parameters = {}
+        for func_arg in self.func_args:
+            value = kwargs.pop(func_arg, None)
+            if value is None:
+                for p in self.parameters:
+                    if func_arg == p.name and p.value is not None:
+                        parameters[func_arg] = p.value
+                        break
+                else:
+                    raise ValueError(
+                        f'Missing or invalid parameter {func_arg}')
+            else:
+                parameters[func_arg] = value
+        return self.func(x, **parameters, **kwargs)
+
     def zarr_tree(self, dataset_shape, dataset_chunks,
                   signal_shape, nxlinks=None):
         """Return a nested dict representing the Zarr group tree for
