@@ -31,7 +31,6 @@ def _worker():
             except Exception as exc:
                 logger.error(f'Task failed: {exc}')
                 print_exc()
-                success = True # FIXME temporary for debugging
                 sleep(5)
         _task_queue.task_done()
         tf = time()
