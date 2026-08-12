@@ -1,8 +1,9 @@
 """CHAP processing code using "cached" CHAP ``PipelineItem``s for
 better performance."""
 
+from CHAP.common.map_utils import SpecScanToMapConfigProcessor
 from CHAP.common.reader import YAMLReader
-from CHAP.common.writer import ZarrWriter, ZarrValuesWriter
+from CHAP.common.writer import YAMLWriter, ZarrWriter, ZarrValuesWriter
 from CHAP.pipeline import PipelineData
 from CHAP.saxswaxs.processor import SetupProcessor, UpdateValuesProcessor
 from functools import cache
@@ -13,7 +14,6 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 from chap_daemon import get_logger
-from chap_daemon.scan_to_map import scan_to_map
 from chap_daemon.saxswaxs_to_chap import (
     saxswaxs_to_chap,
     make_pipeline as _make_pipeline,
@@ -229,21 +229,23 @@ def setup_configs(cfg):
         and output file paths.
     :type cfg: SetupCfg
     """
-    logger.info(
-        "scan_to_map("
-        f"{cfg.spec_file}, {cfg.scan_number}, 'id3b', 'SAXSWAXS', "
-        f"{cfg.dwell_time_actual_counter_name}, "
-        f"{cfg.presample_intensity_counter_name}, "
-        f"{cfg.postsample_intensity_counter_name}, "
-        f"{cfg.map_yaml})"
+    map_config = PipelineData(
+        data=SpecScanToMapConfigProcessor.run(
+            spec_file=cfg.spec_file,
+            scan_number=cfg.scan_number,
+            station="id3b",
+            experiment="SAXSWAXS",
+            dwell_time_actual_counter_name=cfg.dwell_time_actual_counter_name,
+            presample_intensity_counter_name=cfg.presample_intensity_counter_name,
+            postsample_intensity_counter_name=cfg.postsample_intensity_counter_name,
+            validate_data_present=False,
+        ),
     )
-    scan_to_map(
-        str(cfg.spec_file), cfg.scan_number, "id3b", "SAXSWAXS",
-        cfg.dwell_time_actual_counter_name,
-        cfg.presample_intensity_counter_name,
-        cfg.postsample_intensity_counter_name,
-        str(cfg.map_yaml),
+    YAMLWriter.run(
+        data=map_config,
+        filename=cfg.map_yaml,
     )
+
     logger.info(
         f"saxswaxs_to_chap({cfg.map_yaml}, {cfg.tool_yamls}, {cfg.outputdir})"
     )
