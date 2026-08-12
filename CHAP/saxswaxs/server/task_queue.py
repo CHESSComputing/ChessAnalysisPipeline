@@ -5,7 +5,7 @@ import threading
 from traceback import print_exc
 from time import sleep, time
 
-from chap_daemon import get_logger
+from CHAP.saxswaxs.server import get_logger
 
 logger = get_logger('task_queue')
 

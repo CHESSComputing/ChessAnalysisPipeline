@@ -5,9 +5,9 @@ import logging
 import time
 from traceback import print_exc
 
-from chap_daemon import get_logger
-from chap_daemon.task_queue import put
-from chap_daemon.chap import (
+from CHAP.saxswaxs.server import get_logger
+from CHAP.saxswaxs.server.task_queue import put
+from CHAP.saxswaxs.server.chap import (
     setup, update, convert, make_pipeline, convert_configs,
     SetupCfg, UpdateCfg, ConvertCfg, MakePipelineCfg, ConvertConfigsCfg,
 )
@@ -125,8 +125,8 @@ def convert_handler():
 def make_pipeline_handler():
     """Handle POST /make_pipeline — parse JSON body and queue a make_pipeline task.
 
-    Constructs a :class:`~chap_daemon.chap.MakePipelineCfg` from the request
-    body and queues :func:`~chap_daemon.chap.make_pipeline` to write a
+    Constructs a :class:`~CHAP.saxswaxs.server.chap.MakePipelineCfg` from the request
+    body and queues :func:`~CHAP.saxswaxs.server.chap.make_pipeline` to write a
     ``pipeline.yaml`` from the pre-existing config files in ``outputdir``.
     """
     body = request.get_json(force=True, silent=True)
@@ -158,8 +158,8 @@ def make_pipeline_handler():
 def convert_configs_handler():
     """Handle POST /convert_configs — parse JSON body and queue a convert_configs task.
 
-    Constructs a :class:`~chap_daemon.chap.ConvertConfigsCfg` from the request
-    body and queues :func:`~chap_daemon.chap.convert_configs` to write detector,
+    Constructs a :class:`~CHAP.saxswaxs.server.chap.ConvertConfigsCfg` from the request
+    body and queues :func:`~CHAP.saxswaxs.server.chap.convert_configs` to write detector,
     pyFAI integration, and corrections config YAML files from the provided
     tool config files.
     """

@@ -13,8 +13,8 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from chap_daemon import get_logger
-from chap_daemon.saxswaxs_to_chap import (
+from CHAP.saxswaxs.server import get_logger
+from CHAP.saxswaxs.server.saxswaxs_to_chap import (
     saxswaxs_to_chap,
     make_pipeline as _make_pipeline,
     convert_configs as _convert_configs,
@@ -428,7 +428,7 @@ def make_pipeline(cfg):
     """Run the make_pipeline task to write a ``pipeline.yaml`` from pre-existing
     config files.
 
-    Calls :func:`chap_daemon.saxswaxs_to_chap.make_pipeline` with the paths
+    Calls :func:`CHAP.saxswaxs.server.saxswaxs_to_chap.make_pipeline` with the paths
     and filenames from ``cfg``.
 
     :param cfg: Configuration for the make_pipeline task.
@@ -449,7 +449,7 @@ def convert_configs(cfg):
     """Run the convert_configs task to write detector, pyFAI integration, and
     corrections config YAML files from old-style saxswaxs workflow tool configs.
 
-    Calls :func:`chap_daemon.saxswaxs_to_chap.convert_configs` with the paths
+    Calls :func:`CHAP.saxswaxs.server.saxswaxs_to_chap.convert_configs` with the paths
     and filenames from ``cfg``.
 
     :param cfg: Configuration for the convert_configs task.
