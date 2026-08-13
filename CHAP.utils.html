@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=21082c34"></script>
+      <script src="_static/documentation_options.js?v=9174d659"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -45,21 +45,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
   
-              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="CONTRIBUTIONS.html">Contributions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FOXDEN.html">FOXDEN</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul>
@@ -408,8 +400,9 @@ class attribute.</p></li>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>config</strong> (<a class="reference internal" href="#CHAP.utils.models.FitConfig" title="CHAP.utils.models.FitConfig"><em>CHAP.utils.models.FitConfig</em></a><em>, </em><em>optional</em>) – Fit configuration.</p></li>
-<li><p><strong>**kwargs</strong> – Additional key, value pairs to pass on
-directly to the core fit routine.</p></li>
+<li><p><strong>**kwargs</strong> – <p>Additional key, value pairs to pass on
+directly to the core fit routine.</p>
+</p></li>
 </ul>
 </dd>
 </dl>
@@ -498,8 +491,9 @@ defaults to <cite>True</cite>.</p></li>
 model components, defaults to <cite>False</cite>.</p></li>
 <li><p><strong>plot_residual</strong> (<em>bool</em><em>, </em><em>optional</em>) – Plot the residual, defaults to <cite>False</cite>.</p></li>
 <li><p><strong>plot_masked_data</strong> (<em>bool</em><em>, </em><em>optional</em>)</p></li>
-<li><p><strong>**kwargs</strong> – Additional key, value pairs to pass on
-directly to the Matplotlib plot function.</p></li>
+<li><p><strong>**kwargs</strong> – <p>Additional key, value pairs to pass on
+directly to the Matplotlib plot function.</p>
+</p></li>
 </ul>
 </dd>
 </dl>
@@ -688,8 +682,9 @@ parameter names in the correct order for the results.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>config</strong> (<a class="reference internal" href="#CHAP.utils.models.FitConfig" title="CHAP.utils.models.FitConfig"><em>CHAP.utils.models.FitConfig</em></a><em>, </em><em>optional</em>) – Fit configuration.</p></li>
-<li><p><strong>**kwargs</strong> – Additional key, value pairs to pass on
-directly to the core fit routine.</p></li>
+<li><p><strong>**kwargs</strong> – <p>Additional key, value pairs to pass on
+directly to the core fit routine.</p>
+</p></li>
 </ul>
 </dd>
 </dl>
@@ -781,8 +776,9 @@ defaults to <cite>None</cite> which will plot the first data point.</p></li>
 model components, defaults to <cite>False</cite>.</p></li>
 <li><p><strong>plot_residual</strong> (<em>bool</em><em>, </em><em>optional</em>) – Plot the residual, defaults to <cite>False</cite>.</p></li>
 <li><p><strong>plot_masked_data</strong> (<em>bool</em><em>, </em><em>optional</em>)</p></li>
-<li><p><strong>**kwargs</strong> – Additional key, value pairs to pass on
-directly to the Matplotlib plot function.</p></li>
+<li><p><strong>**kwargs</strong> – <p>Additional key, value pairs to pass on
+directly to the Matplotlib plot function.</p>
+</p></li>
 </ul>
 </dd>
 </dl>
@@ -2103,7 +2099,7 @@ ge &lt;= l[i] &lt;= le or gt &lt; l[i] &lt; lt or some combination.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="CHAP.utils.general.list_dictionary_update">
-<span class="sig-name descname"><span class="pre">list_dictionary_update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/utils/general.html#list_dictionary_update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.utils.general.list_dictionary_update" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">list_dictionary_update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merge_source_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/utils/general.html#list_dictionary_update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.utils.general.list_dictionary_update" title="Link to this definition"></a></dt>
 <dd><p>Recursively updates a target list of dictionaries with values
 from a source list of dictionaries. Each list item is updated item
 by item based on the key if given and equal to a key that is shared
@@ -2218,8 +2214,9 @@ will fill.</p></li>
 <li><p><strong>grid_color</strong> (<em>str</em><em>, </em><em>optional</em>) – Grid color, defaults to <cite>“w”</cite> or white.</p></li>
 <li><p><strong>grid_linewidth</strong> (<em>int</em><em>, </em><em>optional</em>) – Grid line width, defaults to <cite>1</cite>.</p></li>
 <li><p><strong>colorbar</strong> (<em>bool</em><em>, </em><em>optional</em>) – Include a colorbar, defaults to <cite>False</cite>.</p></li>
-<li><p><strong>**kwargs</strong> – Any additional keyword parameters to pass on to
-<a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.imshow.html">matplotlib.pyplot.imshow</a>.</p></li>
+<li><p><strong>**kwargs</strong> – <p>Any additional keyword parameters to pass on to
+<a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.imshow.html">matplotlib.pyplot.imshow</a>.</p>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raise<span class="colon">:</span></dt>
@@ -2263,8 +2260,9 @@ is <cite>False</cite>).</p></li>
 <li><p><strong>save_only</strong> (<em>bool</em><em>, </em><em>optional</em>) – Don not display the figure, only save it to file,
 defaults to <cite>False</cite>.</p></li>
 <li><p><strong>block</strong> (<em>bool</em><em>, </em><em>optional</em>) – Wait for the image to be closed before returning.</p></li>
-<li><p><strong>**kwargs</strong> – Any additional keyword parameters to pass on to
-<a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html">matplotlib.pyplot.plot</a></p></li>
+<li><p><strong>**kwargs</strong> – <p>Any additional keyword parameters to pass on to
+<a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html">matplotlib.pyplot.plot</a></p>
+</p></li>
 </ul>
 </dd>
 <dt class="field-even">Type<span class="colon">:</span></dt>
@@ -3185,6 +3183,11 @@ defaults to those auto generated from the function signature
 <dl class="py attribute">
 <dt class="sig sig-object py" id="CHAP.utils.models.FitModel.MODEL_PARAMETERS">
 <span class="sig-name descname"><span class="pre">MODEL_PARAMETERS</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[]</span></em><a class="headerlink" href="#CHAP.utils.models.FitModel.MODEL_PARAMETERS" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.utils.models.FitModel.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/utils/models.html#FitModel.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.utils.models.FitModel.eval" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py property">

@@ -3,27 +3,13 @@ Chess Analysis Pipeline (CHAP)
 
 .. toctree::
    :titlesonly:
-   :caption: Introduction
+   :caption: General
 
    introduction
-
-.. toctree::
-   :titlesonly:
-   :caption: Contributions
-
    CONTRIBUTIONS
-
-.. toctree::
-   :titlesonly:
-   :caption: Installation
-
    installation
-
-.. toctree::
-   :titlesonly:
-   :caption: Pipeline
-
    pipeline
+   FOXDEN
 
 .. toctree::
    :titlesonly:

@@ -1,4 +1,4 @@
-(contributions)=
+(contributions_ref)=
 # Contributions
 
 We welcome feedback, suggestions, issues and bug reports.

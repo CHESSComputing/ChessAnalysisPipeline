@@ -14,7 +14,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=21082c34"></script>
+      <script src="../_static/documentation_options.js?v=9174d659"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -46,21 +46,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
   
-              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../CONTRIBUTIONS.html">Contributions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../FOXDEN.html">FOXDEN</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul class="current">
@@ -224,7 +216,7 @@
 </section>
 <section id="creating-the-pipeline-file">
 <h2>Creating the pipeline file<a class="headerlink" href="#creating-the-pipeline-file" title="Link to this heading"></a></h2>
-<p>Create a workflow <code class="docutils literal notranslate"><span class="pre">pipeline.yaml</span></code> file according to the <a class="reference internal" href="../pipeline.html#chap-pipeline"><span class="std std-ref">CHAP pipeline instructions</span></a>. A generic pipeline input file for a full tomography reconstruction workflow is as follows (note that spaces and indentation are important in <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> files):</p>
+<p>Create a workflow <code class="docutils literal notranslate"><span class="pre">pipeline.yaml</span></code> file according to the <a class="reference internal" href="../pipeline.html#chap-pipeline-ref"><span class="std std-ref">CHAP pipeline instructions</span></a>. A generic pipeline input file for a full tomography reconstruction workflow is as follows (note that spaces and indentation are important in <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> files):</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span><span class="w">           </span><span class="c1"># Change as desired</span>
 <span class="w">  </span><span class="nt">inputdir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span><span class="w">       </span><span class="c1"># Change as desired</span>

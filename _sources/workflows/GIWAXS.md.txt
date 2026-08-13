@@ -73,7 +73,7 @@ The optional output figures can be viewed directly by any PNG image viewer. The 
 (giwaxs_pipeline)=
 ## Creating the pipeline file
 
-Create a workflow `pipeline.yaml` file according to the [CHAP pipeline instructions](chap_pipeline). A generic pipeline input file for a GIWAXS data reduction and cake integration is as follows:
+Create a workflow `pipeline.yaml` file according to the [CHAP pipeline instructions](chap_pipeline_ref). A generic pipeline input file for a GIWAXS data reduction and cake integration is as follows:
 ```yaml
 config:
   root: .                   # Change as desired
@@ -205,7 +205,7 @@ The "config" block defines the `CHAP` generic configuration parameters:
 
 - `log_level`: The [Python logging level](https://docs.python.org/3/library/logging.html#levels).
 
-The remainder of the file contains the actual workflow pipeline, in this example it consists of four blocks, `map`, `flux`, `convert`, and `integrate`, which can be executed individually or all at once [as described here](chap_pipeline). In addition to the NeXus reader and writer of the intermediate results (`common.NexusReader` and `common.NexusWriter`, respectively), four toplevel processors get executed successively in the combined four pipeline blocks:
+The remainder of the file contains the actual workflow pipeline, in this example it consists of four blocks, `map`, `flux`, `convert`, and `integrate`, which can be executed individually or all at once [as described here](chap_pipeline_ref). In addition to the NeXus reader and writer of the intermediate results (`common.NexusReader` and `common.NexusWriter`, respectively), four toplevel processors get executed successively in the combined four pipeline blocks:
 
 - Creating the Map representing the experimental data: the raw data, independent dimensions and detector information:
 

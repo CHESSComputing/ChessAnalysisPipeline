@@ -13,7 +13,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=21082c34"></script>
+      <script src="_static/documentation_options.js?v=9174d659"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -41,21 +41,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
   
-              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="CONTRIBUTIONS.html">Contributions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FOXDEN.html">FOXDEN</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul>
@@ -301,6 +293,8 @@
 <h2 id="C">C</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.calc_rosette_strains">calc_rosette_strains (StrainAnalysisConfig attribute)</a>
+</li>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.calibration_method">calibration_method (MCATthCalibrationConfig attribute)</a>
 </li>
       <li><a href="CHAP.tomo.html#CHAP.tomo.processor.TomoReconstructProcessor.center_config">center_config (TomoReconstructProcessor attribute)</a>
@@ -729,12 +723,8 @@
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitConfig.code">code (FitConfig attribute)</a>
 </li>
-      <li><a href="CHAP.tomo.html#CHAP.tomo.models.Detector.columns">columns (Detector attribute)</a>
-
-      <ul>
-        <li><a href="CHAP.common.html#CHAP.common.reader.LinkamReader.columns">(LinkamReader attribute)</a>
+      <li><a href="CHAP.common.html#CHAP.common.reader.LinkamReader.columns">columns (LinkamReader attribute)</a>
 </li>
-      </ul></li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Component">Component (class in CHAP.utils.fit)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Components">Components (class in CHAP.utils.fit)</a>
@@ -874,12 +864,6 @@
 </li>
       </ul></li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.Detector">Detector (class in CHAP.common.models.map)</a>
-
-      <ul>
-        <li><a href="CHAP.tomo.html#CHAP.tomo.models.Detector">(class in CHAP.tomo.models)</a>
-</li>
-      </ul></li>
-      <li><a href="CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig.detector">detector (TomoSimConfig attribute)</a>
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.processor.DiffractionVolumeLengthProcessor.detector_config">detector_config (DiffractionVolumeLengthProcessor attribute)</a>
 
@@ -897,6 +881,8 @@
         <li><a href="CHAP.common.html#CHAP.common.reader.SpecReader.detector_config">(SpecReader attribute)</a>
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.processor.StrainAnalysisProcessor.detector_config">(StrainAnalysisProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.detector_config">(TomoSimFieldProcessor attribute)</a>
 </li>
       </ul></li>
   </ul></td>
@@ -982,7 +968,11 @@
 </li>
       </ul></li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.eval">eval() (Fit method)</a>
+
+      <ul>
+        <li><a href="CHAP.utils.html#CHAP.utils.models.FitModel.eval">(FitModel method)</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.ModelResult.eval_components">eval_components() (ModelResult method)</a>
@@ -1329,6 +1319,8 @@
       </ul></li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.import_scanparser">import_scanparser() (in module CHAP.common.models.map)</a>
 </li>
+      <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.incl_listed_detectors_only">incl_listed_detectors_only (MCADetectorConfig attribute)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.independent_dimensions">independent_dimensions (MapConfig attribute)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.IndependentDimension">IndependentDimension (class in CHAP.common.models.map)</a>
@@ -1367,10 +1359,10 @@
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.input_menu">input_menu() (in module CHAP.utils.general)</a>
 </li>
-      <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.input_name">input_name (PyfaiIntegratorConfig attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.input_name">input_name (PyfaiIntegratorConfig attribute)</a>
+</li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.input_num">input_num() (in module CHAP.utils.general)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.input_num_list">input_num_list() (in module CHAP.utils.general)</a>
@@ -1490,8 +1482,6 @@
       <li><a href="CHAP.utils.html#CHAP.utils.material.Material.lattice_parameters">lattice_parameters() (Material method)</a>
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.processor.LatticeParameterRefinementProcessor">LatticeParameterRefinementProcessor (class in CHAP.edd.processor)</a>
-</li>
-      <li><a href="CHAP.tomo.html#CHAP.tomo.models.Detector.lens_magnification">lens_magnification (Detector attribute)</a>
 </li>
       <li><a href="CHAP.foxden.html#CHAP.foxden.models.FoxdenRequestConfig.limit">limit (FoxdenRequestConfig attribute)</a>
 </li>
@@ -1708,7 +1698,7 @@
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.map.CorrectionsData.model_config">(CorrectionsData attribute)</a>
 </li>
-        <li><a href="CHAP.common.models.html#CHAP.common.models.map.Detector.model_config">(Detector attribute)</a>, <a href="CHAP.tomo.html#CHAP.tomo.models.Detector.model_config">[1]</a>
+        <li><a href="CHAP.common.models.html#CHAP.common.models.map.Detector.model_config">(Detector attribute)</a>
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.map.DetectorConfig.model_config">(DetectorConfig attribute)</a>
 </li>
@@ -2648,8 +2638,6 @@
 </li>
       <li><a href="CHAP.html#CHAP.pipeline.PipelineItem">PipelineItem (class in CHAP.pipeline)</a>
 </li>
-      <li><a href="CHAP.tomo.html#CHAP.tomo.models.Detector.pixel_size">pixel_size (Detector attribute)</a>
-</li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitConfig.plot">plot (FitConfig attribute)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.plot">plot() (Fit method)</a>
@@ -2670,12 +2658,8 @@
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.PostsampleIntensity">PostsampleIntensity (class in CHAP.common.models.map)</a>
 </li>
-      <li><a href="CHAP.tomo.html#CHAP.tomo.models.Detector.prefix">prefix (Detector attribute)</a>
-
-      <ul>
-        <li><a href="CHAP.utils.html#CHAP.utils.models.FitModel.prefix">(FitModel attribute)</a>
+      <li><a href="CHAP.utils.html#CHAP.utils.models.FitModel.prefix">prefix (FitModel attribute)</a>
 </li>
-      </ul></li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.presample_intensity">presample_intensity (MapConfig attribute)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.PresampleIntensity">PresampleIntensity (class in CHAP.common.models.map)</a>
@@ -2938,10 +2922,10 @@
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.rectangle">rectangle() (in module CHAP.utils.models)</a>
 </li>
-      <li><a href="CHAP.utils.html#CHAP.utils.models.RectangleModel">RectangleModel (class in CHAP.utils.models)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="CHAP.utils.html#CHAP.utils.models.RectangleModel">RectangleModel (class in CHAP.utils.models)</a>
+</li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.redchi">redchi (Fit property)</a>
 
       <ul>
@@ -3005,8 +2989,6 @@
       <li><a href="CHAP.utils.html#CHAP.utils.general.round_to_n">round_to_n() (in module CHAP.utils.general)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.round_up_to_n">round_up_to_n() (in module CHAP.utils.general)</a>
-</li>
-      <li><a href="CHAP.tomo.html#CHAP.tomo.models.Detector.rows">rows (Detector attribute)</a>
 </li>
       <li><a href="CHAP.html#CHAP.runner.run">run() (in module CHAP.runner)</a>
 
@@ -3512,10 +3494,10 @@
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_after">validate_mcaenergycalibrationconfig_after() (MCAEnergyCalibrationConfig method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_before">validate_mcaenergycalibrationconfig_before() (MCAEnergyCalibrationConfig class method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.edd.html#CHAP.edd.processor.MCAEnergyCalibrationProcessor.validate_mcaenergycalibrationprocessor_before">validate_mcaenergycalibrationprocessor_before() (MCAEnergyCalibrationProcessor class method)</a>
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.processor.MCATthCalibrationProcessor.validate_mcatthcalibrationprocessor_before">validate_mcatthcalibrationprocessor_before() (MCATthCalibrationProcessor class method)</a>
@@ -3572,6 +3554,8 @@
         <li><a href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.validate_scan_step_indices">(MCACalibrationConfig class method)</a>
 </li>
       </ul></li>
+      <li><a href="CHAP.common.models.html#CHAP.common.models.map.Detector.validate_shape">validate_shape() (Detector class method)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.common.UnstructuredToStructuredConfig.validate_signals">validate_signals() (UnstructuredToStructuredConfig class method)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.SpecScans.validate_spec_file">validate_spec_file() (SpecScans class method)</a>

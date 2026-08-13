@@ -13,7 +13,7 @@
   
       <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../../_static/documentation_options.js?v=21082c34"></script>
+      <script src="../../../../_static/documentation_options.js?v=9174d659"></script>
       <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
@@ -41,21 +41,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
   
-              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../introduction.html">Introduction</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../CONTRIBUTIONS.html">Contributions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../installation.html">Installation</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../FOXDEN.html">FOXDEN</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul>
@@ -192,13 +184,13 @@
 <span class="sd">    :ivar id: Detector ID (e.g. name or channel index).</span>
 <span class="sd">    :vartype id: str</span>
 <span class="sd">    :ivar shape: Detector&#39;s raw data shape.</span>
-<span class="sd">    :vartype shape: tuple[int,int], optional</span>
+<span class="sd">    :vartype shape: int or tuple[int] or tuple[int,int], optional</span>
 <span class="sd">    :ivar attrs: Additional detector configuration attributes.</span>
 <span class="sd">    :vartype attrs: dict, optional</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">id_</span><span class="p">:</span> <span class="n">constr</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">alias</span><span class="o">=</span><span class="s1">&#39;id&#39;</span><span class="p">)</span>
-    <span class="n">shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">attrs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
 <div class="viewcode-block" id="Detector.validate_id">
@@ -216,6 +208,23 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">id_</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">id_</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">id_</span></div>
+
+
+<div class="viewcode-block" id="Detector.validate_shape">
+<a class="viewcode-back" href="../../../../CHAP.common.models.html#CHAP.common.models.map.Detector.validate_shape">[docs]</a>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s1">&#39;shape&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;before&#39;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_shape</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the detector&#39;s raw data shape.</span>
+
+<span class="sd">        :param shape: Detector&#39;s raw data shape.</span>
+<span class="sd">        :type shape: int or tuple[int] or tuple[int,int], optional</span>
+<span class="sd">        :return: Validated raw data shape.</span>
+<span class="sd">        :rtype: tuple[int] or tuple[int,int]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="p">)</span>
+        <span class="k">return</span> <span class="n">shape</span></div>
 
 
 <div class="viewcode-block" id="Detector.validate_detector_after">

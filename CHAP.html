@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=21082c34"></script>
+      <script src="_static/documentation_options.js?v=9174d659"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -46,21 +46,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
   
-              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="CONTRIBUTIONS.html">Contributions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FOXDEN.html">FOXDEN</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul>
@@ -651,6 +643,7 @@ from.</p>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.detectors"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.detectors</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.incl_listed_detectors_only"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.incl_listed_detectors_only</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.model_config"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.model_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.model_post_init"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.model_post_init()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.processor_type"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.processor_type</span></code></a></li>
@@ -716,6 +709,7 @@ from.</p>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.abs_height_cutoff"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig.abs_height_cutoff</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.calc_rosette_strains"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig.calc_rosette_strains</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.find_peak_cutoff"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig.find_peak_cutoff</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.max_nfev"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig.max_nfev</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.model_config"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig.model_config</span></code></a></li>
@@ -1146,15 +1140,6 @@ from.</p>
 <li class="toctree-l2"><a class="reference internal" href="CHAP.tomo.html#submodules-summary">Submodules summary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="CHAP.tomo.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="CHAP.tomo.html#module-CHAP.tomo.models">CHAP.tomo.models module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.Detector"><code class="docutils literal notranslate"><span class="pre">Detector</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.Detector.columns"><code class="docutils literal notranslate"><span class="pre">Detector.columns</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.Detector.lens_magnification"><code class="docutils literal notranslate"><span class="pre">Detector.lens_magnification</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.Detector.model_config"><code class="docutils literal notranslate"><span class="pre">Detector.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.Detector.pixel_size"><code class="docutils literal notranslate"><span class="pre">Detector.pixel_size</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.Detector.prefix"><code class="docutils literal notranslate"><span class="pre">Detector.prefix</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.Detector.rows"><code class="docutils literal notranslate"><span class="pre">Detector.rows</span></code></a></li>
-</ul>
-</li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.TomoCombineConfig"><code class="docutils literal notranslate"><span class="pre">TomoCombineConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.TomoCombineConfig.model_config"><code class="docutils literal notranslate"><span class="pre">TomoCombineConfig.model_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.TomoCombineConfig.x_bounds"><code class="docutils literal notranslate"><span class="pre">TomoCombineConfig.x_bounds</span></code></a></li>
@@ -1195,7 +1180,6 @@ from.</p>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig"><code class="docutils literal notranslate"><span class="pre">TomoSimConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig.background_intensity"><code class="docutils literal notranslate"><span class="pre">TomoSimConfig.background_intensity</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig.beam_intensity"><code class="docutils literal notranslate"><span class="pre">TomoSimConfig.beam_intensity</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig.detector"><code class="docutils literal notranslate"><span class="pre">TomoSimConfig.detector</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig.model_config"><code class="docutils literal notranslate"><span class="pre">TomoSimConfig.model_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig.mu"><code class="docutils literal notranslate"><span class="pre">TomoSimConfig.mu</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig.sample_size"><code class="docutils literal notranslate"><span class="pre">TomoSimConfig.sample_size</span></code></a></li>
@@ -1306,6 +1290,7 @@ from.</p>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.config"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor.config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.detector_config"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor.detector_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor.model_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor.model_post_init()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.pipeline_fields"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor.pipeline_fields</span></code></a></li>
@@ -1566,6 +1551,7 @@ from.</p>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#CHAP.utils.models.FitModel.LINEAR_PARAMETERS"><code class="docutils literal notranslate"><span class="pre">FitModel.LINEAR_PARAMETERS</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#CHAP.utils.models.FitModel.MODEL_IDENTIFIERS"><code class="docutils literal notranslate"><span class="pre">FitModel.MODEL_IDENTIFIERS</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#CHAP.utils.models.FitModel.MODEL_PARAMETERS"><code class="docutils literal notranslate"><span class="pre">FitModel.MODEL_PARAMETERS</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#CHAP.utils.models.FitModel.eval"><code class="docutils literal notranslate"><span class="pre">FitModel.eval()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#CHAP.utils.models.FitModel.func"><code class="docutils literal notranslate"><span class="pre">FitModel.func</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#CHAP.utils.models.FitModel.func_args"><code class="docutils literal notranslate"><span class="pre">FitModel.func_args</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#CHAP.utils.models.FitModel.long_name"><code class="docutils literal notranslate"><span class="pre">FitModel.long_name</span></code></a></li>
@@ -1706,7 +1692,8 @@ serialization tools.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>**kwargs</strong> – Optional keyword arguments, including:</p></li>
+<li><p><strong>**kwargs</strong> – <p>Optional keyword arguments, including:</p>
+</p></li>
 <li><p><strong>exclude</strong> (<em>dict</em><em> or </em><em>set</em><em>, </em><em>optional</em>) – Class variable(s) to omit from the output
 dictionary.</p></li>
 <li><p><strong>by_alias</strong> (<em>bool</em><em>, </em><em>optional</em>) – Use aliases as the output dictionary keys for
@@ -1735,7 +1722,8 @@ class variables that have an alias., defaults to <cite>True</cite>.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>**kwargs</strong> – Optional keyword arguments, including:</p></li>
+<li><p><strong>**kwargs</strong> – <p>Optional keyword arguments, including:</p>
+</p></li>
 <li><p><strong>exclude</strong> (<em>dict</em><em> or </em><em>set</em><em>, </em><em>optional</em>) – Class variable(s) to omit from the output
 dictionary.</p></li>
 <li><p><strong>by_alias</strong> (<em>bool</em><em>, </em><em>optional</em>) – Use aliases as the output dictionary keys for
@@ -1758,7 +1746,8 @@ class variables that have an alias., defaults to <cite>True</cite>.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>**kwargs</strong> – Optional keyword arguments, including:</p></li>
+<li><p><strong>**kwargs</strong> – <p>Optional keyword arguments, including:</p>
+</p></li>
 <li><p><strong>exclude</strong> (<em>dict</em><em> or </em><em>set</em><em>, </em><em>optional</em>) – Class variable(s) to omit from the output
 dictionary.</p></li>
 <li><p><strong>by_alias</strong> (<em>bool</em><em>, </em><em>optional</em>) – Use aliases as the output dictionary keys for
@@ -2280,7 +2269,8 @@ pipeline file config dictionary (see:
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>**kwargs</strong> – Optional keyword arguments, including:</p></li>
+<li><p><strong>**kwargs</strong> – <p>Optional keyword arguments, including:</p>
+</p></li>
 <li><p><strong>config</strong> (<em>dict</em><em>, </em><em>optional</em>) – Initialization parameters for an instance
 of the pipeline item this method is called from (often
 used by Readers and Processors).</p></li>

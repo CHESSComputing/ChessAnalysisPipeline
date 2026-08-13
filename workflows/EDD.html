@@ -14,7 +14,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=21082c34"></script>
+      <script src="../_static/documentation_options.js?v=9174d659"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -23,7 +23,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="GIWAXS subpackage (CHAP.giwaxs)" href="GIWAXS.html" />
-    <link rel="prev" title="CHAP Pipeline" href="../pipeline.html" /> 
+    <link rel="prev" title="FOXDEN" href="../FOXDEN.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -46,21 +46,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
   
-              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../CONTRIBUTIONS.html">Contributions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../FOXDEN.html">FOXDEN</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul class="current">
@@ -191,7 +183,7 @@
 </section>
 <section id="creating-the-pipeline-file">
 <span id="edd-pipeline"></span><h2>Creating the pipeline file<a class="headerlink" href="#creating-the-pipeline-file" title="Link to this heading"></a></h2>
-<p>Create a workflow <code class="docutils literal notranslate"><span class="pre">pipeline.yaml</span></code> file according to the <a class="reference internal" href="../pipeline.html#chap-pipeline"><span class="std std-ref">CHAP pipeline instructions</span></a>. A generic pipeline input file for an energy calibration and strain analysis workflow is as follows (note that spaces and indentation are important in <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> files):</p>
+<p>Create a workflow <code class="docutils literal notranslate"><span class="pre">pipeline.yaml</span></code> file according to the <a class="reference internal" href="../pipeline.html#chap-pipeline-ref"><span class="std std-ref">CHAP pipeline instructions</span></a>. A generic pipeline input file for an energy calibration and strain analysis workflow is as follows (note that spaces and indentation are important in <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> files):</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span><span class="w">                   </span><span class="c1"># Change as desired</span>
 <span class="w">  </span><span class="nt">inputdir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span><span class="w">               </span><span class="c1"># Change as desired</span>
@@ -338,7 +330,7 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">interactive</span></code>: Allows for user interactions, defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code>: The <a class="reference external" href="https://docs.python.org/3/library/logging.html#levels">Python logging level</a>.</p></li>
 </ul>
-<p>The remainder of the file contains the actual workflow pipeline, in this example it consists of four blocks, <code class="docutils literal notranslate"><span class="pre">energy</span></code>, <code class="docutils literal notranslate"><span class="pre">twotheta</span></code>, <code class="docutils literal notranslate"><span class="pre">map</span></code>, and <code class="docutils literal notranslate"><span class="pre">strain</span></code>, which can be executed individually or all at once <a class="reference internal" href="../pipeline.html#chap-pipeline"><span class="std std-ref">as described here</span></a>. In addition to the readers and writers of the intermediate results, nine toplevel processes get executed successively in the combined four pipeline blocks:</p>
+<p>The remainder of the file contains the actual workflow pipeline, in this example it consists of four blocks, <code class="docutils literal notranslate"><span class="pre">energy</span></code>, <code class="docutils literal notranslate"><span class="pre">twotheta</span></code>, <code class="docutils literal notranslate"><span class="pre">map</span></code>, and <code class="docutils literal notranslate"><span class="pre">strain</span></code>, which can be executed individually or all at once <a class="reference internal" href="../pipeline.html#chap-pipeline-ref"><span class="std std-ref">as described here</span></a>. In addition to the readers and writers of the intermediate results, nine toplevel processes get executed successively in the combined four pipeline blocks:</p>
 <ul class="simple">
 <li><p>The EDD/XRF energy calibration consists of two processes:</p>
 <ul>
@@ -602,7 +594,7 @@ The same detector selection mechanism is valid for <span class="math notranslate
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../pipeline.html" class="btn btn-neutral float-left" title="CHAP Pipeline" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../FOXDEN.html" class="btn btn-neutral float-left" title="FOXDEN" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="GIWAXS.html" class="btn btn-neutral float-right" title="GIWAXS subpackage (CHAP.giwaxs)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

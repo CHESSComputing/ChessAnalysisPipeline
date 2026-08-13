@@ -13,7 +13,7 @@
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=21082c34"></script>
+      <script src="../../../_static/documentation_options.js?v=9174d659"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -41,21 +41,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
   
-              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../CONTRIBUTIONS.html">Contributions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../FOXDEN.html">FOXDEN</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul>
@@ -538,8 +530,10 @@
 <span class="sd">        :raises RuntimeError: Inconsistent thetas among tomography</span>
 <span class="sd">            image stacks.</span>
 <span class="sd">        :raises ValueError: Invalid input or configuration parameter.</span>
-<span class="sd">        :return: NeXus style tomography input configuration.</span>
-<span class="sd">        :rtype: nexusformat.nexus.NXroot</span>
+<span class="sd">        :return: Metadata associated with the workflow, provenance</span>
+<span class="sd">            associated with the workflow, and a NeXus style tomography</span>
+<span class="sd">            input configuration.</span>
+<span class="sd">        :rtype: PipelineData, PipelineData, PipelineData</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># System modules</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
@@ -568,8 +562,14 @@
         <span class="c1"># Load and validate the tomography fields</span>
         <span class="n">tomofields</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_nxentry</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="s1">&#39;tomofields&#39;</span><span class="p">))</span>
-        <span class="n">detector_prefix</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">tomofields</span><span class="o">.</span><span class="n">detector_ids</span><span class="p">)</span>
-        <span class="n">tomo_stacks</span> <span class="o">=</span> <span class="n">tomofields</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_prefix</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span>
+        <span class="n">detector_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">tomofields</span><span class="o">.</span><span class="n">detector_ids</span><span class="p">)</span>
+        <span class="n">detector_config</span> <span class="o">=</span> <span class="n">DetectorConfig</span><span class="p">(</span>
+            <span class="o">**</span><span class="n">loads</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">tomofields</span><span class="o">.</span><span class="n">detector_config</span><span class="p">)))</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">detector_config</span><span class="o">.</span><span class="n">detectors</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">detector</span> <span class="o">=</span> <span class="n">detector_config</span><span class="o">.</span><span class="n">detectors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">detector</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span> <span class="o">==</span> <span class="n">detector_id</span>
+
+        <span class="n">tomo_stacks</span> <span class="o">=</span> <span class="n">tomofields</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_id</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span>
         <span class="n">tomo_stack_shape</span> <span class="o">=</span> <span class="n">tomo_stacks</span><span class="o">.</span><span class="n">shape</span>
         <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">tomo_stack_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
 
@@ -595,7 +595,7 @@
                     <span class="k">if</span> <span class="n">scan_type</span> <span class="o">==</span> <span class="s1">&#39;df1&#39;</span><span class="p">:</span>
                         <span class="n">darkfield</span> <span class="o">=</span> <span class="n">scanparser</span>
                         <span class="n">data_darkfield</span> <span class="o">=</span> <span class="n">darkfield</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span>
-                            <span class="n">detector_prefix</span><span class="p">)</span>
+                            <span class="n">detector_id</span><span class="p">)</span>
                         <span class="n">data_shape</span> <span class="o">=</span> <span class="n">data_darkfield</span><span class="o">.</span><span class="n">shape</span>
                         <span class="k">break</span>
             <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
@@ -609,7 +609,7 @@
                         <span class="k">if</span> <span class="n">scan_type</span> <span class="o">==</span> <span class="s1">&#39;df2&#39;</span><span class="p">:</span>
                             <span class="n">darkfield</span> <span class="o">=</span> <span class="n">scanparser</span>
                             <span class="n">data_darkfield</span> <span class="o">=</span> <span class="n">darkfield</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span>
-                                <span class="n">detector_prefix</span><span class="p">)</span>
+                                <span class="n">detector_id</span><span class="p">)</span>
                             <span class="n">data_shape</span> <span class="o">=</span> <span class="n">data_darkfield</span><span class="o">.</span><span class="n">shape</span>
                             <span class="k">break</span>
                 <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
@@ -638,13 +638,6 @@
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unable to load bright field&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">brightfield</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_nxentry</span><span class="p">(</span><span class="n">brightfield</span><span class="p">)</span>
-
-        <span class="c1"># Load and validate detector config if supplied</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">detector_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span>
-                <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="s1">&#39;tomo.models.Detector&#39;</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-            <span class="n">detector_config</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Construct NXroot</span>
         <span class="n">nxroot</span> <span class="o">=</span> <span class="n">NXroot</span><span class="p">()</span>
@@ -711,8 +704,7 @@
         <span class="c1"># Add configuration fields</span>
         <span class="n">nxentry</span><span class="o">.</span><span class="n">definition</span> <span class="o">=</span> <span class="s1">&#39;NXtomo&#39;</span>
         <span class="n">nxentry</span><span class="o">.</span><span class="n">map_config</span> <span class="o">=</span> <span class="n">map_config</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span>
-        <span class="n">nxentry</span><span class="o">.</span><span class="n">detector_config</span> <span class="o">=</span> <span class="n">DetectorConfig</span><span class="p">(</span>
-            <span class="o">**</span><span class="n">loads</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">tomofields</span><span class="o">.</span><span class="n">detector_config</span><span class="p">)))</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span>
+        <span class="n">nxentry</span><span class="o">.</span><span class="n">detector_config</span> <span class="o">=</span> <span class="n">detector_config</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span>
 
         <span class="c1"># Add a NXinstrument to the NXentry</span>
         <span class="n">nxinstrument</span> <span class="o">=</span> <span class="n">NXinstrument</span><span class="p">()</span>
@@ -733,26 +725,17 @@
         <span class="c1"># (do not fill in data fields yet)</span>
         <span class="n">nxdetector</span> <span class="o">=</span> <span class="n">NXdetector</span><span class="p">()</span>
         <span class="n">nxinstrument</span><span class="o">.</span><span class="n">detector</span> <span class="o">=</span> <span class="n">nxdetector</span>
-        <span class="n">nxdetector</span><span class="o">.</span><span class="n">local_name</span> <span class="o">=</span> <span class="n">detector_prefix</span>
-        <span class="k">if</span> <span class="n">detector_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">detector_attrs</span> <span class="o">=</span> <span class="n">tomofields</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_prefix</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">detector_attrs</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s1">&#39;pixel_size&#39;</span><span class="p">:</span> <span class="n">detector_config</span><span class="o">.</span><span class="n">pixel_size</span><span class="p">,</span>
-                <span class="s1">&#39;lens_magnification&#39;</span><span class="p">:</span> <span class="n">detector_config</span><span class="o">.</span><span class="n">lens_magnification</span><span class="p">}</span>
-        <span class="n">pixel_size</span> <span class="o">=</span> <span class="n">detector_attrs</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">]</span>
+        <span class="n">nxdetector</span><span class="o">.</span><span class="n">local_name</span> <span class="o">=</span> <span class="n">detector_id</span>
+        <span class="n">pixel_size</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">]</span>
+        <span class="n">lens_magnification</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;lens_magnification&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">is_num</span><span class="p">(</span><span class="n">pixel_size</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
             <span class="n">pixel_size</span> <span class="o">=</span> <span class="p">[</span><span class="n">pixel_size</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pixel_size</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">nxdetector</span><span class="o">.</span><span class="n">row_pixel_size</span> <span class="o">=</span> \
-                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">detector_attrs</span><span class="p">[</span><span class="s1">&#39;lens_magnification&#39;</span><span class="p">]</span>
-            <span class="n">nxdetector</span><span class="o">.</span><span class="n">column_pixel_size</span> <span class="o">=</span> \
-                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">detector_attrs</span><span class="p">[</span><span class="s1">&#39;lens_magnification&#39;</span><span class="p">]</span>
+            <span class="n">nxdetector</span><span class="o">.</span><span class="n">row_pixel_size</span> <span class="o">=</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">lens_magnification</span>
+            <span class="n">nxdetector</span><span class="o">.</span><span class="n">column_pixel_size</span> <span class="o">=</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">lens_magnification</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">nxdetector</span><span class="o">.</span><span class="n">row_pixel_size</span> <span class="o">=</span> \
-                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">detector_attrs</span><span class="p">[</span><span class="s1">&#39;lens_magnification&#39;</span><span class="p">]</span>
-            <span class="n">nxdetector</span><span class="o">.</span><span class="n">column_pixel_size</span> <span class="o">=</span> \
-                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="n">detector_attrs</span><span class="p">[</span><span class="s1">&#39;lens_magnification&#39;</span><span class="p">]</span>
+            <span class="n">nxdetector</span><span class="o">.</span><span class="n">row_pixel_size</span> <span class="o">=</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">lens_magnification</span>
+            <span class="n">nxdetector</span><span class="o">.</span><span class="n">column_pixel_size</span> <span class="o">=</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="n">lens_magnification</span>
         <span class="n">nxdetector</span><span class="o">.</span><span class="n">row_pixel_size</span><span class="o">.</span><span class="n">units</span> <span class="o">=</span> <span class="s1">&#39;mm&#39;</span>
         <span class="n">nxdetector</span><span class="o">.</span><span class="n">column_pixel_size</span><span class="o">.</span><span class="n">units</span> <span class="o">=</span> <span class="s1">&#39;mm&#39;</span>
         <span class="n">nxdetector</span><span class="o">.</span><span class="n">rows</span> <span class="o">=</span> <span class="n">tomo_stack_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
@@ -780,7 +763,7 @@
             <span class="n">nxentry</span><span class="o">.</span><span class="n">dark_field_config</span> <span class="o">=</span> <span class="n">darkfield</span><span class="o">.</span><span class="n">config</span>
             <span class="k">for</span> <span class="n">scan</span> <span class="ow">in</span> <span class="n">darkfield</span><span class="o">.</span><span class="n">spec_scans</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
                 <span class="k">for</span> <span class="n">nxcollection</span> <span class="ow">in</span> <span class="n">scan</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-                    <span class="n">data_shape</span> <span class="o">=</span> <span class="n">nxcollection</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_prefix</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
+                    <span class="n">data_shape</span> <span class="o">=</span> <span class="n">nxcollection</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_id</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
                     <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
                     <span class="k">assert</span> <span class="n">data_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">nxdetector</span><span class="o">.</span><span class="n">rows</span>
                     <span class="k">assert</span> <span class="n">data_shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">nxdetector</span><span class="o">.</span><span class="n">columns</span>
@@ -788,7 +771,7 @@
                     <span class="n">image_keys</span> <span class="o">+=</span> <span class="n">num_image</span><span class="o">*</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
                     <span class="n">sequence_numbers</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">num_image</span><span class="p">))</span>
                     <span class="n">image_stacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                        <span class="n">nxcollection</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_prefix</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span><span class="p">)</span>
+                        <span class="n">nxcollection</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_id</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span><span class="p">)</span>
                     <span class="n">rotation_angles</span> <span class="o">+=</span> <span class="n">num_image</span><span class="o">*</span><span class="p">[</span><span class="mf">0.0</span><span class="p">]</span>
                     <span class="k">if</span> <span class="p">(</span><span class="n">x_translation_data_type</span> <span class="o">==</span> <span class="s1">&#39;spec_motor&#39;</span> <span class="ow">or</span>
                             <span class="n">z_translation_data_type</span> <span class="o">==</span> <span class="s1">&#39;spec_motor&#39;</span><span class="p">):</span>
@@ -865,7 +848,7 @@
             <span class="n">nxentry</span><span class="o">.</span><span class="n">bright_field_config</span> <span class="o">=</span> <span class="n">brightfield</span><span class="o">.</span><span class="n">config</span>
             <span class="k">for</span> <span class="n">scan</span> <span class="ow">in</span> <span class="n">brightfield</span><span class="o">.</span><span class="n">spec_scans</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
                 <span class="k">for</span> <span class="n">nxcollection</span> <span class="ow">in</span> <span class="n">scan</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-                    <span class="n">data_shape</span> <span class="o">=</span> <span class="n">nxcollection</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_prefix</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
+                    <span class="n">data_shape</span> <span class="o">=</span> <span class="n">nxcollection</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_id</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
                     <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
                     <span class="k">assert</span> <span class="n">data_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">nxdetector</span><span class="o">.</span><span class="n">rows</span>
                     <span class="k">assert</span> <span class="n">data_shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">nxdetector</span><span class="o">.</span><span class="n">columns</span>
@@ -873,7 +856,7 @@
                     <span class="n">image_keys</span> <span class="o">+=</span> <span class="n">num_image</span><span class="o">*</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
                     <span class="n">sequence_numbers</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">num_image</span><span class="p">))</span>
                     <span class="n">image_stacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                        <span class="n">nxcollection</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_prefix</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span><span class="p">)</span>
+                        <span class="n">nxcollection</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">detector_id</span><span class="p">]</span><span class="o">.</span><span class="n">nxdata</span><span class="p">)</span>
                     <span class="n">rotation_angles</span> <span class="o">+=</span> <span class="n">num_image</span><span class="o">*</span><span class="p">[</span><span class="mf">0.0</span><span class="p">]</span>
                     <span class="k">if</span> <span class="p">(</span><span class="n">x_translation_data_type</span> <span class="o">==</span> <span class="s1">&#39;spec_motor&#39;</span> <span class="ow">or</span>
                             <span class="n">z_translation_data_type</span> <span class="o">==</span> <span class="s1">&#39;spec_motor&#39;</span><span class="p">):</span>
@@ -904,7 +887,7 @@
                         <span class="n">presample_intensities</span> <span class="o">+=</span> <span class="n">scan_columns</span><span class="p">[</span>
                             <span class="n">presample_intensity</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;local_name&#39;</span><span class="p">]]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">data_brightfield</span> <span class="o">=</span> <span class="n">brightfield</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span><span class="n">detector_prefix</span><span class="p">)</span>
+            <span class="n">data_brightfield</span> <span class="o">=</span> <span class="n">brightfield</span><span class="o">.</span><span class="n">get_detector_data</span><span class="p">(</span><span class="n">detector_id</span><span class="p">)</span>
             <span class="n">data_shape</span> <span class="o">=</span> <span class="n">data_brightfield</span><span class="o">.</span><span class="n">shape</span>
             <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
             <span class="k">assert</span> <span class="n">data_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">nxdetector</span><span class="o">.</span><span class="n">rows</span>
@@ -1121,10 +1104,11 @@
 <span class="sd">            unable to load valid (the) tomography image stack(s).</span>
 <span class="sd">        :raises TypeError: Error progagated from numexpr.evaluate().</span>
 <span class="sd">        :raises ValueError: Invalid input or configuration parameter.</span>
-<span class="sd">        :return: Metadata associated with the workflow, a list of byte</span>
-<span class="sd">            stream representions of Matplotlib figures, and the result</span>
-<span class="sd">            of the data reduction.</span>
-<span class="sd">        :rtype: PipelineData, PipelineData, PipelineData</span>
+<span class="sd">        :return: Metadata associated with the workflow, provenance</span>
+<span class="sd">            associated with the workflow, list of byte stream</span>
+<span class="sd">            representions of Matplotlib figures, and the result of the</span>
+<span class="sd">            data reduction.</span>
+<span class="sd">        :rtype: PipelineData, PipelineData, PipelineData, PipelineData</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># System modules</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">multiprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpu_count</span>
@@ -2596,10 +2580,11 @@
 <span class="sd">        :type data: list[PipelineData]</span>
 <span class="sd">        :raises ValueError: Unable to find valid reduced data in input</span>
 <span class="sd">            data.</span>
-<span class="sd">        :return: Metadata associated with the workflow, a list of byte</span>
-<span class="sd">            stream representions of Matplotlib figures, and the</span>
-<span class="sd">            calibrated center axis information.</span>
-<span class="sd">        :rtype: PipelineData, PipelineData, PipelineData</span>
+<span class="sd">        :return: Metadata associated with the workflow, provenance</span>
+<span class="sd">            associated with the workflow, list of byte stream</span>
+<span class="sd">            representions of Matplotlib figures, and the calibrated</span>
+<span class="sd">            center axis information.</span>
+<span class="sd">        :rtype: PipelineData, PipelineData, PipelineData, PipelineData</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Third party modules</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">nxsetconfig</span>
@@ -2852,10 +2837,11 @@
 <span class="sd">        :type data: list[PipelineData]</span>
 <span class="sd">        :raises RuntimeError: Dimension mismatch in `center_offsets`.</span>
 <span class="sd">        :raises ValueError: Invalid input or configuration parameter.</span>
-<span class="sd">        :return: Metadata associated with the workflow, a list of byte</span>
-<span class="sd">            stream representions of Matplotlib figures, and the result</span>
-<span class="sd">            of the data reconstruction.</span>
-<span class="sd">        :rtype: PipelineData, PipelineData, PipelineData</span>
+<span class="sd">        :return: Metadata associated with the workflow, provenance</span>
+<span class="sd">            associated with the workflow, a list of byte stream</span>
+<span class="sd">            representions of Matplotlib figures, and the result of the</span>
+<span class="sd">            data reconstruction.</span>
+<span class="sd">        :rtype: PipelineData, PipelineData, PipelineData, PipelineData</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># System modules</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">multiprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpu_count</span>
@@ -3431,10 +3417,11 @@
 <span class="sd">            object.</span>
 <span class="sd">        :type data: list[PipelineData]</span>
 <span class="sd">        :raises ValueError: Invalid input or configuration parameter.</span>
-<span class="sd">        :return: Metadata associated with the workflow, a list of byte</span>
-<span class="sd">            stream representions of Matplotlib figures, and the result</span>
-<span class="sd">            of the data combination.</span>
-<span class="sd">        :rtype: PipelineData, PipelineData, PipelineData</span>
+<span class="sd">        :return: Metadata associated with the workflow, provenance</span>
+<span class="sd">            associated with the workflow, a list of byte stream</span>
+<span class="sd">            representions of Matplotlib figures, and the result of the</span>
+<span class="sd">            data combination.</span>
+<span class="sd">        :rtype: PipelineData, PipelineData, PipelineData, PipelineData</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Third party modules</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -3789,8 +3776,13 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">pipeline_fields</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
-        <span class="n">default</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="s1">&#39;tomo.models.TomoSimConfig&#39;</span><span class="p">},</span> <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="s1">&#39;tomo.models.TomoSimConfig&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;detector_config&#39;</span><span class="p">:</span> <span class="s1">&#39;common.models.map.DetectorConfig&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">TomoSimConfig</span>
+    <span class="n">detector_config</span><span class="p">:</span> <span class="n">DetectorConfig</span>
 
 <div class="viewcode-block" id="TomoSimFieldProcessor.process">
 <a class="viewcode-back" href="../../../CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.process">[docs]</a>
@@ -3831,23 +3823,28 @@
         <span class="n">beam_intensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">beam_intensity</span>
         <span class="n">background_intensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">background_intensity</span>
         <span class="n">slit_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">slit_size</span>
-        <span class="n">detector</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">detector</span>
-        <span class="n">pixel_size</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">pixel_size</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span><span class="o">.</span><span class="n">detectors</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Detector configuration must have a single &#39;</span>
+                             <span class="sa">f</span><span class="s1">&#39;detector </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span><span class="o">.</span><span class="n">detectors</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">detector</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">detector_config</span><span class="o">.</span><span class="n">detectors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">pixel_size</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;pixel_size&#39;</span><span class="p">]</span>
+        <span class="n">lens_magnification</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;lens_magnification&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pixel_size</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+            <span class="n">pixel_size</span> <span class="o">=</span> <span class="p">[</span><span class="n">pixel_size</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pixel_size</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">pixel_size</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">detector</span><span class="o">.</span><span class="n">lens_magnification</span><span class="p">,</span>
-                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">detector</span><span class="o">.</span><span class="n">lens_magnification</span><span class="p">,</span>
+                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">lens_magnification</span><span class="p">,</span>
+                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">lens_magnification</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">pixel_size</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">detector</span><span class="o">.</span><span class="n">lens_magnification</span><span class="p">,</span>
-                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="n">detector</span><span class="o">.</span><span class="n">lens_magnification</span><span class="p">,</span>
+                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">lens_magnification</span><span class="p">,</span>
+                <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="n">lens_magnification</span><span class="p">,</span>
             <span class="p">)</span>
-        <span class="n">detector_size</span> <span class="o">=</span> <span class="p">(</span><span class="n">detector</span><span class="o">.</span><span class="n">rows</span><span class="p">,</span> <span class="n">detector</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">slit_size</span><span class="o">-</span><span class="mf">0.5</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">detector_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">slit_size</span><span class="o">-</span><span class="mf">0.5</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s1">&#39;Slit size (</span><span class="si">{</span><span class="n">slit_size</span><span class="si">}</span><span class="s1">) larger than detector height &#39;</span>
-                <span class="sa">f</span><span class="s1">&#39;(</span><span class="si">{</span><span class="n">detector_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+                <span class="sa">f</span><span class="s1">&#39;(</span><span class="si">{</span><span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
 
         <span class="c1"># Get the rotation angles (start at a arbitrarily choose angle</span>
         <span class="c1"># and add thetas for a full 360 degrees rotation series)</span>
@@ -3865,10 +3862,10 @@
         <span class="k">if</span> <span class="p">(</span><span class="n">sample_size</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
             <span class="n">num_tomo_stack</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span>
                 <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">sample_size</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">])</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">-</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-                <span class="o">/</span> <span class="p">(</span><span class="n">detector_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+                <span class="o">/</span> <span class="p">(</span><span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">num_tomo_stack</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="nb">int</span><span class="p">((</span><span class="n">sample_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">-</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-                                     <span class="o">/</span> <span class="p">(</span><span class="n">detector_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+                                     <span class="o">/</span> <span class="p">(</span><span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
         <span class="k">if</span> <span class="n">num_tomo_stack</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Sample is too wide for the detector&#39;</span><span class="p">)</span>
 
@@ -3877,7 +3874,7 @@
         <span class="n">path_lengths_solid</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">sample_type</span> <span class="o">!=</span> <span class="s1">&#39;hollow_pyramid&#39;</span><span class="p">:</span>
             <span class="n">path_lengths_solid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_pathlength_solid_square</span><span class="p">(</span>
-                    <span class="n">sample_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">thetas</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">detector_size</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                    <span class="n">sample_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">thetas</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 
         <span class="c1"># Create the x-ray path length through a hollow square</span>
         <span class="c1"># crosssection for a set of rotation angles.</span>
@@ -3886,7 +3883,7 @@
             <span class="n">path_lengths_hollow</span> <span class="o">=</span> <span class="n">path_lengths_solid</span> \
                 <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_pathlength_solid_square</span><span class="p">(</span>
                     <span class="n">sample_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">wall_thickness</span><span class="p">,</span> <span class="n">thetas</span><span class="p">,</span>
-                    <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">detector_size</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                    <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 
         <span class="c1"># Get the number of stacks</span>
         <span class="n">num_tomo_stack</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="nb">int</span><span class="p">((</span><span class="n">sample_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">/</span><span class="n">slit_size</span><span class="p">)</span>
@@ -3894,16 +3891,16 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Sample is to tall for the detector&#39;</span><span class="p">)</span>
 
         <span class="c1"># Get the column coordinates</span>
-        <span class="n">img_row_offset</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">detector_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">img_row_offset</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
                                <span class="o">+</span> <span class="n">slit_size</span> <span class="o">*</span> <span class="p">(</span><span class="n">num_tomo_stack</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
         <span class="n">img_row_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">img_row_offset</span>
-            <span class="o">+</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">detector_size</span><span class="p">[</span><span class="mi">0</span><span class="p">])))))</span>
+            <span class="o">+</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])))))</span>
 
         <span class="c1"># Get the transmitted intensities</span>
         <span class="n">num_theta</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">thetas</span><span class="p">)</span>
         <span class="n">vertical_shifts</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">tomo_fields_stack</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">len_img_y</span> <span class="o">=</span> <span class="p">(</span><span class="n">detector_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span>
+        <span class="n">len_img_y</span> <span class="o">=</span> <span class="p">(</span><span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span>
         <span class="k">if</span> <span class="n">len_img_y</span><span class="o">%</span><span class="mi">2</span><span class="p">:</span>
             <span class="n">len_img_y</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">len_img_y</span> <span class="o">-</span> <span class="mi">1</span>
         <span class="k">else</span><span class="p">:</span>
@@ -3913,7 +3910,7 @@
         <span class="n">intensities_hollow</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_tomo_stack</span><span class="p">):</span>
             <span class="n">vertical_shifts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">img_row_offset</span> <span class="o">+</span> <span class="n">n</span><span class="o">*</span><span class="n">slit_size</span>
-                                   <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">detector_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                                   <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
             <span class="n">tomo_field</span> <span class="o">=</span> <span class="n">beam_intensity</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">num_theta</span><span class="p">,</span> <span class="o">*</span><span class="n">img_dim</span><span class="p">))</span>
             <span class="k">if</span> <span class="n">sample_type</span> <span class="o">==</span> <span class="s1">&#39;square_rod&#39;</span><span class="p">:</span>
                 <span class="n">intensities_solid</span> <span class="o">=</span> \
@@ -3937,7 +3934,7 @@
                     <span class="n">path_lengths_solid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_pathlength_solid_square</span><span class="p">(</span>
                         <span class="n">baselength</span> <span class="o">-</span> <span class="n">ratio</span><span class="o">*</span><span class="p">(</span>
                             <span class="n">img_row_coords</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">sample_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
-                        <span class="n">thetas</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">detector_size</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                        <span class="n">thetas</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
                     <span class="n">intensities_solid</span> <span class="o">=</span> \
                         <span class="n">beam_intensity</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">mu</span><span class="o">*</span><span class="n">path_lengths_solid</span><span class="p">)</span>
                     <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_theta</span><span class="p">):</span>
@@ -3947,11 +3944,11 @@
                         <span class="bp">self</span><span class="o">.</span><span class="n">_create_pathlength_solid_square</span><span class="p">(</span>
                             <span class="n">baselength</span> <span class="o">-</span> <span class="n">ratio</span><span class="o">*</span><span class="p">(</span>
                                 <span class="n">img_row_coords</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">sample_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
-                            <span class="n">thetas</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">detector_size</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                            <span class="n">thetas</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
                         <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_pathlength_solid_square</span><span class="p">(</span>
                             <span class="n">baselength</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">wall_thickness</span> <span class="o">-</span> <span class="n">ratio</span><span class="o">*</span><span class="p">(</span>
                                 <span class="n">img_row_coords</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">sample_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
-                            <span class="n">thetas</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">detector_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+                            <span class="n">thetas</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">detector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
                     <span class="n">intensities_hollow</span> <span class="o">=</span> \
                         <span class="n">beam_intensity</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">mu</span><span class="o">*</span><span class="n">path_lengths_hollow</span><span class="p">)</span>
                     <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_theta</span><span class="p">):</span>
@@ -4027,7 +4024,7 @@
         <span class="n">nxinstrument</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">slit_size</span> <span class="o">=</span> <span class="n">slit_size</span>
         <span class="n">nxdetector</span> <span class="o">=</span> <span class="n">NXdetector</span><span class="p">()</span>
         <span class="n">nxinstrument</span><span class="o">.</span><span class="n">detector</span> <span class="o">=</span> <span class="n">nxdetector</span>
-        <span class="n">nxdetector</span><span class="o">.</span><span class="n">local_name</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">prefix</span>
+        <span class="n">nxdetector</span><span class="o">.</span><span class="n">local_name</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">get_id</span><span class="p">()</span>
         <span class="n">nxdetector</span><span class="o">.</span><span class="n">row_pixel_size</span> <span class="o">=</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">nxdetector</span><span class="o">.</span><span class="n">column_pixel_size</span> <span class="o">=</span> <span class="n">pixel_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">nxdetector</span><span class="o">.</span><span class="n">row_pixel_size</span><span class="o">.</span><span class="n">units</span> <span class="o">=</span> <span class="s1">&#39;mm&#39;</span>
@@ -4325,9 +4322,11 @@
 <span class="sd">        :param data: Input data.</span>
 <span class="sd">        :type data: list[PipelineData]</span>
 <span class="sd">        :raises ValueError: Invalid input or configuration parameter.</span>
-<span class="sd">        :return: Simulated SPEC file.</span>
-<span class="sd">        :rtype: nexusformat.nexus.NXroot or</span>
-<span class="sd">            (PipelineData, PipelineData)</span>
+<span class="sd">        :return: For id1a3: Metadata associated with the workflow,</span>
+<span class="sd">            provenance associated with the workflow, and the simulated</span>
+<span class="sd">            SPEC file, otherwise just the simulated SPEC file.</span>
+<span class="sd">        :rtype: (PipelineData, PipelineData, PipelineData) or</span>
+<span class="sd">            nexusformat.nexus.NXroot</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># System modules</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">json</span><span class="w"> </span><span class="kn">import</span> <span class="n">dumps</span><span class="p">,</span> <span class="n">load</span>

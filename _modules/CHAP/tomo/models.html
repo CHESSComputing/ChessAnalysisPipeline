@@ -13,7 +13,7 @@
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=21082c34"></script>
+      <script src="../../../_static/documentation_options.js?v=9174d659"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -41,21 +41,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
   
-              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../CONTRIBUTIONS.html">Contributions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../FOXDEN.html">FOXDEN</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul>
@@ -126,39 +118,6 @@
 
 <span class="c1"># Local modules</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">CHAPBaseModel</span>
-
-
-<div class="viewcode-block" id="Detector">
-<a class="viewcode-back" href="../../../CHAP.tomo.html#CHAP.tomo.models.Detector">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">Detector</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Properties of the tomography image detector.</span>
-
-<span class="sd">    Detector properties of the detector used in the tomography</span>
-<span class="sd">    experiment. The image origin is assumed to be in the top-left</span>
-<span class="sd">    corner, with rows down ($-z$ in lab frame) and columns sideways</span>
-<span class="sd">    ($+x$ in lab frame).</span>
-
-<span class="sd">    :ivar prefix: Prefix of the detector in the SPEC file.</span>
-<span class="sd">    :vartype prefix: str</span>
-<span class="sd">    :ivar rows: Number of pixel rows on the detector.</span>
-<span class="sd">    :vartype rows: int</span>
-<span class="sd">    :ivar columns: Number of pixel columns on the detector.</span>
-<span class="sd">    :vartype columns: int</span>
-<span class="sd">    :ivar pixel_size: Pixel size of the detector in $mm$.</span>
-<span class="sd">    :vartype pixel_size: int or list[int]</span>
-<span class="sd">    :ivar lens_magnification: Lens magnification for the detector,</span>
-<span class="sd">        defaults to `1.0`.</span>
-<span class="sd">    :vartype lens_magnification: float, optional</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">prefix</span><span class="p">:</span> <span class="n">constr</span><span class="p">(</span><span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">rows</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">columns</span><span class="p">:</span> <span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">pixel_size</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span>
-        <span class="n">item_type</span><span class="o">=</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
-        <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-    <span class="n">lens_magnification</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">1.0</span></div>
-
 
 
 <div class="viewcode-block" id="TomoCombineConfig">
@@ -311,9 +270,6 @@
 
 <span class="sd">    :ivar station: The station name (in &#39;idxx&#39; format).</span>
 <span class="sd">    :vartype station: Literal[&#39;id1a3&#39;, &#39;id3a&#39;, &#39;id3b&#39;]</span>
-<span class="sd">    :ivar detector: Detector configuration in the tomography</span>
-<span class="sd">        experiment.</span>
-<span class="sd">    :vartype detector: Detector</span>
 <span class="sd">    :ivar sample_type: Sample type for the tomography simulator.</span>
 <span class="sd">    :vartype sample_type: Literal[&#39;square_rod&#39;, &#39;square_pipe&#39;,</span>
 <span class="sd">        &#39;hollow_cube&#39;, &#39;hollow_brick&#39;, &#39;hollow_pyramid&#39;]</span>
@@ -343,7 +299,6 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">station</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;id1a3&#39;</span><span class="p">,</span> <span class="s1">&#39;id3a&#39;</span><span class="p">,</span> <span class="s1">&#39;id3b&#39;</span><span class="p">]</span>
-    <span class="n">detector</span><span class="p">:</span> <span class="n">Detector</span>
     <span class="n">sample_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
         <span class="s1">&#39;square_rod&#39;</span><span class="p">,</span> <span class="s1">&#39;square_pipe&#39;</span><span class="p">,</span> <span class="s1">&#39;hollow_cube&#39;</span><span class="p">,</span> <span class="s1">&#39;hollow_brick&#39;</span><span class="p">,</span>
         <span class="s1">&#39;hollow_pyramid&#39;</span><span class="p">]</span>

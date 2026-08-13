@@ -13,7 +13,7 @@
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=21082c34"></script>
+      <script src="../../../_static/documentation_options.js?v=9174d659"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -41,21 +41,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
   
-              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../CONTRIBUTIONS.html">Contributions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../FOXDEN.html">FOXDEN</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul>
@@ -1369,7 +1361,10 @@
             <span class="s1">&#39;detector_config&#39;</span><span class="p">:</span> <span class="p">{</span>
                 <span class="s1">&#39;schema&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;edd.models.MCAEnergyCalibrationConfig&#39;</span><span class="p">,</span>
                            <span class="s1">&#39;edd.models.MCADetectorConfig&#39;</span><span class="p">],</span>
-                <span class="s1">&#39;merge_key_paths&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;key_path&#39;</span><span class="p">:</span> <span class="s1">&#39;detectors/id&#39;</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">}},</span>
+                <span class="s1">&#39;merge_key_paths&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s1">&#39;key_path&#39;</span><span class="p">:</span> <span class="s1">&#39;detectors/id&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;merge_source_only&#39;</span><span class="p">:</span> <span class="s1">&#39;incl_listed_detectors_only&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">}},</span>
         <span class="p">},</span>
         <span class="n">init_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">MCAEnergyCalibrationConfig</span>
@@ -1395,6 +1390,8 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
             <span class="n">detector_config</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;detector_config&#39;</span><span class="p">,</span> <span class="p">{})</span>
             <span class="n">detector_config</span><span class="p">[</span><span class="s1">&#39;processor_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;calibration&#39;</span>
+            <span class="k">if</span> <span class="s1">&#39;incl_listed_detectors_only&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">detector_config</span><span class="p">:</span>
+                <span class="n">detector_config</span><span class="p">[</span><span class="s1">&#39;incl_listed_detectors_only&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="n">data</span><span class="p">[</span><span class="s1">&#39;detector_config&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">detector_config</span>
         <span class="k">return</span> <span class="n">data</span></div>
 
@@ -3467,32 +3464,33 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span>
 
         <span class="c1"># Add the Rosette strains fields</span>
-        <span class="n">num_points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nxdata_detectors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">nxprocess</span><span class="o">.</span><span class="n">strain_rosette</span> <span class="o">=</span> <span class="n">NXparameters</span><span class="p">()</span>
-        <span class="n">nxprocess</span><span class="o">.</span><span class="n">strain_rosette</span><span class="o">.</span><span class="n">e_xx</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span>
-            <span class="n">NXfield</span><span class="p">(</span>
-                <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;values&#39;</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span>
-                <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span> <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,)),</span>
-            <span class="n">NXfield</span><span class="p">(</span>
-                <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;errors&#39;</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span>
-                <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span> <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,)),</span>
-        <span class="p">)</span>
-        <span class="n">nxprocess</span><span class="o">.</span><span class="n">strain_rosette</span><span class="o">.</span><span class="n">e_yy</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span>
-            <span class="n">NXfield</span><span class="p">(</span>
-                <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span> <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span>
-                <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;values&#39;</span><span class="p">),</span>
-            <span class="n">NXfield</span><span class="p">(</span>
-                <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span> <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span>
-                <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;errors&#39;</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="n">nxprocess</span><span class="o">.</span><span class="n">strain_rosette</span><span class="o">.</span><span class="n">e_xy</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span>
-            <span class="n">NXfield</span><span class="p">(</span>
-                <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span> <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span>
-                <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;values&#39;</span><span class="p">),</span>
-            <span class="n">NXfield</span><span class="p">(</span>
-                <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span> <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span>
-                <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;errors&#39;</span><span class="p">),</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">calc_rosette_strains</span><span class="p">:</span>
+            <span class="n">num_points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nxdata_detectors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">nxsignal</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">strain_rosette</span> <span class="o">=</span> <span class="n">NXparameters</span><span class="p">()</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">strain_rosette</span><span class="o">.</span><span class="n">e_xx</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span>
+                <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;values&#39;</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span>
+                    <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span> <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,)),</span>
+                <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;errors&#39;</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span>
+                    <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span> <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,)),</span>
+            <span class="p">)</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">strain_rosette</span><span class="o">.</span><span class="n">e_yy</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span>
+                <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span> <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span>
+                    <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;values&#39;</span><span class="p">),</span>
+                <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span> <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span>
+                    <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;errors&#39;</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">nxprocess</span><span class="o">.</span><span class="n">strain_rosette</span><span class="o">.</span><span class="n">e_xy</span> <span class="o">=</span> <span class="n">NXdata</span><span class="p">(</span>
+                <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span> <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span>
+                    <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;values&#39;</span><span class="p">),</span>
+                <span class="n">NXfield</span><span class="p">(</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_points</span><span class="p">,),</span> <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,),</span>
+                    <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;errors&#39;</span><span class="p">),</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_peak_fit_info</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="c1"># FIX this is a temporary fix to be able to run update</span>
@@ -4014,16 +4012,17 @@
                     <span class="n">unconstrained_results</span><span class="p">[</span><span class="s1">&#39;best_fits&#39;</span><span class="p">],</span> <span class="n">detector</span><span class="o">.</span><span class="n">get_id</span><span class="p">())</span>
 
         <span class="c1"># Calculate and add the Rosette strains</span>
-        <span class="n">popt</span><span class="p">,</span> <span class="n">perr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_strain_rosette</span><span class="p">(</span><span class="n">normal_strains</span><span class="p">,</span> <span class="n">det_angles</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_results</span><span class="p">:</span>
-            <span class="n">results</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
-                <span class="s1">&#39;strain_rosette/e_xx/values&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">popt</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
-                <span class="s1">&#39;strain_rosette/e_xx/errors&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">perr</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
-                <span class="s1">&#39;strain_rosette/e_yy/values&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">popt</span><span class="p">[</span><span class="mi">1</span><span class="p">]]),</span>
-                <span class="s1">&#39;strain_rosette/e_yy/errors&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">perr</span><span class="p">[</span><span class="mi">1</span><span class="p">]]),</span>
-                <span class="s1">&#39;strain_rosette/e_xy/values&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">popt</span><span class="p">[</span><span class="mi">2</span><span class="p">]]),</span>
-                <span class="s1">&#39;strain_rosette/e_xy/errors&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">perr</span><span class="p">[</span><span class="mi">2</span><span class="p">]]),</span>
-            <span class="p">})</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">calc_rosette_strains</span><span class="p">:</span>
+            <span class="n">popt</span><span class="p">,</span> <span class="n">perr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_strain_rosette</span><span class="p">(</span><span class="n">normal_strains</span><span class="p">,</span> <span class="n">det_angles</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_results</span><span class="p">:</span>
+                <span class="n">results</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+                    <span class="s1">&#39;strain_rosette/e_xx/values&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">popt</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
+                    <span class="s1">&#39;strain_rosette/e_xx/errors&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">perr</span><span class="p">[</span><span class="mi">0</span><span class="p">]]),</span>
+                    <span class="s1">&#39;strain_rosette/e_yy/values&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">popt</span><span class="p">[</span><span class="mi">1</span><span class="p">]]),</span>
+                    <span class="s1">&#39;strain_rosette/e_yy/errors&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">perr</span><span class="p">[</span><span class="mi">1</span><span class="p">]]),</span>
+                    <span class="s1">&#39;strain_rosette/e_xy/values&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">popt</span><span class="p">[</span><span class="mi">2</span><span class="p">]]),</span>
+                    <span class="s1">&#39;strain_rosette/e_xy/errors&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">perr</span><span class="p">[</span><span class="mi">2</span><span class="p">]]),</span>
+                <span class="p">})</span>
 
         <span class="k">return</span> <span class="n">results</span>
 

@@ -13,7 +13,7 @@
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=21082c34"></script>
+      <script src="../../../_static/documentation_options.js?v=9174d659"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -41,21 +41,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
   
-              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../CONTRIBUTIONS.html">Contributions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../FOXDEN.html">FOXDEN</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul>
@@ -3007,7 +2999,7 @@
 <span class="sd">    :type grid_linewidth: int, optional</span>
 <span class="sd">    :param colorbar: Include a colorbar, defaults to `False`.</span>
 <span class="sd">    :type colorbar: bool, optional</span>
-<span class="sd">    :param \*\*kwargs: Any additional keyword parameters to pass on to</span>
+<span class="sd">    :param **kwargs: Any additional keyword parameters to pass on to</span>
 <span class="sd">        `matplotlib.pyplot.imshow &lt;https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.imshow.html&gt;`__.</span>
 <span class="sd">    :raise: ValueError for invalid input data or parameters. </span>
 <span class="sd">    :return: In-memory object as a byte stream represention if</span>
@@ -3127,7 +3119,7 @@
 <span class="sd">    :type save_only: bool, optional</span>
 <span class="sd">    :param block: Wait for the image to be closed before returning.</span>
 <span class="sd">    :type block: bool, optional</span>
-<span class="sd">    :param \*\*kwargs: Any additional keyword parameters to pass on to</span>
+<span class="sd">    :param **kwargs: Any additional keyword parameters to pass on to</span>
 <span class="sd">        `matplotlib.pyplot.plot &lt;https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html&gt;`__</span>
 <span class="sd">    :raise: ValueError for invalid input data or parameters. </span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -3440,9 +3432,13 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">merge_key_paths</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="n">merge_key_path</span> <span class="o">=</span> <span class="n">merge_key_paths</span>
                 <span class="n">merge_key_type</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">merge_source_only</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">merge_key_paths</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="n">merge_key_path</span> <span class="o">=</span> <span class="n">merge_key_paths</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;key_path&#39;</span><span class="p">)</span>
                 <span class="n">merge_key_type</span> <span class="o">=</span> <span class="n">merge_key_paths</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;type&#39;</span><span class="p">)</span>
+                <span class="n">merge_source_only_attr</span> <span class="o">=</span> <span class="n">merge_key_paths</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="s1">&#39;merge_source_only&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                <span class="n">merge_source_only</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">merge_source_only_attr</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">merge_key_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
                     <span class="s1">&#39;Invalid/unimplemeted  parameter type &quot;merge_key_path&quot; &#39;</span>
@@ -3467,7 +3463,7 @@
 <span class="c1">#                merge_path = None</span>
             <span class="n">target</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">list_dictionary_update</span><span class="p">(</span>
                 <span class="n">target</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="n">v</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">merge_key</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="n">merge_key_type</span><span class="p">,</span>
-                <span class="n">sort</span><span class="o">=</span><span class="n">sort</span><span class="p">)</span>
+                <span class="n">merge_source_only</span><span class="o">=</span><span class="n">merge_source_only</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="n">sort</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">target</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
     <span class="k">return</span> <span class="n">target</span></div>
@@ -3477,7 +3473,8 @@
 <div class="viewcode-block" id="list_dictionary_update">
 <a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.general.list_dictionary_update">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">list_dictionary_update</span><span class="p">(</span>
-        <span class="n">target</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">target</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">merge_source_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Recursively updates a target list of dictionaries with values</span>
 <span class="sd">    from a source list of dictionaries. Each list item is updated item</span>
 <span class="sd">    by item based on the key if given and equal to a key that is shared</span>
@@ -3538,7 +3535,8 @@
                 <span class="n">ssource</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
                 <span class="k">break</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">merged</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">target_dict</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">merge_source_only</span><span class="p">:</span>
+                <span class="n">merged</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">target_dict</span><span class="p">)</span>
     <span class="n">merged</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">ssource</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">sorted</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">key_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

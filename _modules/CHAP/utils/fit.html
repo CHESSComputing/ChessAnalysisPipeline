@@ -13,7 +13,7 @@
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=21082c34"></script>
+      <script src="../../../_static/documentation_options.js?v=9174d659"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -41,21 +41,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
   
-              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Introduction</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Contributions</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../CONTRIBUTIONS.html">Contributions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
-<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../FOXDEN.html">FOXDEN</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul>
@@ -1424,7 +1416,7 @@
 
 <span class="sd">        :param config: Fit configuration.</span>
 <span class="sd">        :type config: CHAP.utils.models.FitConfig, optional</span>
-<span class="sd">        :param \*\*kwargs: Additional key, value pairs to pass on</span>
+<span class="sd">        :param **kwargs: Additional key, value pairs to pass on</span>
 <span class="sd">            directly to the core fit routine.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Check input parameters</span>
@@ -1522,7 +1514,7 @@
 <span class="sd">        :type plot_residual: bool, optional</span>
 <span class="sd">        :param plot_masked_data:</span>
 <span class="sd">        :type plot_masked_data: bool, optional</span>
-<span class="sd">        :param \*\*kwargs: Additional key, value pairs to pass on</span>
+<span class="sd">        :param **kwargs: Additional key, value pairs to pass on</span>
 <span class="sd">            directly to the Matplotlib plot function.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -2929,7 +2921,7 @@
 <span class="sd">        :type plot_residual: bool, optional</span>
 <span class="sd">        :param plot_masked_data:</span>
 <span class="sd">        :type plot_masked_data: bool, optional</span>
-<span class="sd">        :param \*\*kwargs: Additional key, value pairs to pass on</span>
+<span class="sd">        :param **kwargs: Additional key, value pairs to pass on</span>
 <span class="sd">            directly to the Matplotlib plot function.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Third party modules</span>
@@ -3009,7 +3001,7 @@
 
 <span class="sd">        :param config: Fit configuration.</span>
 <span class="sd">        :type config: CHAP.utils.models.FitConfig, optional</span>
-<span class="sd">        :param \*\*kwargs: Additional key, value pairs to pass on</span>
+<span class="sd">        :param **kwargs: Additional key, value pairs to pass on</span>
 <span class="sd">            directly to the core fit routine.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Check input parameters</span>
@@ -3390,11 +3382,15 @@
                 <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.utils.fit</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelResult</span>
 
                 <span class="n">result</span> <span class="o">=</span> <span class="n">ModelResult</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">))</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">init_params</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># Third party modules</span>
                 <span class="kn">from</span><span class="w"> </span><span class="nn">lmfit.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelResult</span>
 
                 <span class="n">result</span> <span class="o">=</span> <span class="n">ModelResult</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">))</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">init_values</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">par</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">init_params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">init_values</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">par</span><span class="o">.</span><span class="n">value</span>
             <span class="n">result</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="c1"># Renormalize the data and results</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_renormalize</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
@@ -3568,6 +3564,11 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_renormalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_success_flat</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">hasattr</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="s1">&#39;init_params&#39;</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">result</span><span class="o">.</span><span class="n">init_params</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">have_init_params</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">have_init_params</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_redchi_flat</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">redchi</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalized</span><span class="p">:</span>
@@ -3578,16 +3579,21 @@
                     <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_best_vary_flat</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
                     <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">vary</span> <span class="ow">and</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_init_values_flat</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">(</span>
-                    <span class="n">result</span><span class="o">.</span><span class="n">init_params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">have_init_params</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_init_values_flat</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">(</span>
+                        <span class="n">result</span><span class="o">.</span><span class="n">init_params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_init_values_flat</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">(</span>
+                        <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_best_fit_flat</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">best_fit</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">par</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">init_value</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">init_params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
-                <span class="k">if</span> <span class="n">init_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">par</span><span class="o">.</span><span class="n">init_value</span> <span class="o">=</span> <span class="n">init_value</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_norm</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">par</span><span class="o">.</span><span class="n">init_value</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">init_params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">value</span> \
+                    <span class="k">if</span> <span class="n">have_init_params</span> <span class="k">else</span> <span class="n">par</span><span class="o">.</span><span class="n">value</span>
                 <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_linear_parameters</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">par</span><span class="o">.</span><span class="n">init_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">par</span><span class="o">.</span><span class="n">init_value</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
                     <span class="k">if</span> <span class="n">par</span><span class="o">.</span><span class="n">stderr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                         <span class="n">par</span><span class="o">.</span><span class="n">stderr</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_norm</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
                     <span class="k">if</span> <span class="n">par</span><span class="o">.</span><span class="n">expr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

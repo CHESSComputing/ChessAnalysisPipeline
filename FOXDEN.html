@@ -1,0 +1,165 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FOXDEN &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=9174d659"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="EDD subpackage (CHAP.edd)" href="workflows/EDD.html" />
+    <link rel="prev" title="CHAP Pipeline" href="pipeline.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="CONTRIBUTIONS.html">Contributions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">FOXDEN</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api_documentation.html">CHAP</a></li>
+</ul>
+
+  <p class="caption"><span class="caption-text">External Links</span></p>
+  <ul>
+    <li class="toctree-l1">
+      <a class="reference internal" href="https://github.com/CHESSComputing/ChessAnalysisPipeline">
+        <i class="fa fa-github"></i> GitHub Repository
+      </a>
+      <a class="reference internal" href="https://github.com/CHESSComputing/ChessAnalysisPipeline/issues">
+        <i class="fa fa-github"></i> Open or contribute to GitHub issues
+      </a>
+    </li>
+  </ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">FOXDEN</li>
+  <li class="wy-breadcrumbs-aside">
+    <a href="https://github.com/CHESSComputing/ChessAnalysisPipeline" class="fa fa-github"> GitHub</a>
+  </li>
+
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="foxden">
+<span id="foxden-ref"></span><h1>FOXDEN<a class="headerlink" href="#foxden" title="Link to this heading"></a></h1>
+<p>The FAIR Open-Science eXtensible Data Exchange Network <a class="reference external" href="https://github.com/CHESSComputing/FOXDEN">FOXDEN</a> is a suite of lightweight, modular data services, developed at the <a class="reference external" href="https://www.chess.cornell.edu">Cornell High Energy Synchrotron Source</a> (CHESS), that allows researchers to easily record metadata, provenance, and other research artifacts in real time to accompany their raw, reduced, and analysed datasets to adhere to FAIR (Findable, Accessible, Interoperable, and Reusable) data principles.
+It also allows researchers to publish this with Digital Object Identifiers (DOIs) to create artifical intelligence (AI) ready datasets.
+Although FOXDEN originated at CHESS, it is designed to be deployed by any user facility or research group. However, the discussion here focusses on its use within and in connection with CHAP on the CHESS Linux system.</p>
+<p>FOXDEN services are web applications written in Go, built on backend database repositories, with APIs for command line interaction. Each service performs a different function in the data ecosystem: metadata management, provenance tracking, publication, etc. The following figure shows a typical CHESS research workflow:</p>
+<figure class="center-img-only align-default" id="foxden-workflow">
+<img alt="_images/foxden-workflow.png" src="_images/foxden-workflow.png" />
+<figcaption>
+<p><span class="caption-text">A typical CHESS research workflow. FOXDEN services are invoked at each step to produce a chain of Metadata, Provenance, and SpecScan records that can be published under a single DOI. Dotted lines connect records in a chain, and an open circle on one end of a dotted line denotes a reference to the record at the other end.</span><a class="headerlink" href="#foxden-workflow" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>As illustrated in the <a class="reference internal" href="introduction.html#introduction-ref"><span class="std std-ref">Introduction</span></a> this workflow can be translated into a CHAP workflow as a series of <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> components that can be executed individually or all at once (sequentially or in parallel).</p>
+<p>CHAP <code class="docutils literal notranslate"><span class="pre">Processor</span></code>s typically need metadata, which can be provided by user generated input files and read by suitable CHAP Readers. Alternatively, CHAP can retrieve metadata directly using the FOXDEN Metadata service, eliminating the user from having to manually provide metadata with the associated risk of errors or incomplete information.
+To streamline this process, CHAP provides a <code class="docutils literal notranslate"><span class="pre">FoxdenMetadataReader</span></code> and <code class="docutils literal notranslate"><span class="pre">FoxdenProvenanceReader</span></code> (derived classes of <code class="docutils literal notranslate"><span class="pre">Reader</span></code>) that call FOXDEN’s HTTP APIs to retrieve the relevant records from within a <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code>.
+Similarly, a <code class="docutils literal notranslate"><span class="pre">FoxdenMetadataWriter</span></code> and <code class="docutils literal notranslate"><span class="pre">FoxdenProvenanceWriter</span></code> (derived classes of <code class="docutils literal notranslate"><span class="pre">Writer</span></code>) inject FOXDEN records for the new datasets produced by CHAP <code class="docutils literal notranslate"><span class="pre">Processor</span></code>s.</p>
+<p>The following figure illustrates how at every step in the CHAP workflow, FOXDEN services can be invoked (by either a researcher or an automated software process) to create Metadata records for datasets and Provenance records for parent/child relationships between datasets.</p>
+<figure class="center-img-only align-default" id="chap-foxden-workflow">
+<img alt="_images/chap-foxden-workflow.png" src="_images/chap-foxden-workflow.png" />
+<figcaption>
+<p><span class="caption-text">A schematic CHAP workflow composed of two Pipeline components that perform successive stages of data reduction and analysis. FMR and FPR denote the respective <code class="docutils literal notranslate"><span class="pre">FoxdenMetadataReader</span></code> and <code class="docutils literal notranslate"><span class="pre">FoxdenProvenanceReader</span></code> subclasses, and FMW and FPW denote <code class="docutils literal notranslate"><span class="pre">FoxdenMetadataWriter</span></code> and <code class="docutils literal notranslate"><span class="pre">FoxdenProvenanceWriter</span></code>, respectively.</span><a class="headerlink" href="#chap-foxden-workflow" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>Using FOXDEN in a CHAP workflow is therefore as easy as adding a <code class="docutils literal notranslate"><span class="pre">FoxdenMetadataReader</span></code> and <code class="docutils literal notranslate"><span class="pre">FoxdenProvenanceReader</span></code> to the CHAP YAML comfiguration file as inputs to the first CHAP <code class="docutils literal notranslate"><span class="pre">Processor</span></code> and supplying each with a configuration specifying the appropriate FOXDEN service URLs as well as the (raw) data DID (the globally unique Dataset IDentifier in FOXDEN) or a suitable FOXDEN Data Discovery query to the (raw) data.
+CHAP <code class="docutils literal notranslate"><span class="pre">Processor</span></code>s can then access any data available in the Metadata record by utilizing its schema.</p>
+<p>CHAP <code class="docutils literal notranslate"><span class="pre">Processor</span></code>-specific Metadata gets automatically appended to the <code class="docutils literal notranslate"><span class="pre">PipelineData</span></code> list and can either be passed on to the next <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> component or written with the <code class="docutils literal notranslate"><span class="pre">FoxdenMetadataWriter</span></code> to the FOXDEN Metadata Service.
+The appropriate Provenance records and the correct parent child relations are created automatically by CHAP and can be written with a <code class="docutils literal notranslate"><span class="pre">FoxdenProvenanceWriter</span></code> to the FOXDEN Provenance Service.
+This integration of CHAP with FOXDEN demonstrates the benefits of using machine-readable metadata to streamline the configuration of data pipelines: human error is reduced, and as a result, the pipelines can be easily scaled up and automated.</p>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="pipeline.html" class="btn btn-neutral float-left" title="CHAP Pipeline" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="workflows/EDD.html" class="btn btn-neutral float-right" title="EDD subpackage (CHAP.edd)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

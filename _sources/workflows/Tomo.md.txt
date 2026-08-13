@@ -104,7 +104,7 @@ An example of a NeXus file data tree for the output of a tomographic reconstruct
 
 ## Creating the pipeline file
 
-Create a workflow `pipeline.yaml` file according to the [CHAP pipeline instructions](chap_pipeline). A generic pipeline input file for a full tomography reconstruction workflow is as follows (note that spaces and indentation are important in `.yaml` files):
+Create a workflow `pipeline.yaml` file according to the [CHAP pipeline instructions](chap_pipeline_ref). A generic pipeline input file for a full tomography reconstruction workflow is as follows (note that spaces and indentation are important in `.yaml` files):
 ```yaml
 config:
   root: .           # Change as desired
