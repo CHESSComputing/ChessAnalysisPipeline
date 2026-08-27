@@ -10,7 +10,10 @@ from pydantic import (
     Field,
     FilePath,
 )
-from typing import Optional
+from typing import (
+    Literal,
+    Optional,
+)
 
 # Local modules
 from CHAP.common.models.common import IndexSliceConfig
@@ -19,7 +22,9 @@ from CHAP.common.models.map import (
     Detector,
     MapConfig,
 )
+from CHAP.pipeline import PipelineData
 from CHAP.processor import Processor
+from CHAP.reader import Reader
 
 def get_axes(nxdata, skip_axes=None):
     """Get the axes of a NeXus style
@@ -329,6 +334,56 @@ class MapSliceProcessor(Processor):
                     'detector_config is required; alternatively, provide detectors'
                 )
         return data
+
+
+class ParToMapReader(Reader):
+    """Reader to read an SMB-style .par file into a valid
+    :class:`CHAP.common.models.map.MapConfig` object.
+
+    :ivar scan_numbers: List of scan numbers to include in the map. If
+       not provided, all scans marked "good" (a `1` in the `1/0`
+       column) will be used. Optional.
+    :vartype scan_numbers: list[int], optional
+    :ivar scann_col_name: Name of column denoting scan number in the
+       .par file. Defaults to `"SCAN_N"`.
+    :vartype scann_col_name: str, optional
+    :ivar station:
+    :vartype station: Literal['id1a3', 'id3a']
+    :ivar experiment_type:
+    :vartype experiment_type: Literal['edd', 'powder']
+    :ivar par_dims:
+    :vartype par_dims: list[dict[str,str]]
+    :ivar other_dims:
+    :vartype other_dims: list[dict[str,str]], optional
+    """
+    scan_numbers: Optional[
+        conlist(item_type=conint(ge=1), min_length=1)
+    ] = None
+    scann_col_name: str = 'SCAN_N'
+    station: Literal['id1a3', 'id3a']
+    experiment_type: Literal['edd', 'powder']
+    par_dims: list[dict[str, str]]
+    other_dims: Optional[list[dict[str,str]]] = None
+
+    def read(self, data):
+        from CHAP.utils.parfile import ParFile
+
+        pf = ParFile(
+            self.filename,
+            scan_numbers=self.scan_numbers,
+            scann_col_name=self.scann_col_name
+        )
+        map_config = pf.get_map(
+            self.experiment_type,
+            self.station,
+            self.par_dims,
+            other_dims=self.other_dims,
+            return_dict=True,
+        )
+        return PipelineData(
+            data=map_config,
+            schema='common.models.map.MapConfig',
+        )
 
 
 class SpecScanToMapConfigProcessor(Processor):

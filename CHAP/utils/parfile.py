@@ -104,7 +104,9 @@ class ParFile():
                 n for n in scan_numbers if n in self.scan_numbers]
 
     def get_map(
-            self, experiment_type, station, par_dims, other_dims=None):
+            self, experiment_type, station, par_dims, other_dims=None,
+            return_dict=False
+    ):
         """Return a map configuration based on this par file.
 
         :param experiment_type: Experiment type name for the map
@@ -121,6 +123,9 @@ class ParFile():
             `independednt_dimensions`. Use this if each scans in this
             par file captured more than one frame of data.
         :type other_dims: list[dict[str,str]], optional
+        :param return_dict: Flag to return dict type instead of
+            MapConfig object, defaults to `False`.
+        :type return_dict: bool, optional
         :return: Map configuration.
         :rtype: MapConfig
         """
@@ -151,6 +156,8 @@ class ParFile():
                  'data_type': 'smb_par'}
                 for dim in par_dims] + other_dims
         }
+        if return_dict:
+            return map_config
         return MapConfig(**map_config)
 
     def good_scan_numbers(self, good_col_name='1/0'):
