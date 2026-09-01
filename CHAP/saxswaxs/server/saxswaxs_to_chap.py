@@ -79,10 +79,12 @@ def make_pipeline(outputdir,
                   pyfai_filename='pyfai_integration_processor_config.yaml',
                   correction_filename='corrections_config.yaml',
                   fits_filename='fits_config.yaml',
-                  pipeline_filename='pipeline.yaml'):
+                  pipeline_filename='pipeline.yaml',
+                  ):
     """Compose a pipeline file for a complete saxswaxs workflow based
     on the config files provided, and asssuming they all already
     exist. Sort of a lightweight version of wf_to_chap."""
+    from CHAP.common.models.map import MapConfig
     from CHAP.common.reader import YAMLReader
 
     outputdir = os.path.abspath(outputdir)
@@ -98,10 +100,11 @@ def make_pipeline(outputdir,
     if not os.path.isabs(fits_filename):
         fits_filename = os.path.join(outputdir, fits_filename)
 
-    map_config = YAMLReader.run(
-        filename=map_filename, schema='common.models.map.MapConfig')
-    zarr_filename = f'{map_config.title}.zarr'
-    nxs_filename = f'{map_config.title}.nxs'
+    map_config = MapConfig(**YAMLReader.run(
+        filename=map_filename, schema='common.models.map.MapConfig'))
+
+    zarr_filename = os.path.join(outputdir, f'{map_config.title}.zarr')
+    nxs_filename = os.path.abspath(os.path.join(outputdir, '..', f'{map_config.title}.nxs'))
 
     readers = [
         {
