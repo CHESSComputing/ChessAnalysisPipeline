@@ -131,9 +131,9 @@ def setup(cfg):
                 data=data,
                 dataset_chunks=cfg.dataset_chunks,
                 raw_data=False,
+                logger=get_logger("SetupProcessor.run"),
             ),
             name='saxswaxs.processor.SetupProcessor.run',
-            logger=get_logger("SetupProcessor.run"),
         )
     ]
     logger.info('Writing')
@@ -243,12 +243,13 @@ def setup_configs(cfg):
             presample_intensity_counter_name=cfg.presample_intensity_counter_name,
             postsample_intensity_counter_name=cfg.postsample_intensity_counter_name,
             validate_data_present=False,
-            logger=get_logger("SpecScanToMapConfigProcessor.run")
+            logger=get_logger("SpecScanToMapConfigProcessor.run"),
         ),
     )]
     YAMLWriter.run(
         data=map_config,
         filename=str(cfg.map_yaml),
+        force_overwrite=True,
         logger=get_logger("YAMLWriter.run")
     )
 
