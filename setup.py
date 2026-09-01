@@ -78,7 +78,10 @@ setuptools.setup(
         'examples': data_files,
     },
     entry_points={
-        'console_scripts': ['CHAP = CHAP.runner:main'],
+        'console_scripts': [
+            'CHAP = CHAP.runner:main',
+            'saxswaxs-server = CHAP.saxswaxs.server.server:run',
+        ],
     },
     classifiers=[
         "Programming Language :: Python :: 3",

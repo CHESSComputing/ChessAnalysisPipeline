@@ -1,0 +1,17 @@
+{
+  "spec_file": "/data/spec/scan.spec",
+  "scan_number": 1,
+  "detectors_yaml": "/data/config/detectors.yaml",
+  "map_yaml": "/data/config/map.yaml",
+  "pyfai_yaml": "/data/config/pyfai.yaml",
+  "corrections_yaml": "/data/config/corrections.yaml",
+  "fits_yaml": "/data/config/fits.yaml",
+  "tool_yamls": [
+    "/data/tools/tool1.yaml",
+    "/data/tools/tool2.yaml"
+  ],
+  "dwell_time_actual_counter_name": "dwell_counter",
+  "presample_intensity_counter_name": "presample_counter",
+  "postsample_intensity_counter_name": "postsample_counter",
+  "dataset_chunks": [10]
+}
