@@ -13,7 +13,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from CHAP.saxswaxs.server import get_logger
+from CHAP.saxswaxs.server.logging_config import get_logger
 from CHAP.saxswaxs.server.saxswaxs_to_chap import (
     saxswaxs_to_chap,
     make_pipeline as _make_pipeline,
@@ -133,13 +133,15 @@ def setup(cfg):
                 raw_data=False,
             ),
             name='saxswaxs.processor.SetupProcessor.run',
+            logger=get_logger("SetupProcessor.run"),
         )
     ]
     logger.info('Writing')
     ZarrWriter.run(
         data=zarr_tree,
         filename=str(cfg.data_zarr),
-        force_overwrite=True
+        force_overwrite=True,
+        logger=get_logger("ZarrWriter.run"),
     )
 
 
@@ -174,6 +176,7 @@ def update(cfg):
                 raw_data=True,
             ),
             name='UpdateValuesProcessor.run',
+            logger=get_logger("UpdateValuesProcessor.run"),
         )
     ]
     logger.info('Writing')
@@ -187,6 +190,7 @@ def update(cfg):
             step=cfg.idx_slice_step,
         ),
         force_overwrite=True,
+        logger=get_logger("ZarrValuesWriter.run")
     )
 
 
@@ -229,7 +233,7 @@ def setup_configs(cfg):
         and output file paths.
     :type cfg: SetupCfg
     """
-    map_config = PipelineData(
+    map_config = [PipelineData(
         data=SpecScanToMapConfigProcessor.run(
             spec_file=cfg.spec_file,
             scan_number=cfg.scan_number,
@@ -239,11 +243,13 @@ def setup_configs(cfg):
             presample_intensity_counter_name=cfg.presample_intensity_counter_name,
             postsample_intensity_counter_name=cfg.postsample_intensity_counter_name,
             validate_data_present=False,
+            logger=get_logger("SpecScanToMapConfigProcessor.run")
         ),
-    )
+    )]
     YAMLWriter.run(
         data=map_config,
-        filename=cfg.map_yaml,
+        filename=str(cfg.map_yaml),
+        logger=get_logger("YAMLWriter.run")
     )
 
     logger.info(

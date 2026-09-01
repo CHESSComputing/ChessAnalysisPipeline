@@ -5,7 +5,7 @@ import logging
 import time
 from traceback import print_exc
 
-from CHAP.saxswaxs.server import get_logger
+from CHAP.saxswaxs.server.logging_config import get_logger
 from CHAP.saxswaxs.server.task_queue import put
 from CHAP.saxswaxs.server.chap import (
     setup, update, convert, make_pipeline, convert_configs,
@@ -14,7 +14,6 @@ from CHAP.saxswaxs.server.chap import (
 
 app = Flask(__name__)
 app.logger = get_logger('server')
-app.logger.propagate = False
 
 # Logging middleware
 @app.before_request
