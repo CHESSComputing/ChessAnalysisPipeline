@@ -207,7 +207,7 @@ def convert(cfg):
     logger.info("CHAP convert starting")
 
     logname = cfg.outputdir / "chap_convert.log"
-    with open(logname, "w") as logfile:
+    with open(logname, "a") as logfile:
         process = subprocess.Popen(
             [
                 "CHAP",

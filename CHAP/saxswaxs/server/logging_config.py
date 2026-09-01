@@ -1,14 +1,17 @@
 """Logging configuration"""
 
+import contextlib
 import logging
 import os
 import sys
 from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
 
 
 _LOG_HANDLER = None
 _STDOUT_WRAPPER = None
 _STDERR_WRAPPER = None
+_TASK_HANDLER = None
 
 def get_logger(name=__name__, log_level="DEBUG"):
     global _STDOUT_WRAPPER
@@ -20,8 +23,10 @@ def get_logger(name=__name__, log_level="DEBUG"):
 
     handler = _get_log_handler()
 
-    # Avoid duplicate handlers.
-    logger.handlers = [handler]
+    handlers = [handler]
+    if _TASK_HANDLER is not None:
+        handlers.append(_TASK_HANDLER)
+    logger.handlers = handlers
 
     # Redirect stdout/stderr once.
     if _STDOUT_WRAPPER is None:
@@ -32,6 +37,49 @@ def get_logger(name=__name__, log_level="DEBUG"):
         sys.stderr = _STDERR_WRAPPER
 
     return logger
+
+
+@contextlib.contextmanager
+def task_log_context(log_path):
+    """Context manager that tees log output to a per-task append-only file.
+
+    While active, all loggers created via :func:`get_logger` write to
+    *log_path* in addition to the shared rotating log file, using the same
+    formatter.  Raw stdout/stderr writes are also teed to the same file
+    without any additional formatting.  The file is always opened in append
+    mode so successive calls accumulate rather than overwrite.
+    """
+    global _TASK_HANDLER
+
+    log_path = Path(log_path)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    task_handler = logging.FileHandler(str(log_path), mode='a', encoding='utf-8')
+    task_handler.setFormatter(_get_log_handler().formatter)
+
+    prev_task_handler = _TASK_HANDLER
+    _TASK_HANDLER = task_handler
+
+    # Add to all loggers that were created by get_logger (propagate=False).
+    pre_existing = [
+        lgr for lgr in logging.Logger.manager.loggerDict.values()
+        if isinstance(lgr, logging.Logger) and not lgr.propagate
+    ]
+    for lgr in pre_existing:
+        lgr.addHandler(task_handler)
+
+    try:
+        yield
+    finally:
+        _TASK_HANDLER = prev_task_handler
+
+        # Remove from every logger that received this handler (pre-existing
+        # and any created inside the context via get_logger).
+        for lgr in logging.Logger.manager.loggerDict.values():
+            if isinstance(lgr, logging.Logger) and task_handler in lgr.handlers:
+                lgr.handlers = [h for h in lgr.handlers if h is not task_handler]
+
+        task_handler.close()
 
 
 class StreamToLogFile:
@@ -69,6 +117,15 @@ class StreamToLogFile:
 
         finally:
             self.handler.release()
+
+        # Tee raw output to the active task log file.
+        if _TASK_HANDLER is not None:
+            _TASK_HANDLER.acquire()
+            try:
+                _TASK_HANDLER.stream.write(message)
+                _TASK_HANDLER.stream.flush()
+            finally:
+                _TASK_HANDLER.release()
 
     def flush(self):
         self.handler.acquire()
