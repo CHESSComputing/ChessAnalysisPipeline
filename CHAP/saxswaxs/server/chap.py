@@ -120,6 +120,7 @@ def setup(cfg):
     """
     cache_clear()
     scan_to_map(cfg)
+    make_pipeline(cfg)
     logger.info('Reading')
     data = read_configs(
         cfg.detectors_yaml, cfg.map_yaml, cfg.pyfai_yaml, cfg.corrections_yaml, cfg.fits_yaml,
@@ -305,6 +306,9 @@ class SetupCfg(SaxswaxsCfg):
     :vartype postsample_intensity_counter_name: str or None
     :ivar dataset_chunks: Chunk sizes for the Zarr dataset dimensions.
     :vartype dataset_chunks: list[int]
+    :ivar pipeline_yaml: Output filename for the pipeline YAML. Defaults to
+        ``'pipeline.yaml'``.
+    :vartype pipeline_yaml: str
     """
 
     outputdir: Path
@@ -314,6 +318,8 @@ class SetupCfg(SaxswaxsCfg):
     postsample_intensity_counter_name: Optional[str] = None
 
     dataset_chunks: list[int]
+
+    pipeline_yaml: Path
 
 
 class UpdateCfg(SaxswaxsCfg):
