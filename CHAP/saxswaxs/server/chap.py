@@ -111,15 +111,15 @@ def read_configs(detectors_yaml, map_yaml, pyfai_yaml, corrections_yaml, fits_ya
 def setup(cfg):
     """Run the CHAP setup pipeline to create the Zarr dataset structure.
 
-    Generates map and pipeline config files from the spec scan, reads all
-    config files, runs :class:`SetupProcessor` to create the Zarr dataset
+    Generates map config file from the spec scan, reads all config
+    files, runs :class:`SetupProcessor` to create the Zarr dataset
     structure, and writes the result to disk.
 
     :param cfg: Configuration for the setup task.
     :type cfg: SetupCfg
     """
     cache_clear()
-    setup_configs(cfg)
+    scan_to_map(cfg)
     logger.info('Reading')
     data = read_configs(
         cfg.detectors_yaml, cfg.map_yaml, cfg.pyfai_yaml, cfg.corrections_yaml, cfg.fits_yaml,
@@ -222,12 +222,10 @@ def convert(cfg):
     logger.info(f"CHAP convert logging to {logname}")
 
 
-def setup_configs(cfg):
-    """Write map config and CHAP pipeline config YAML files for a spec scan.
+def scan_to_map(cfg):
+    """Write map config YAML file for a given spec scan.
 
-    Calls :func:`scan_to_map` to generate the map config from the spec scan,
-    then :func:`saxswaxs_to_chap` to generate the corresponding CHAP pipeline
-    config files in the output directory.
+    Calls :func:`scan_to_map` to generate the map config from the spec scan.
 
     :param cfg: Configuration containing spec file, scan number, counter names,
         and output file paths.
@@ -251,17 +249,6 @@ def setup_configs(cfg):
         filename=str(cfg.map_yaml),
         force_overwrite=True,
         logger=get_logger("YAMLWriter.run")
-    )
-
-    logger.info(
-        f"saxswaxs_to_chap({cfg.map_yaml}, {cfg.tool_yamls}, {cfg.outputdir})"
-    )
-    saxswaxs_to_chap(
-        str(cfg.map_yaml), [str(t_y) for t_y in cfg.tool_yamls], str(cfg.outputdir),
-        detector_filename=str(cfg.detectors_yaml),
-        pyfai_filename=str(cfg.pyfai_yaml),
-        correction_filename=str(cfg.corrections_yaml),
-        fits_filename=str(cfg.fits_yaml),
     )
 
 
@@ -295,8 +282,8 @@ class SaxswaxsCfg(BaseModel):
     detectors_yaml: Path
     map_yaml: Path
     pyfai_yaml: Path
-    corrections_yaml: Path
-    fits_yaml: Path
+    corrections_yaml: Optional[Path] = None
+    fits_yaml: Optional[Path] = None
 
     data_zarr: Path
 
@@ -309,8 +296,6 @@ class SetupCfg(SaxswaxsCfg):
 
     :ivar outputdir: Directory for output CHAP config files and the Zarr dataset.
     :vartype outputdir: Path
-    :ivar tool_yamls: List of tool config YAML file paths.
-    :vartype tool_yamls: list[Path]
     :ivar dwell_time_actual_counter_name: SPEC counter column name for actual dwell times.
     :vartype dwell_time_actual_counter_name: str
     :ivar presample_intensity_counter_name: SPEC counter column name for presample intensity.
@@ -323,8 +308,6 @@ class SetupCfg(SaxswaxsCfg):
     """
 
     outputdir: Path
-
-    tool_yamls: list[Path]
 
     dwell_time_actual_counter_name: str
     presample_intensity_counter_name: str
@@ -374,47 +357,47 @@ class ConfigFilesCfg(BaseModel):
     :ivar outputdir: Directory to which output config files will be written, and
         against which relative filenames are resolved.
     :vartype outputdir: Path
-    :ivar detector_filename: Path to the detector config YAML file. If relative,
+    :ivar detectors_yaml: Path to the detector config YAML file. If relative,
         resolved against ``outputdir``. Defaults to ``'detector_config.yaml'``.
-    :vartype detector_filename: str
-    :ivar pyfai_filename: Path to the pyFAI integration processor config YAML
+    :vartype detectors_yaml: str
+    :ivar pyfai_yaml: Path to the pyFAI integration processor config YAML
         file. If relative, resolved against ``outputdir``. Defaults to
         ``'pyfai_integration_processor_config.yaml'``.
-    :vartype pyfai_filename: str
-    :ivar correction_filename: Path to the corrections config YAML file. If
+    :vartype pyfai_yaml: str
+    :ivar corrections_yaml: Path to the corrections config YAML file. If
         relative, resolved against ``outputdir``. Defaults to
         ``'corrections_config.yaml'``.
-    :vartype correction_filename: str
+    :vartype corrections_yaml: str
+    :ivar fits_yaml: Path to the fits config YAML file. If relative, resolved
+        against ``outputdir``. Defaults to ``'fits_config.yaml'``.
+    :vartype fits_yaml: str
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     outputdir: Path
-    detector_filename: str = 'detector_config.yaml'
-    pyfai_filename: str = 'pyfai_integration_processor_config.yaml'
-    correction_filename: str = 'corrections_config.yaml'
+    detectors_yaml: str = 'detector_config.yaml'
+    pyfai_yaml: str = 'pyfai_integration_processor_config.yaml'
+    corrections_yaml: str = 'corrections_config.yaml'
+    fits_yaml: str = 'fits_config.yaml'
 
 
 class MakePipelineCfg(ConfigFilesCfg):
     """Configuration for the make_pipeline task, which writes a ``pipeline.yaml``
     from pre-existing config files without requiring the old workflow library.
 
-    Extends :class:`ConfigFilesCfg` with the map, fits, and pipeline filenames.
+    Extends :class:`ConfigFilesCfg` with the map and pipeline filenames.
 
-    :ivar map_filename: Path to the map config YAML file. If relative, resolved
+    :ivar map_yaml: Path to the map config YAML file. If relative, resolved
         against ``outputdir``. Defaults to ``'map_config.yaml'``.
-    :vartype map_filename: str
-    :ivar fits_filename: Path to the fits config YAML file. If relative, resolved
-        against ``outputdir``. Defaults to ``'fits_config.yaml'``.
-    :vartype fits_filename: str
-    :ivar pipeline_filename: Output filename for the pipeline YAML. Defaults to
+    :vartype map_yaml: str
+    :ivar pipeline_yaml: Output filename for the pipeline YAML. Defaults to
         ``'pipeline.yaml'``.
-    :vartype pipeline_filename: str
+    :vartype pipeline_yaml: str
     """
 
-    map_filename: str = 'map_config.yaml'
-    fits_filename: str = 'fits_config.yaml'
-    pipeline_filename: str = 'pipeline.yaml'
+    map_yaml: str = 'map_config.yaml'
+    pipeline_yaml: str = 'pipeline.yaml'
 
 
 class ConvertConfigsCfg(ConfigFilesCfg):
@@ -443,12 +426,12 @@ def make_pipeline(cfg):
     """
     _make_pipeline(
         str(cfg.outputdir),
-        map_filename=cfg.map_filename,
-        detector_filename=cfg.detector_filename,
-        pyfai_filename=cfg.pyfai_filename,
-        correction_filename=cfg.correction_filename,
-        fits_filename=cfg.fits_filename,
-        pipeline_filename=cfg.pipeline_filename,
+        map_filename=cfg.map_yaml,
+        detectors_filename=cfg.detectors_yaml,
+        pyfai_filename=cfg.pyfai_yaml,
+        correction_filename=cfg.corrections_yaml,
+        fits_filename=cfg.fits_yaml,
+        pipeline_filename=cfg.pipeline_yaml,
     )
 
 
@@ -465,7 +448,8 @@ def convert_configs(cfg):
     _convert_configs(
         str(cfg.outputdir),
         [str(t) for t in cfg.tool_yamls],
-        detector_filename=cfg.detector_filename,
-        pyfai_filename=cfg.pyfai_filename,
-        correction_filename=cfg.correction_filename,
+        detector_filename=cfg.detectors_yaml,
+        pyfai_filename=cfg.pyfai_yaml,
+        correction_filename=cfg.corrections_yaml,
+        fits_filename=cfg.fits_yaml,
     )

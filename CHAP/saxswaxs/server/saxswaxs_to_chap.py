@@ -61,6 +61,7 @@ def saxswaxs_to_chap(
         detector_filename=detector_filename,
         pyfai_filename=pyfai_filename,
         correction_filename=correction_filename,
+        fits_filename=fits_filename,
     )
     make_pipeline(
         outputdir,
@@ -223,7 +224,8 @@ def make_pipeline(outputdir,
 def convert_configs(outputdir, tool_config_files,
                     detector_filename='detector_config.yaml',
                     pyfai_filename='pyfai_integration_processor_config.yaml',
-                    correction_filename='corrections_config.yaml'):
+                    correction_filename='corrections_config.yaml',
+                    fits_filename='fits_config.yaml'):
     """Write the new CHAP.saxswaxs-formatted pyfai and corrections
     config files based on the old workflow tool files provided. Should
     be independent from any map configuration or
@@ -344,6 +346,19 @@ def convert_configs(outputdir, tool_config_files,
     with open(correction_filename, 'w') as outf:
         yaml.dump(correction_config, outf, sort_keys=False,
                   Dumper=VerboseSafeDumper)
+
+    # Write fits config .yaml
+    if not os.path.isabs(fits_filename):
+        fits_filename = os.path.join(outputdir, fits_filename)
+    if not os.path.isfile(fits_filename):
+        print(f'Writing to {fits_filename}')
+        fits_config = {'fits': []}
+        os.makedirs(os.path.dirname(fits_filename), exist_ok=True)
+        with open(fits_filename, 'w') as outf:
+            yaml.dump(fits_config, outf, sort_keys=False,
+                      Dumper=VerboseSafeDumper)
+    else:
+        print(f'{fits_filename} already exists, will not overwrite.')
 
 
 if __name__ == '__main__':

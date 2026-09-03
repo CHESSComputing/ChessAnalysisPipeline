@@ -8,8 +8,9 @@ from traceback import print_exc
 from CHAP.saxswaxs.server.logging_config import get_logger
 from CHAP.saxswaxs.server.task_queue import put
 from CHAP.saxswaxs.server.chap import (
-    setup, update, convert, make_pipeline, convert_configs,
-    SetupCfg, UpdateCfg, ConvertCfg, MakePipelineCfg, ConvertConfigsCfg,
+    convert_configs, setup, update, convert, make_pipeline,
+    convert_configs, ConvertConfigsCfg, SetupCfg, UpdateCfg,
+    ConvertCfg, MakePipelineCfg, ConvertConfigsCfg,
 )
 
 app = Flask(__name__)
@@ -120,6 +121,35 @@ def convert_handler():
     return jsonify({'status': 'queued'}), 202
 
 
+@app.route('/convert_configs', methods=['POST'])
+def convert_configs_handler():
+    body = request.get_json(force=True, silent=True)
+    if body is None:
+        return jsonify(
+            {
+                'status': 'error',
+                'reason': 'no data in body of request'
+            }
+        ), 400
+    try:
+        cfg = ConvertConfigsCfg(**body)
+    except Exception as exc:
+        print_exc()
+        return (
+            jsonify(
+                {
+                    'sattus': 'error',
+                    'reason': repr(exc),
+                }
+            ),
+            400
+        )
+    convert_configs_args = (cfg,)
+    convert_configs_kwargs = {}
+    put(convert_configs, convert_configs_args, convert_configs_kwargs)
+    return jsonify({'status': 'queued'}), 202
+
+
 @app.route('/make_pipeline', methods=['POST'])
 def make_pipeline_handler():
     """Handle POST /make_pipeline — parse JSON body and queue a make_pipeline task.
@@ -150,40 +180,6 @@ def make_pipeline_handler():
             400
         )
     put(make_pipeline, (cfg,), {})
-    return jsonify({'status': 'queued'}), 202
-
-
-@app.route('/convert_configs', methods=['POST'])
-def convert_configs_handler():
-    """Handle POST /convert_configs — parse JSON body and queue a convert_configs task.
-
-    Constructs a :class:`~CHAP.saxswaxs.server.chap.ConvertConfigsCfg` from the request
-    body and queues :func:`~CHAP.saxswaxs.server.chap.convert_configs` to write detector,
-    pyFAI integration, and corrections config YAML files from the provided
-    tool config files.
-    """
-    body = request.get_json(force=True, silent=True)
-    if body is None:
-        return jsonify(
-            {
-                'status': 'error',
-                'reason': 'no data in body of request'
-            }
-        ), 400
-    try:
-        cfg = ConvertConfigsCfg(**body)
-    except Exception as exc:
-        print_exc()
-        return (
-            jsonify(
-                {
-                    'status': 'error',
-                    'reason': repr(exc),
-                }
-            ),
-            400
-        )
-    put(convert_configs, (cfg,), {})
     return jsonify({'status': 'queued'}), 202
 
 
