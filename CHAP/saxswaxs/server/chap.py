@@ -86,23 +86,23 @@ def read_configs(detectors_yaml, map_yaml, pyfai_yaml, corrections_yaml, fits_ya
     """
     return [
         _read_yaml(
-            detectors_yaml,
+            str(detectors_yaml),
             'common.models.map.DetectorConfig'
         ),
         _read_yaml(
-            map_yaml,
+            str(map_yaml),
             'common.models.map.MapConfig'
         ),
         _read_yaml(
-            pyfai_yaml,
+            str(pyfai_yaml),
             'common.models.integration.PyfaiIntegrationConfig'
         ),
         _read_yaml(
-            corrections_yaml,
+            str(corrections_yaml),
             'saxswaxs.models.CorrectionsConfig'
         ),
         _read_yaml(
-            fits_yaml,
+            str(fits_yaml),
             'saxswaxs.models.FitsConfig'
         ),
     ]
@@ -282,8 +282,8 @@ class SaxswaxsCfg(BaseModel):
     detectors_yaml: Path
     map_yaml: Path
     pyfai_yaml: Path
-    corrections_yaml: Optional[Path] = None
-    fits_yaml: Optional[Path] = None
+    corrections_yaml: Path
+    fits_yaml: Path
 
     data_zarr: Path
 
@@ -426,12 +426,12 @@ def make_pipeline(cfg):
     """
     _make_pipeline(
         str(cfg.outputdir),
-        map_filename=cfg.map_yaml,
-        detectors_filename=cfg.detectors_yaml,
-        pyfai_filename=cfg.pyfai_yaml,
-        correction_filename=cfg.corrections_yaml,
-        fits_filename=cfg.fits_yaml,
-        pipeline_filename=cfg.pipeline_yaml,
+        map_filename=str(cfg.map_yaml),
+        detector_filename=str(cfg.detectors_yaml),
+        pyfai_filename=str(cfg.pyfai_yaml),
+        correction_filename=str(cfg.corrections_yaml),
+        fits_filename=str(cfg.fits_yaml),
+        pipeline_filename=str(cfg.pipeline_yaml),
     )
 
 
