@@ -175,9 +175,9 @@ def update(cfg):
                     step=cfg.idx_slice_step,
                 ),
                 raw_data=True,
+                logger=get_logger("UpdateValuesProcessor.run"),
             ),
             name='UpdateValuesProcessor.run',
-            logger=get_logger("UpdateValuesProcessor.run"),
         )
     ]
     logger.info('Writing')
