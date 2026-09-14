@@ -4,6 +4,7 @@ import contextlib
 import logging
 import os
 import sys
+import time as _time
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
@@ -174,24 +175,73 @@ class StreamToLogFile:
         return getattr(sys.__stdout__, name)
 
 
+class _DatestampedRotatingHandler(TimedRotatingFileHandler):
+    """Like :class:`TimedRotatingFileHandler` but the active log file always
+    carries a date stamp (``<base>.YYYY-MM-DD.log``).
+
+    The standard handler writes to an undated ``<base>`` file and only adds a
+    date suffix to the *rotated-away* copy.  This subclass inverts that: every
+    file, including the first one opened on startup, is date-stamped.  On
+    rollover the current file is left in place and a new dated file is opened
+    for the incoming day; no renaming takes place.
+    """
+
+    def __init__(self, base_path, backup_count=30, encoding='utf-8'):
+        self._log_base = base_path
+
+        os.makedirs(os.path.dirname(self._log_base), exist_ok=True)
+
+        super().__init__(
+            filename=self._current_path(),
+            when='midnight',
+            interval=1,
+            backupCount=backup_count,
+            encoding=encoding,
+        )
+
+    def _current_path(self):
+        from datetime import date
+        return f"{self._log_base}_{date.today():%Y-%m-%d}.log"
+
+    def doRollover(self):
+        if self.stream:
+            self.stream.close()
+            self.stream = None
+
+        if self.backupCount > 0:
+            base_dir = os.path.dirname(os.path.abspath(self._log_base))
+            base_name = os.path.basename(self._log_base)
+            dated_files = sorted(
+                os.path.join(base_dir, f)
+                for f in os.listdir(base_dir)
+                if f.startswith(base_name + '.') and f.endswith('.log')
+            )
+            for old in dated_files[:-self.backupCount]:
+                try:
+                    os.remove(old)
+                except OSError:
+                    pass
+
+        self.baseFilename = os.path.abspath(self._current_path())
+        self.stream = self._open()
+        self.rolloverAt = self.computeRollover(int(_time.time()))
+
+
 def _get_log_handler():
     global _LOG_HANDLER
 
     if _LOG_HANDLER is None:
         log_file = os.path.join(
             os.path.dirname(__file__),
+            'logs',
             "saxswaxs-server",
         )
 
-        _LOG_HANDLER = TimedRotatingFileHandler(
+        _LOG_HANDLER = _DatestampedRotatingHandler(
             log_file,
-            when="midnight",
-            interval=1,
-            backupCount=30,
+            backup_count=30,
             encoding="utf-8",
         )
-
-        _LOG_HANDLER.suffix = "%Y-%m-%d.log"
 
         _LOG_HANDLER.setFormatter(
             logging.Formatter(
