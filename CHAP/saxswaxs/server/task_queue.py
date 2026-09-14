@@ -2,13 +2,14 @@
 
 import queue
 import threading
-from traceback import print_exc
 from time import sleep, time
+import traceback
 
 from CHAP.saxswaxs.server.logging_config import (
     get_logger,
     task_log_context,
 )
+from CHAP.saxswaxs.server.slack import send_slack_message
 
 logger = get_logger('task_queue')
 
@@ -33,9 +34,22 @@ def _worker():
                     task(*args, **kwargs)
                     success = True
                 except Exception as exc:
+                    traceback_text = traceback.format_exc()
+
                     logger.error(f'Task failed: {exc}')
-                    print_exc()
-                    sleep(5)
+                    print(traceback_text)
+
+                    try:
+                        send_slack_message(
+                            f'*Task failed:* `{task}`\n'
+                            f'*args:* `{args}`\n'
+                            f'*kwargs:* `{kwargs}`\n'
+                            f'```{traceback_text}```'
+                        )
+                    except Exception:
+                        logger.exception('Failed to send Slack notification')
+                    # sleep(5)
+                    break
         _task_queue.task_done()
         tf = time()
         logger.info(f'Task done. ({tf-t0:.5f} seconds)')
