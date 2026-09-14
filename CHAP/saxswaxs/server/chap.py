@@ -22,7 +22,10 @@ from CHAP.saxswaxs.server.saxswaxs_to_chap import (
 
 # functions whose caches will need to be cleared regularly to work
 # with live data processing
-from CHAP.common.models.map import get_scanparser
+from CHAP.common.models.map import (
+    get_available_scan_numbers,
+    get_scanparser,
+)
 from chess_scanparsers.scanparsers import (
     filespec,
     list_fmb_saxswaxs_detector_files,
@@ -32,6 +35,7 @@ logger = get_logger('chap')
 
 def cache_clear():
     """Clear scan parser and file listing caches before processing new data."""
+    get_available_scan_numbers.cache_clear()
     get_scanparser.cache_clear()
     filespec.cache_clear()
     list_fmb_saxswaxs_detector_files.cache_clear()
