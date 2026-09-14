@@ -11,6 +11,9 @@ from CHAP.saxswaxs.server.logging_config import (
 )
 from CHAP.saxswaxs.server.slack import send_slack_message
 
+TRY_N = 3
+RETRY_SLEEP_T = 3
+
 logger = get_logger('task_queue')
 
 _task_queue = queue.Queue()
@@ -27,29 +30,34 @@ def _worker():
             f'Starting task: {str(task)}, args: {args}, kwargs: {kwargs}')
         t0 = time()
         success = False
-        while not success:
+        try_n = 1
+        while not success and try_n <= TRY_N:
+            try_n += 1
             with task_log_context(log_path):
                 # Handle race conditions from missing data
                 try:
                     task(*args, **kwargs)
                     success = True
                 except Exception as exc:
-                    traceback_text = traceback.format_exc()
+                    if try_n <= TRY_N:
+                        sleep(RETRY_SLEEP_T)
+                        continue
+                    else:
+                        traceback_text = traceback.format_exc()
 
-                    logger.error(f'Task failed: {exc}')
-                    print(traceback_text)
+                        logger.error(f'Task failed: {exc}')
+                        print(traceback_text)
 
-                    try:
-                        send_slack_message(
-                            f'*Task failed:* `{task}`\n'
-                            f'*args:* `{args}`\n'
-                            f'*kwargs:* `{kwargs}`\n'
-                            f'```{traceback_text}```'
-                        )
-                    except Exception:
-                        logger.exception('Failed to send Slack notification')
-                    # sleep(5)
-                    break
+                        try:
+                            send_slack_message(
+                                f'*Task failed:* `{task}`\n'
+                                f'*args:* `{args}`\n'
+                                f'*kwargs:* `{kwargs}`\n'
+                                f'```{traceback_text}```'
+                            )
+                        except Exception:
+                            logger.exception('Failed to send Slack notification')
+                        break
         _task_queue.task_done()
         tf = time()
         logger.info(f'Task done. ({tf-t0:.5f} seconds)')
