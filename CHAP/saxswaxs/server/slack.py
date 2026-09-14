@@ -2,10 +2,20 @@
 
 
 import os
+from pathlib import Path
 import requests
 
 
-SLACK_WEBHOOK_URL = os.environ['SLACK_WEBHOOK_URL']
+def get_slack_webhook_url():
+    url = os.environ.get("SLACK_WEBHOOK_URL")
+    if url:
+        return url
+
+    path = Path.home() / "config" / "chap_saxswaxs_server_slack_webhook_url"
+    return path.read_text().strip()
+
+
+SLACK_WEBHOOK_URL = get_slack_webhook_url()
 
 
 def send_slack_message(message):
