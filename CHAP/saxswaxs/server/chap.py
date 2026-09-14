@@ -13,7 +13,10 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from CHAP.saxswaxs.server.logging_config import get_logger
+from CHAP.saxswaxs.server.logging_config import (
+    get_logger,
+    get_task_logger,
+)
 from CHAP.saxswaxs.server.saxswaxs_to_chap import (
     saxswaxs_to_chap,
     make_pipeline as _make_pipeline,
@@ -125,28 +128,28 @@ def setup(cfg):
     cache_clear()
     scan_to_map(cfg)
     make_pipeline(cfg)
-    logger.info('Reading')
+    logger.info('Setup: reading configurations')
     data = read_configs(
         cfg.detectors_yaml, cfg.map_yaml, cfg.pyfai_yaml, cfg.corrections_yaml, cfg.fits_yaml,
     )
-    logger.info('Processing')
+    logger.info('Setup: constructing results container')
     zarr_tree = [
         PipelineData(
             data=SetupProcessor.run(
                 data=data,
                 dataset_chunks=cfg.dataset_chunks,
                 raw_data=False,
-                logger=get_logger("SetupProcessor.run"),
+                logger=get_task_logger("SetupProcessor.run"),
             ),
             name='saxswaxs.processor.SetupProcessor.run',
         )
     ]
-    logger.info('Writing')
+    logger.info(f'Setup: writing results container to {cfg.data_zarr}')
     ZarrWriter.run(
         data=zarr_tree,
         filename=str(cfg.data_zarr),
         force_overwrite=True,
-        logger=get_logger("ZarrWriter.run"),
+        logger=get_task_logger("ZarrWriter.run"),
     )
 
 
@@ -161,11 +164,11 @@ def update(cfg):
     :type cfg: UpdateCfg
     """
     cache_clear()
-    logger.info('Reading')
+    logger.info('Update: reading configurations')
     data = read_configs(
         cfg.detectors_yaml, cfg.map_yaml, cfg.pyfai_yaml, cfg.corrections_yaml, cfg.fits_yaml,
     )
-    logger.info('Processing')
+    logger.info('Update: processing new data')
     values = [
         PipelineData(
             data=UpdateValuesProcessor.run(
@@ -179,12 +182,12 @@ def update(cfg):
                     step=cfg.idx_slice_step,
                 ),
                 raw_data=True,
-                logger=get_logger("UpdateValuesProcessor.run"),
+                logger=get_task_logger("UpdateValuesProcessor.run"),
             ),
             name='UpdateValuesProcessor.run',
         )
     ]
-    logger.info('Writing')
+    logger.info('Update: writing data to {cfg.data_zarr}')
     ZarrValuesWriter.run(
         data=values,
         filename=str(cfg.data_zarr),
@@ -195,7 +198,7 @@ def update(cfg):
             step=cfg.idx_slice_step,
         ),
         force_overwrite=True,
-        logger=get_logger("ZarrValuesWriter.run")
+        logger=get_task_logger("ZarrValuesWriter.run")
     )
 
 
@@ -246,14 +249,14 @@ def scan_to_map(cfg):
             presample_intensity_counter_name=cfg.presample_intensity_counter_name,
             postsample_intensity_counter_name=cfg.postsample_intensity_counter_name,
             validate_data_present=False,
-            logger=get_logger("SpecScanToMapConfigProcessor.run"),
+            logger=get_task_logger("SpecScanToMapConfigProcessor.run"),
         ),
     )]
     YAMLWriter.run(
         data=map_config,
         filename=str(cfg.map_yaml),
         force_overwrite=True,
-        logger=get_logger("YAMLWriter.run")
+        logger=get_task_logger("YAMLWriter.run")
     )
 
 

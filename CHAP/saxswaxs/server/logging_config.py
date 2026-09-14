@@ -39,6 +39,20 @@ def get_logger(name=__name__, log_level="DEBUG"):
     return logger
 
 
+def get_task_logger(name, log_level="DEBUG"):
+    """Return a logger that writes only to the active task log file.
+
+    Unlike :func:`get_logger`, the returned logger is not attached to the
+    shared application log handler.  If no task context is active the logger
+    has no handlers and its output is silently discarded.
+    """
+    logger = logging.getLogger(name)
+    logger.propagate = False
+    logger.setLevel(getattr(logging, log_level.upper()))
+    logger.handlers = [_TASK_HANDLER] if _TASK_HANDLER is not None else []
+    return logger
+
+
 @contextlib.contextmanager
 def task_log_context(log_path):
     """Context manager that tees log output to a per-task append-only file.
@@ -68,9 +82,19 @@ def task_log_context(log_path):
     for lgr in pre_existing:
         lgr.addHandler(task_handler)
 
+    # CHAP internal processors use StreamHandler(sys.stderr) loggers.
+    # sys.stderr is _STDERR_WRAPPER (a StreamToLogFile), so their output
+    # reaches the main log via StreamToLogFile.write().  Suppress that path
+    # for the duration of the task so those messages go only to the task log.
+    if _STDERR_WRAPPER is not None:
+        _STDERR_WRAPPER._task_only = True
+
     try:
         yield
     finally:
+        if _STDERR_WRAPPER is not None:
+            _STDERR_WRAPPER._task_only = False
+
         _TASK_HANDLER = prev_task_handler
 
         # Remove from every logger that received this handler (pre-existing
@@ -87,6 +111,7 @@ class StreamToLogFile:
 
     def __init__(self, handler):
         self.handler = handler
+        self._task_only = False
 
     def write(self, message):
         if not message:
@@ -96,27 +121,28 @@ class StreamToLogFile:
         if isinstance(message, bytes):
             message = message.decode("utf-8", errors="replace")
 
-        self.handler.acquire()
-        try:
-            # Rotate if necessary.
-            record = logging.LogRecord(
-                name="stream",
-                level=logging.INFO,
-                pathname="",
-                lineno=0,
-                msg="",
-                args=(),
-                exc_info=None,
-            )
+        if not self._task_only:
+            self.handler.acquire()
+            try:
+                # Rotate if necessary.
+                record = logging.LogRecord(
+                    name="stream",
+                    level=logging.DEBUG,
+                    pathname="",
+                    lineno=0,
+                    msg="",
+                    args=(),
+                    exc_info=None,
+                )
 
-            if self.handler.shouldRollover(record):
-                self.handler.doRollover()
+                if self.handler.shouldRollover(record):
+                    self.handler.doRollover()
 
-            self.handler.stream.write(message)
-            self.handler.stream.flush()
+                self.handler.stream.write(message)
+                self.handler.stream.flush()
 
-        finally:
-            self.handler.release()
+            finally:
+                self.handler.release()
 
         # Tee raw output to the active task log file.
         if _TASK_HANDLER is not None:
