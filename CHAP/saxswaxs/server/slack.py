@@ -11,7 +11,7 @@ def get_slack_webhook_url():
     if url:
         return url
 
-    path = Path.home() / "config" / "chap_saxswaxs_server_slack_webhook_url"
+    path = Path.home() / ".config" / "chap_saxswaxs_server_slack_webhook_url"
     return path.read_text().strip()
 
 

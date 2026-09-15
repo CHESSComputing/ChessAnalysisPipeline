@@ -187,7 +187,7 @@ def update(cfg):
             name='UpdateValuesProcessor.run',
         )
     ]
-    logger.info('Update: writing data to {cfg.data_zarr}')
+    logger.info(f'Update: writing data to {cfg.data_zarr}')
     ZarrValuesWriter.run(
         data=values,
         filename=str(cfg.data_zarr),
