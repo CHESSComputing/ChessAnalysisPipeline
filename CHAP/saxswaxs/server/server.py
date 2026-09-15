@@ -185,7 +185,7 @@ def make_pipeline_handler():
 
 def run():
     """Start the Flask development server."""
-    app.run(debug=False)
+    app.run(debug=False, host='0.0.0.0')
 
 if __name__ == '__main__':
     run()
