@@ -206,6 +206,18 @@ def make_pipeline(outputdir,
         **update_pipelines,
         'convert': [
             {
+                'saxswaxs.processor.NewZarrToOldNexusProcessor': {
+                    'zarr_filename': zarr_filename,
+                }
+            },
+            {
+                'common.writer.NexusWriter': {
+                    'filename': nxs_filename,
+                }
+            },
+        ],
+        'convert_new': [
+            {
                 'common.processor.ZarrToNexusProcessor': {
                     'zarr_filename': zarr_filename,
                     'nexus_filename': nxs_filename,
