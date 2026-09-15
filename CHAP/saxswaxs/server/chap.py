@@ -126,7 +126,9 @@ def setup(cfg):
     :type cfg: SetupCfg
     """
     cache_clear()
+    logger.info('Converting scan to map config')
     scan_to_map(cfg)
+    logger.info('Composing pipeline configuration')
     make_pipeline(cfg)
     logger.info('Setup: reading configurations')
     data = read_configs(
