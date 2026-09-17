@@ -30,16 +30,17 @@ def _worker():
             f'Starting task: {str(task)}, args: {args}, kwargs: {kwargs}')
         t0 = time()
         success = False
-        try_n = 1
-        while not success and try_n <= TRY_N:
+        try_n = 0
+        while not success and try_n < TRY_N:
             try_n += 1
+            logger.info(f'Attempt {try_n}')
             with task_log_context(log_path):
                 # Handle race conditions from missing data
                 try:
                     task(*args, **kwargs)
                     success = True
                 except Exception as exc:
-                    if try_n <= TRY_N:
+                    if try_n < TRY_N:
                         sleep(RETRY_SLEEP_T)
                         continue
                     else:
@@ -56,7 +57,7 @@ def _worker():
                                 f'```{traceback_text}```'
                             )
                         except Exception:
-                            logger.exception('Failed to send Slack notification')
+                            logger.error('Failed to send Slack notification')
                         break
         _task_queue.task_done()
         tf = time()
