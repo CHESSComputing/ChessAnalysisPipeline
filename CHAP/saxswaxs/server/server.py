@@ -1,11 +1,12 @@
 """Server for handling HTTP requests."""
 
+import argparse
 from flask import Flask, jsonify, request
-import logging
+import sys
 import time
 from traceback import print_exc
 
-from CHAP.saxswaxs.server.logging_config import get_logger
+from CHAP.saxswaxs.server.logging_config import get_logger, set_logdir
 from CHAP.saxswaxs.server.task_queue import put
 from CHAP.saxswaxs.server.chap import (
     convert_configs, setup, update, convert, make_pipeline,
@@ -14,7 +15,6 @@ from CHAP.saxswaxs.server.chap import (
 )
 
 app = Flask(__name__)
-app.logger = get_logger('server')
 
 # Logging middleware
 @app.before_request
@@ -183,8 +183,21 @@ def make_pipeline_handler():
     return jsonify({'status': 'queued'}), 202
 
 
-def run():
+def run(argv=sys.argv[1:]):
     """Start the Flask development server."""
+    parser = argparse.ArgumentParser(
+        description='''Startup the CHAP.saxswaxs.server analysis server'''
+    )
+    parser.add_argument(
+        'logdir',
+        help='''Directory for server log files (task log files are
+        handled according to the task's outputdir)'''
+    )
+    args = parser.parse_args(argv)
+
+    set_logdir(args.logdir)
+    app.logger = get_logger('server')
+
     app.run(debug=False, host='0.0.0.0')
 
 if __name__ == '__main__':

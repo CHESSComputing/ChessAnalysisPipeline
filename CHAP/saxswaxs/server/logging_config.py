@@ -9,7 +9,21 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 
+_LOGDIR = None
 _LOG_HANDLER = None
+
+
+def set_logdir(path):
+    global _LOGDIR, _LOG_HANDLER
+    os.makedirs(path, exist_ok=True)
+    _LOGDIR = path
+    _LOG_HANDLER = None  # force re-creation against the new path
+    new_handler = _get_log_handler()
+    for lgr in logging.Logger.manager.loggerDict.values():
+        if isinstance(lgr, logging.Logger) and not lgr.propagate:
+            lgr.handlers = [new_handler]
+
+
 _STDOUT_WRAPPER = None
 _STDERR_WRAPPER = None
 _TASK_HANDLER = None
@@ -29,8 +43,8 @@ def get_logger(name=__name__, log_level="DEBUG"):
         handlers.append(_TASK_HANDLER)
     logger.handlers = handlers
 
-    # Redirect stdout/stderr once.
-    if _STDOUT_WRAPPER is None:
+    # Redirect stdout/stderr once a real file handler is available.
+    if _STDOUT_WRAPPER is None and not isinstance(handler, logging.NullHandler):
         _STDOUT_WRAPPER = StreamToLogFile(handler)
         _STDERR_WRAPPER = StreamToLogFile(handler)
 
@@ -228,12 +242,15 @@ class _DatestampedRotatingHandler(TimedRotatingFileHandler):
 
 
 def _get_log_handler():
+    global _LOGDIR
     global _LOG_HANDLER
+
+    if _LOGDIR is None:
+        return logging.NullHandler()
 
     if _LOG_HANDLER is None:
         log_file = os.path.join(
-            os.path.dirname(__file__),
-            'logs',
+            _LOGDIR,
             "saxswaxs-server",
         )
 
