@@ -17,7 +17,7 @@ The `CHAP.saxswaxs` module contains processing tools unique to SAXS/WAXS process
    1. Integrated data size(s)
 
    In practice, you should prepare [two supplementary configuration files](#related_configuration_objects) in addition to the parameters for the tools involved in this step: one for a `MapConfig`, object, another for a `PyFaiIntegrationProcessorConfig` object. 
-   This step also sets the number of chunks for each data array in the container. [Selecting the right number of chunks is important for optimizing performance](#optimizing_performance) during the next step.
+   This step also sets the number of chunks for each data array in the container. [Selecting the right number of chunks is important for optimizing performance](#optimizing-performance) during the next step.
 
     <details>
     <summary> Example pipeline configuration</summary>
@@ -263,7 +263,7 @@ Before constructing a `CHAP` pipeline configuration to run a complete SAXS/WAXS 
    
    This configuration contains everything `CHAP` needs to know about the location, format, and size of the raw input dataset.
    <details>
-   <summary>Example `map_config`.yaml</summary>
+   <summary>Example `map_config.yaml`</summary>
 
    ```yaml
    validate_data_present: false
@@ -485,6 +485,7 @@ Before constructing a `CHAP` pipeline configuration to run a complete SAXS/WAXS 
    Example `pyfai_integration_processor_config.yaml`
    <details>
    <summary>Example `pyfai_integration_processor_config.yaml`</summary>
+
    ```yaml
    azimuthal_integrators:
    - id: PIL9
