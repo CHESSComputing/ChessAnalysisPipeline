@@ -398,6 +398,8 @@ class FitParameter(CHAPBaseModel):
 #            return self._prefix
 #        return ''
 
+#    RV right now the FitParameter.name always has its prefix already
+#    included when there is a name conflict
 #    @property
 #    def long_name(self):
 #        """Return the fully-qualified parameter name, combining the
@@ -772,7 +774,7 @@ class FitModel(CHAPBaseModel):
                         'NX_class': 'NXparameters',
                     },
                     'children': {
-                        param.long_name: param.zarr_tree(
+                        param.name: param.zarr_tree(
                             dataset_shape, dataset_chunks, nxlinks=nxlinks
                         ) for param in self.parameters
                     }

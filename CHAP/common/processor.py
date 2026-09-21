@@ -945,9 +945,6 @@ class MapProcessor(Processor):
         include raw data for in the returned NXentry object
         (overruling detector info in the pipeline data, if present).
     :vartype detector_config: dict | DetectorConfig
-    :ivar num_proc: Number of processors used to read map,
-        defaults to `1`.
-    :vartype num_proc: int, optional
     :ivar remove_constant_dims: Flag to indicate that any
         `independent_dimension`s in the map whose values are constant
         across the map should be exluded from the output
@@ -962,40 +959,7 @@ class MapProcessor(Processor):
         init_var=True)
     config: Optional[MapConfig] = None
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
-    num_proc: Optional[conint(gt=0)] = 1
     remove_constant_dims: Optional[bool] = True
-
-    @field_validator('num_proc')
-    @classmethod
-    def validate_num_proc(cls, num_proc, info):
-        """Validate the number of processors.
-
-        :param num_proc: Number of processors used to read map,
-            defaults to `1`.
-        :type num_proc: int, optional
-        :param info: Model parameter validation information.
-        :type info: pydantic.ValidationInfo
-        :return: Validated number of processors
-        :rtype: str
-        """
-        if num_proc > 1:
-            logger = info.data['logger']
-            try:
-                # Third party modules
-                # pylint: disable=unused-import
-                from mpi4py import MPI
-
-                if num_proc > os.cpu_count():
-                    logger.warning(
-                        f'The requested number of processors ({num_proc}) '
-                        'exceeds the maximum number of processors '
-                        f'({os.cpu_count()}): reset it to {os.cpu_count()}')
-                    num_proc = os.cpu_count()
-            except ImportError:
-                logger.warning('Unable to load mpi4py, running serially')
-                num_proc = 1
-            logger.debug(f'Number of processors: {num_proc}')
-        return num_proc
 
     def process(
             self, data, placeholder_data=False, fill_data=True, comm=None):
@@ -1042,92 +1006,9 @@ class MapProcessor(Processor):
             assert len(self.config.spec_scans) == 1
             spec_scans = self.config.spec_scans[0]
             scan_numbers = spec_scans.scan_numbers
-            num_scan = len(scan_numbers)
-            if 0 < num_scan < self.num_proc:
-                self.logger.warning(
-                    f'Requested number of processors ({self.num_proc}) exceeds '
-                    f'the number of scans ({num_scan}): reset it to {num_scan}')
-                self.num_proc = num_scan
-            if self.num_proc == 1:
-                common_comm = comm
-                offsets = [0]
-            else:
-                # System modules
-                from tempfile import NamedTemporaryFile
-
-                # Local modules
-                from CHAP.models import RunConfig
-
-                raise NotImplementedError(
-                    'MapProcessor needs testing for num_proc>1')
-                scans_per_proc = num_scan//self.num_proc
-                num = scans_per_proc
-                if num_scan - scans_per_proc*self.num_proc > 0:
-                    num += 1
-                spec_scans.scan_numbers = scan_numbers[:num]
-                n_scan = num
-                pipeline_config = []
-                offsets = [0]
-                for n_proc in range(1, self.num_proc):
-                    num = scans_per_proc
-                    if n_proc < num_scan - scans_per_proc*self.num_proc:
-                        num += 1
-                    config = self.config.model_dump()
-                    config['spec_scans'][0]['scan_numbers'] = \
-                        scan_numbers[n_scan:n_scan+num]
-                    pipeline_config.append([{
-                        'common.MapProcessor': {
-                            'config': config,
-                            'detector_config':
-                                self.detector_config.model_dump()}}])
-                    offsets.append(n_scan)
-                    n_scan += num
-
-                # Spawn the workers to run the sub-pipeline
-                run_config = RunConfig(
-                    log_level=logging.getLevelName(self.logger.level), spawn=1)
-                tmp_names = []
-                with NamedTemporaryFile(delete=False) as fp:
-                    # pylint: disable=c-extension-no-member
-                    fp_name = fp.name
-                    tmp_names.append(fp_name)
-                    with open(fp_name, 'w', encoding='utf-8') as f:
-                        yaml.dump({'config': {'spawn': 1}}, f, sort_keys=False)
-                    for n_proc in range(1, self.num_proc):
-                        f_name = f'{fp_name}_{n_proc}'
-                        tmp_names.append(f_name)
-                        with open(f_name, 'w', encoding='utf-8') as f:
-                            yaml.dump(
-                                # FIX once comm is a field of RunConfig
-                                #processor.py {'config': run_config.model_dump(exclude='comm'),
-                                {'config': run_config.model_dump(),
-                                 'pipeline': pipeline_config[n_proc-1]},
-                                f, sort_keys=False)
-                    # pylint: disable=used-before-assignment
-                    sub_comm = MPI.COMM_SELF.Spawn(
-                        'CHAP', args=[fp_name], maxprocs=self.num_proc-1)
-                    common_comm = sub_comm.Merge(False)
-                    # Align with the barrier in RunConfig() on common_comm
-                    # called from the spawned main() in common_comm
-                    common_comm.barrier()
-                    # Align with the barrier in run() on common_comm
-                    # called from the spawned main()
-                    common_comm.barrier()
-
-            if common_comm is None:
-                self.num_proc = 1
-                rank = 0
-            else:
-                self.num_proc = common_comm.Get_size()
-                rank = common_comm.Get_rank()
-            if self.num_proc == 1:
-                offset = 0
-            else:
-                num_scan = common_comm.bcast(num_scan, root=0)
-                offset = common_comm.scatter(offsets, root=0)
 
             # Read the raw data
-            if num_scan == 0:
+            if not scan_numbers:
                 num_id = len(self.config.independent_dimensions)
                 num_sd = len(self.config.all_scalar_data)
                 num_det = len(self.detector_config.detectors)
@@ -1138,34 +1019,10 @@ class MapProcessor(Processor):
                 all_scalar_data = np.empty((num_sd, 0))
             elif self.config.experiment_type == 'EDD':
                 data, independent_dimensions, all_scalar_data = \
-                    self._read_raw_data_edd(
-                        common_comm, num_scan, offset, placeholder_data)
+                    self._read_raw_data_edd(placeholder_data)
             else:
                 data, independent_dimensions, all_scalar_data = \
-                    self._read_raw_data(common_comm, num_scan, offset)
-            if not rank:
-                self.logger.debug(
-                    f'Data shape: {data.shape if data is not None else None}')
-                if independent_dimensions is not None:
-                    self.logger.debug('Independent dimensions shape: '
-                                      f'{independent_dimensions.shape}')
-                if all_scalar_data is not None:
-                    self.logger.debug('Scalar data shape: '
-                                      f'{all_scalar_data.shape}')
-
-            if rank:
-                return None
-
-            if self.num_proc > 1:
-                # Reset the scan_numbers to the original full set
-                spec_scans.scan_numbers = scan_numbers
-                # Align with the barrier in main() on common_comm
-                # when disconnecting the spawned worker
-                common_comm.barrier()
-                # Disconnect spawned workers and cleanup temporary files
-                sub_comm.Disconnect()
-                for tmp_name in tmp_names:
-                    os.remove(tmp_name)
+                    self._read_raw_data()
         else:
             # fill_data is False, just use empty arrays
             map_len = 0
@@ -1186,11 +1043,11 @@ class MapProcessor(Processor):
                     if not det_shapes:
                         det_shapes = {}
                         for detector in self.detector_config.detectors:
-                            ddata_init = scanparser.get_detector_data(
+                            data_init = scanparser.get_detector_data(
                                 detector.get_id(), 0)
-                            if isinstance(ddata_init, tuple):
-                                ddata_init = ddata_init[0].squeeze()
-                            det_shapes[detector.get_id()] = ddata_init.shape
+                            if isinstance(data_init, tuple):
+                                data_init = data_init[0].squeeze()
+                            det_shapes[detector.get_id()] = data_init.shape
             all_scalar_data = np.empty(
                 (len(self.config.all_scalar_data), map_len))
             if len(self.detector_config.detectors) > 0:
@@ -1285,7 +1142,7 @@ class MapProcessor(Processor):
         object.
 
         :param data: Map's raw data.
-        :type data: numpy.ndarray
+        :type data: dict[str, numpy.ndarray]
         :param independent_dimensions: Map's independent
             coordinates.
         :type independent_dimensions: numpy.ndarray
@@ -1435,7 +1292,8 @@ class MapProcessor(Processor):
                 chunks=(1, *all_scalar_data[-1].shape[1:])
             ))
         if self.remove_constant_dims:
-            for i, dim in enumerate(deepcopy(self.config.independent_dimensions)):
+            for i, dim in enumerate(
+                    deepcopy(self.config.independent_dimensions)):
                 if i in constant_dim:
                     scalar_signals.append(dim.label)
                     scalar_data.append(NXfield(
@@ -1468,38 +1326,28 @@ class MapProcessor(Processor):
         detector_ids = []
         for k, v in self.config.attrs.items():
             nxdata.attrs[k] = v
-        if data is not None:
-            if data.size > 0:
-                min_ = np.min(data, axis=tuple(range(1, data.ndim)))
-                max_ = np.max(data, axis=tuple(range(1, data.ndim)))
-            else:
-                min_ = np.full(len(self.detector_config.detectors), np.nan)
-                max_ = np.full(len(self.detector_config.detectors), np.nan)
-        for i, detector in enumerate(self.detector_config.detectors):
-            nxdata[detector.get_id()] = NXfield(
-                value=data[i],
-                attrs={**detector.attrs, 'min': min_[i], 'max': max_[i]},
-                maxshape=(None, *data[i].shape[1:]),
-                chunks=(1, *data[i].shape[1:])
+        for detector in self.detector_config.detectors:
+            detector_id = detector.get_id()
+            ddata = data[detector_id]
+            nxdata[detector_id] = NXfield(
+                value=data[detector_id],
+                attrs={**detector.attrs,
+                       'min': ddata.min() if ddata.size else np.nan,
+                       'max': ddata.max() if ddata.size else np.nan},
+                maxshape=(None, *data[detector_id].shape[1:]),
+                chunks=(1, *data[detector_id].shape[1:])
             )
-            detector_ids.append(detector.get_id())
+            detector_ids.append(detector_id)
         linkdims(nxdata, nxentry.independent_dimensions)
         if len(self.detector_config.detectors) == 1:
-            nxdata.attrs['signal'] = self.detector_config.detectors[0].get_id()
+            nxdata.attrs['signal'] = detector_ids[0]
         nxentry.detector_ids = detector_ids
 
         return nxroot
 
-    def _read_raw_data_edd(
-            self, comm, num_scan, offset, placeholder_data):
+    def _read_raw_data_edd(self, placeholder_data):
         """Read the raw EDD data for a given map configuration.
 
-        :param comm: MPI communicator.
-        :type comm: mpi4py.MPI.Comm, optional
-        :param num_scan: Number of scans in the map.
-        :type num_scan: int
-        :param offset: Offset scan number of current processor.
-        :type offset: int
         :param placeholder_data: Value to use for missing detector
             data frames, or `False` if missing data should raise an
             error.
@@ -1508,29 +1356,11 @@ class MapProcessor(Processor):
             data.
         :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
         """
-        # Third party modules
-        try:
-            from mpi4py import MPI
-            from mpi4py.util import dtlib
-        except ImportError:
-            pass
-
         # Local modules
         from CHAP.utils.general import list_to_string
 
-        if comm is None:
-            self.num_proc = 1
-            rank = 0
-        else:
-            self.num_proc = comm.Get_size()
-            rank = comm.Get_rank()
-        if not rank:
-            self.logger.debug(f'Number of processors: {self.num_proc}')
-            self.logger.debug(f'Number of scans: {num_scan}')
-
         # Create the shared data buffers
         # FIX: just one spec scan at this point
-        assert len(self.config.spec_scans) == 1
         scan = self.config.spec_scans[0]
         scan_numbers = scan.scan_numbers
         scanparser = scan.get_scanparser(scan_numbers[0])
@@ -1539,63 +1369,29 @@ class MapProcessor(Processor):
         ddata, placeholder_used = scanparser.get_detector_data(
             detector_ids, placeholder_data=placeholder_data)
         spec_scan_shape = scanparser.spec_scan_shape
+        num_scan = len(scan_numbers)
         num_dim = np.prod(spec_scan_shape)
         num_id = len(self.config.independent_dimensions)
         num_sd = len(self.config.all_scalar_data)
         if placeholder_data is not False:
             num_sd += 1
-        if self.num_proc == 1:
-            assert num_scan == len(scan_numbers)
-            data = np.empty((num_scan, *ddata.shape), dtype=ddata.dtype)
-            independent_dimensions = np.empty(
-                (num_id, num_scan*num_dim), dtype=np.float64)
-            all_scalar_data = np.empty(
-                (num_sd, num_scan*num_dim), dtype=np.float64)
-        else:
-            self.logger.debug(f'Scan offset on processor {rank}: {offset}')
-            self.logger.debug(f'Scan numbers on processor {rank}: '
-                              f'{list_to_string(scan_numbers)}')
-            datatype = dtlib.from_numpy_dtype(ddata.dtype)
-            itemsize = datatype.Get_size()
-            if not rank:
-                nbytes = num_scan * np.prod(ddata.shape) * itemsize
-            else:
-                nbytes = 0
-            win = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
-            buf, itemsize = win.Shared_query(0)
-            assert itemsize == datatype.Get_size()
-            data = np.ndarray(
-                buffer=buf, dtype=ddata.dtype, shape=(num_scan, *ddata.shape))
-            datatype = dtlib.from_numpy_dtype(np.float64)
-            itemsize = datatype.Get_size()
-            if not rank:
-                nbytes = num_id * num_scan * num_dim * itemsize
-            win_id = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
-            buf_id, _ = win_id.Shared_query(0)
-            independent_dimensions = np.ndarray(
-                buffer=buf_id, dtype=np.float64,
-                shape=(num_id, num_scan*num_dim))
-            if not rank:
-                nbytes = num_sd * num_scan * num_dim * itemsize
-            win_sd = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
-            buf_sd, _ = win_sd.Shared_query(0)
-            all_scalar_data = np.ndarray(
-                buffer=buf_sd, dtype=np.float64,
-                shape=(num_sd, num_scan*num_dim))
+        data = np.empty((num_scan, *ddata.shape), dtype=ddata.dtype)
+        independent_dimensions = np.empty(
+            (num_id, num_scan*num_dim), dtype=np.float64)
+        all_scalar_data = np.empty(
+            (num_sd, num_scan*num_dim), dtype=np.float64)
 
         # Read the raw data
         init = True
         for scan in self.config.spec_scans:
-            for scan_number in scan.scan_numbers:
-                if init:
-                    init = False
-                else:
+            for n, scan_number in enumerate(scan.scan_numbers):
+                if n:
                     scanparser = scan.get_scanparser(scan_number)
                     assert spec_scan_shape == scanparser.spec_scan_shape
                     ddata, placeholder_used = scanparser.get_detector_data(
                         detector_ids, placeholder_data=placeholder_data)
-                data[offset] = ddata
-                start_dim = offset * num_dim
+                data[n] = ddata
+                start_dim = n * num_dim
                 end_dim = start_dim + num_dim
                 for i, dim in enumerate(self.config.independent_dimensions):
                     independent_dimensions[i][start_dim:end_dim] = \
@@ -1609,173 +1405,121 @@ class MapProcessor(Processor):
                     if placeholder_data is not False:
                         all_scalar_data[-1][start_dim:end_dim] = \
                             placeholder_used
-                offset += 1
 
+        data = np.swapaxes(
+            data.reshape((np.prod(data.shape[:2]), *data.shape[2:])), 0, 1)
         return (
-            np.swapaxes(
-                data.reshape((np.prod(data.shape[:2]), *data.shape[2:])),
-                0, 1),
+            {str(det_id):data[i] for i, det_id in enumerate(detector_ids)},
             independent_dimensions, all_scalar_data)
 
 #    @profile
-    def _read_raw_data(self, comm, num_scan, offset):
+    def _read_raw_data(self):
         """Read the raw data for a given map configuration.
 
-        :param comm: MPI communicator.
-        :type comm: mpi4py.MPI.Comm, optional
-        :param num_scan: Number of scans in the map.
-        :type num_scan: int
-        :param offset: Offset scan number of current processor.
-        :type offset: int
         :return: Map's raw data, independent dimensions and scalar
             data.
-        :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
+        :rtype: dict[str, numpy.ndarray], numpy.ndarray, numpy.ndarray
         """
-        # Third party modules
-        try:
-            from mpi4py import MPI
-            from mpi4py.util import dtlib
-        except ImportError:
-            pass
-
         # Local modules
         from CHAP.utils.general import list_to_string
-
-        if comm is None:
-            self.num_proc = 1
-            rank = 0
-        else:
-            self.num_proc = comm.Get_size()
-            rank = comm.Get_rank()
-        if not rank:
-            self.logger.debug(f'Number of processors: {self.num_proc}')
-            self.logger.debug(f'Number of scans: {num_scan}')
 
         # Create the shared data buffers
         assert len(self.config.spec_scans) == 1
         scans = self.config.spec_scans[0]
         scan_numbers = scans.scan_numbers
         scanparser = scans.get_scanparser(scan_numbers[0])
-        #RV only correct for multiple detectors if the same image sizes
-        if len(self.detector_config.detectors) != 1:
-            raise ValueError('Multiple detectors not tested yet')
         # FIX eliminate need for testing for self.config.experiment_type
         # in scanparser
+        data = {}
         if self.config.experiment_type == 'TOMO':
-            dtype = np.float32
+            detector_id = self.detector_config.detectors[0].get_id()
             detector_roi = [slice(None), slice(None)] \
                 if self.detector_config.roi is None \
                 else self.detector_config.roitoslice()
-            ddata = scanparser.get_detector_data(
-                self.detector_config.detectors[0].get_id(),
-                detector_roi=detector_roi, dtype=dtype)
+            dtype = np.float32
+            data[detector_id] = [scanparser.get_detector_data(
+                detector_id, detector_roi=detector_roi, dtype=dtype)]
+            num_dim = data[detector_id][0].shape[0]
+        if self.config.experiment_type == 'EDD':
+            exit('done here')
+            dtype = None
+            for i, detector in enumerate(self.detector_config.detectors):
+                detector_id = detector.get_id()
+                data[detector_id] = [
+                    scanparser.get_detector_data(detector_id)[0]]
+                if i:
+                    assert num_dim == data[detector_id][0].shape[0]
+                else:
+                    num_dim = data[detector_id][0].shape[0]
         else:
             dtype = None
-            ddata = scanparser.get_detector_data(
-                self.detector_config.detectors[0].get_id())
+            for i, detector in enumerate(self.detector_config.detectors):
+                detector_id = detector.get_id()
+                data[detector_id] = [scanparser.get_detector_data(detector_id)]
+                if i:
+                    assert num_dim == data[detector_id][0].shape[0]
+                else:
+                    num_dim = data[detector_id][0].shape[0]
+        num_scan = len(scan_numbers)
         num_det = len(self.detector_config.detectors)
-        num_dim = ddata.shape[0]
         num_id = len(self.config.independent_dimensions)
         num_sd = len(self.config.all_scalar_data)
-        if self.num_proc == 1:
-            assert num_scan == len(scan_numbers)
-            data = num_det*[num_scan*[None]]
-            independent_dimensions = np.empty(
-               (num_scan, num_id, num_dim), dtype=np.float64)
-            if num_sd:
-                all_scalar_data = np.empty(
-                    (num_scan, num_sd, num_dim), dtype=np.float64)
-        else:
-            self.logger.debug(f'Scan offset on processor {rank}: {offset}')
-            self.logger.debug(f'Scan numbers on processor {rank}: '
-                              f'{list_to_string(scan_numbers)}')
-            datatype = dtlib.from_numpy_dtype(dtype)
-            itemsize = datatype.Get_size()
-            nbytes = num_scan * np.prod(ddata.shape) * itemsize \
-                if not rank else 0
-            win = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
-            buf, _ = win.Shared_query(0)
-            #RV improve memory requirements ala single processor case?
-            data = np.ndarray(
-                buffer=buf, dtype=dtype,
-                shape=(num_det, num_scan, *ddata.shape))
-            datatype = dtlib.from_numpy_dtype(np.float64)
-            itemsize = datatype.Get_size()
-            nbytes = num_scan * num_id * num_dim * itemsize if not rank else 0
-            win_id = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
-            buf_id, _ = win_id.Shared_query(0)
-            independent_dimensions = np.ndarray(
-                buffer=buf_id, dtype=np.float64,
-                shape=(num_scan, num_id, num_dim))
-            if num_sd:
-                if not rank:
-                    nbytes = num_scan * num_sd * num_dim * itemsize
-                win_sd = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
-                buf_sd, _ = win_sd.Shared_query(0)
-                all_scalar_data = np.ndarray(
-                    buffer=buf_sd, dtype=np.float64,
-                    shape=(num_scan, num_sd, num_dim))
-            else:
-                all_scalar_data = None
+        independent_dimensions = np.empty(
+           (num_scan, num_id, num_dim), dtype=np.float64)
+        if num_sd:
+            all_scalar_data = np.empty(
+                (num_scan, num_sd, num_dim), dtype=np.float64)
 
         # Read the raw data
-        init = True
         for scans in self.config.spec_scans:
-            for scan_number in scans.scan_numbers:
-                for i in range(len((self.detector_config.detectors))):
-                    if init:
-                        init = False
-                        data[i][offset] = ddata
-                        del ddata
-                    else:
+            for n, scan_number in enumerate(scans.scan_numbers):
+                if n:
+                    for i, detector in enumerate(
+                            self.detector_config.detectors):
+                        detector_id = detector.get_id()
                         scanparser = scans.get_scanparser(scan_number)
                         if self.config.experiment_type == 'TOMO':
-                            if self.detector_config.roi is None:
-                                detector_roi = [
-                                    slice(None), slice(None)]
-                            else:
-                                detector_roi = \
-                                    self.detector_config.roitoslice()
-                            data[i][offset] = scanparser.get_detector_data(
-                                self.detector_config.detectors[i].get_id(),
-                                detector_roi=detector_roi, dtype=dtype)
+                            data[detector_id].append(
+                                scanparser.get_detector_data(
+                                    detector_id, detector_roi=detector_roi,
+                                    dtype=dtype))
                         else:
-                            data[i][offset] = scanparser.get_detector_data(
-                                self.detector_config.detectors[0].get_id())
+                            ddata = scanparser.get_detector_data(detector_id)
+                            if isinstance(ddata, tuple):
+                                data[detector_id].append(ddata[0])
+                            else:
+                                data[detector_id].append(ddata)
                 for i, dim in enumerate(self.config.independent_dimensions):
                     if dim.data_type in ['scan_column',
                                          'detector_log_timestamps']:
-                        independent_dimensions[offset,i] = dim.get_value(
+                        independent_dimensions[n,i] = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False)[:num_dim]
                     elif dim.data_type in ['smb_par', 'spec_motor',
                                            'expression']:
-                        independent_dimensions[offset,i] = dim.get_value(
+                        independent_dimensions[n,i] = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False,
                             scalar_data=self.config.scalar_data)
                     else:
-                        independent_dimensions[offset,i] = dim.get_value(
+                        independent_dimensions[n,i] = dim.get_value(
                             scans, scan_number, scan_step_index=-1)
                 for i, dim in enumerate(self.config.all_scalar_data):
-                    all_scalar_data[offset,i] = dim.get_value(
+                    all_scalar_data[n,i] = dim.get_value(
                         scans, scan_number, scan_step_index=-1,
                         relative=False)
-                offset += 1
-        if self.num_proc == 1:
-            data = np.asarray(data)
+        for k, v in data.items():
+            v = np.asarray(v)
+            data[k] = v.reshape(np.prod(v.shape[:2]), *v.shape[2:])
         if num_sd:
             return (
-                data.reshape(
-                    (data.shape[0], np.prod(data.shape[1:3]),
-                     *data.shape[3:])),
+                data,
                 np.stack(tuple([independent_dimensions[:,i].flatten()
                                 for i in range(num_id)])),
                 np.stack(tuple([all_scalar_data[:,i].flatten()
                                 for i in range(num_sd)])))
         return (
-            data.reshape(
-                (data.shape[0], np.prod(data.shape[1:3]), *data.shape[3:])),
+            data,
             np.stack(tuple([independent_dimensions[:,i].flatten()
                             for i in range(num_id)])),
             None)
