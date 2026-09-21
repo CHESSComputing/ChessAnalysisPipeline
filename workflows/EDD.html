@@ -14,7 +14,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=9174d659"></script>
+      <script src="../_static/documentation_options.js?v=bd6294fc"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -129,7 +129,7 @@
 </pre></div>
 </div>
 <p>You may find it convenient to add an alias to your <code class="docutils literal notranslate"><span class="pre">~/.bascrc</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.bash_aliases</span></code>, for example for the CHAP EDD production release:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">alias</span><span class="w"> </span><span class="nv">CHAP_edd_prod</span><span class="o">=</span><span class="s1">&#39;/nfs/chess/sw/CHESS-software-releases/prod/CHAP_edd&#39;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">alias</span><span class="w"> </span><span class="nv">CHAP_edd_prod</span><span class="o">=</span><span class="s1">'/nfs/chess/sw/CHESS-software-releases/prod/CHAP_edd'</span>
 </pre></div>
 </div>
 <p>(see: <a class="reference internal" href="../pipeline.html#chap-executables-chess"><span class="std std-ref">instructions</span></a> on running <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> on the CHESS Linux system)</p>
@@ -173,7 +173,7 @@
 </pre></div>
 </div>
 <p>You may find it convenient to add an alias to your <code class="docutils literal notranslate"><span class="pre">~/.bascrc</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.bash_aliases</span></code>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">alias</span><span class="w"> </span><span class="nv">nexus</span><span class="o">=</span><span class="s1">&#39;/nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &amp;&#39;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">alias</span><span class="w"> </span><span class="nv">nexus</span><span class="o">=</span><span class="s1">'/nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &amp;'</span>
 </pre></div>
 </div>
 </li>
@@ -228,7 +228,7 @@
 <span class="w">      </span><span class="nt">force_overwrite</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.ImageWriter</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">outputdir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">figures</span><span class="w">    </span><span class="c1"># Change as desired, unless an absolute path</span>
-<span class="w">                            </span><span class="c1"># this will appear under &#39;outdutdir&#39; (line 5)</span>
+<span class="w">                            </span><span class="c1"># this will appear under 'outdutdir' (line 5)</span>
 <span class="w">      </span><span class="nt">force_overwrite</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Do not set to false!</span>
 <span class="w">                            </span><span class="c1"># Rename an existing file if you want to prevent</span>
 <span class="w">                            </span><span class="c1"># it from being overwritten</span>
@@ -372,7 +372,7 @@
 <span class="w">        </span><span class="nt">experiment_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EDD</span>
 <span class="w">        </span><span class="nt">sample</span><span class="p">:</span>
 <span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;sample name&gt;</span><span class="w">     </span><span class="c1"># Enter the sample name</span>
-<span class="w">          </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;&#39;</span>
+<span class="w">          </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">''</span>
 <span class="w">        </span><span class="nt">spec_scans</span><span class="p">:</span><span class="w">         </span><span class="c1"># Edit both SPEC log file path and EDD scan numbers</span>
 <span class="w">                            </span><span class="c1"># Path can be relative to inputdir or absolute</span>
 <span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">spec_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your_raw_data_directory&gt;/spec.log</span>

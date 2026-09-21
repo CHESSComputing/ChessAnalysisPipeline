@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=9174d659"></script>
+      <script src="_static/documentation_options.js?v=bd6294fc"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -72,6 +72,7 @@
 <li class="toctree-l4"><a class="reference internal" href="CHAP.saxswaxs.html">CHAP.saxswaxs package</a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html">CHAP.tomo package</a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html">CHAP.utils package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html">CHAP.xrf package</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.html#submodules">Submodules</a></li>
@@ -1086,8 +1087,6 @@ obtained from the pipeline data configuration.</p></li>
 <li><p><strong>detector_config</strong> (<em>dict</em><em> | </em><a class="reference internal" href="CHAP.common.models.html#CHAP.common.models.map.DetectorConfig" title="CHAP.common.models.map.DetectorConfig"><em>DetectorConfig</em></a>) – Detector configurations of the detectors to
 include raw data for in the returned NXentry object
 (overruling detector info in the pipeline data, if present).</p></li>
-<li><p><strong>num_proc</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of processors used to read map,
-defaults to <cite>1</cite>.</p></li>
 <li><p><strong>remove_constant_dims</strong> (<em>bool</em><em>, </em><em>optional</em>) – Flag to indicate that any
 <cite>independent_dimension`s in the map whose values are constant
 across the map should be exluded from the output
@@ -1122,11 +1121,6 @@ context: The context.</p>
 </dd>
 </dl>
 </dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="CHAP.common.processor.MapProcessor.num_proc">
-<span class="sig-name descname"><span class="pre">num_proc</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.common.processor.MapProcessor.num_proc" title="Link to this definition"></a></dt>
-<dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="CHAP.common.processor.MapProcessor.pipeline_fields">
@@ -1167,27 +1161,6 @@ datasets with real data; defaults to <cite>True</cite>.</p></li>
 <dt class="sig sig-object py" id="CHAP.common.processor.MapProcessor.remove_constant_dims">
 <span class="sig-name descname"><span class="pre">remove_constant_dims</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.common.processor.MapProcessor.remove_constant_dims" title="Link to this definition"></a></dt>
 <dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="CHAP.common.processor.MapProcessor.validate_num_proc">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate_num_proc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_proc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/common/processor.html#MapProcessor.validate_num_proc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.common.processor.MapProcessor.validate_num_proc" title="Link to this definition"></a></dt>
-<dd><p>Validate the number of processors.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>num_proc</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of processors used to read map,
-defaults to <cite>1</cite>.</p></li>
-<li><p><strong>info</strong> (<em>pydantic.ValidationInfo</em>) – Model parameter validation information.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Validated number of processors</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>str</p>
-</dd>
-</dl>
-</dd></dl>
 
 </dd></dl>
 
@@ -2124,9 +2097,38 @@ coordinate space and the new signal values at that point.</p>
 <dt class="sig sig-object py" id="CHAP.common.processor.UnstructuredToStructuredProcessor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">UnstructuredToStructuredProcessor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/home/runner/work/ChessAnalysisPipeline/ChessAnalysisPipeline/docs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interactive</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'DEBUG'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'INFO'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'WARNING'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'ERROR'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'CRITICAL'</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'INFO'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/common/processor.html#UnstructuredToStructuredProcessor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.common.processor.UnstructuredToStructuredProcessor" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.processor.Processor" title="CHAP.processor.Processor"><code class="xref py py-class docutils literal notranslate"><span class="pre">Processor</span></code></a></p>
-<p>Processor to reshape data in a NeXus style
+<p>Processor to aggregate “unstructured” data into a single NeXus
+style
 <a class="reference external" href="https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0">NXdata</a>
-object from an “unstructured” to a “structured” representation.</p>
+object with a “structured” representation.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.common.processor.UnstructuredToStructuredProcessor.get_common_axes">
+<span class="sig-name descname"><span class="pre">get_common_axes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signals</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/common/processor.html#UnstructuredToStructuredProcessor.get_common_axes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.common.processor.UnstructuredToStructuredProcessor.get_common_axes" title="Link to this definition"></a></dt>
+<dd><p>Determine the common leading axis shared by all signals.</p>
+<p>This method computes the longest common <em>prefix</em> of axis names
+across all signal definitions. Only axes that appear in the
+same order at the beginning of each signal’s <code class="docutils literal notranslate"><span class="pre">axes</span></code> list are
+included in the result.</p>
+<p>This is used to identify the shared coordinate dimensions for a
+structured NeXus style
+<cite>NXdata &lt;https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0&gt;`__`NXdata</cite>
+object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>signals</strong> (<em>list</em><em>[</em><em>dict</em><em>]</em>) – Validated signal definitions. Each signal must
+define an <code class="docutils literal notranslate"><span class="pre">&quot;axes&quot;</span></code> key containing an ordered list of axis
+names.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Axis names that form the common leading axis for all
+signals. Returns an empty list if no common prefix exists.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="CHAP.common.processor.UnstructuredToStructuredProcessor.model_config">
 <span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.common.processor.UnstructuredToStructuredProcessor.model_config" title="Link to this definition"></a></dt>
@@ -2147,23 +2149,162 @@ context: The context.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="CHAP.common.processor.UnstructuredToStructuredProcessor.process">
-<span class="sig-name descname"><span class="pre">process</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nxpath</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/common/processor.html#UnstructuredToStructuredProcessor.process"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.common.processor.UnstructuredToStructuredProcessor.process" title="Link to this definition"></a></dt>
-<dd><p>Reshape the input data from an “unstructured” to a
-“structured” representation.</p>
+<span class="sig-name descname"><span class="pre">process</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'data'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attrs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/common/processor.html#UnstructuredToStructuredProcessor.process"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.common.processor.UnstructuredToStructuredProcessor.process" title="Link to this definition"></a></dt>
+<dd><p>Create and return a Nexus style
+<a class="reference external" href="https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0">NXdata</a>
+object containing a single structured dataset composed from
+multiple unstructured input datasets.</p>
+<p>This method validates the field configuration, validates and
+reshapes the input data, determines common axes across all
+signals, and constructs a <cite>NXdata</cite> group containing signal and
+axis fields.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>list</em><em>[</em><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineData" title="CHAP.pipeline.PipelineData"><em>PipelineData</em></a><em>]</em>) – Input data objects containing unstructured
+datasets.</p></li>
+<li><p><strong>fields</strong> (<em>list</em><em>[</em><em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>]</em>) – <p>Configuration describing how to structure the
+input data.  This is a list of dictionaries. Each
+dictionary must contain the required keys:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;name&quot;</span></code>: Name of the data item, which must correspond
+to the <code class="docutils literal notranslate"><span class="pre">name</span></code> field of an item in <code class="docutils literal notranslate"><span class="pre">data</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;type&quot;</span></code>: Either <code class="docutils literal notranslate"><span class="pre">&quot;signal&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;axis&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;axes&quot;</span></code>: Required only for items where <code class="docutils literal notranslate"><span class="pre">&quot;type&quot;</span></code> is
+<code class="docutils literal notranslate"><span class="pre">&quot;signal&quot;</span></code>. List of the names of the fields containing
+coordinate axes data for each dimension of the signal.</p></li>
+</ul>
+<p>Optional keys include:
+- <code class="docutils literal notranslate"><span class="pre">&quot;attrs&quot;</span></code>: Dictionary of NeXus attributes to attach to.</p>
+</p></li>
+<li><p><strong>name</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of the resulting <cite>NXdata</cite> group,
+defaults to <cite>“data”</cite>.</p></li>
+<li><p><strong>attrs</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – Attributes to attach to the resulting <cite>NXdata</cite>
+group. The common axes determined during processing will be
+added to this dictionary under the <code class="docutils literal notranslate"><span class="pre">&quot;axes&quot;</span></code> key.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A structured <cite>NXdata</cite> object containing all signals
+and axes defined by the configuration.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nexusformat.nexus.NXdata</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.common.processor.UnstructuredToStructuredProcessor.structure_signal_values">
+<span class="sig-name descname"><span class="pre">structure_signal_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">common_axes</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/common/processor.html#UnstructuredToStructuredProcessor.structure_signal_values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.common.processor.UnstructuredToStructuredProcessor.structure_signal_values" title="Link to this definition"></a></dt>
+<dd><p>Reshape and populate structured signal arrays using common
+axes.</p>
+<p>This method determines computes index mappings from raw axis
+values to their unique sorted representations, and inserts each
+signal’s unstructured data into its preallocated structured
+array.</p>
+<p>Only the common axes are used for structuring; any trailing,
+signal-specific axes are assumed to have already been handled
+when allocating the structured signal arrays.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>signals</strong> (<em>list</em><em>[</em><em>dict</em><em>]</em>) – Signal definitions with raw and preallocated
+structured data arrays.</p></li>
+<li><p><strong>axes</strong> (<em>list</em><em>[</em><em>dict</em><em>]</em>) – Axis definitions containing raw values and unique
+values.</p></li>
+<li><p><strong>common_axes</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – Ordered list of the names of the dataset’s
+common axes.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>Updated signal definitions with populated structured
+arrays.</p></li>
+<li><p>Unmodified axis definitions.</p></li>
+<li><p>Common axis names shared by all signals.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[list[dict], list[dict], list[str]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.common.processor.UnstructuredToStructuredProcessor.validate_config_fields">
+<span class="sig-name descname"><span class="pre">validate_config_fields</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fields</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/common/processor.html#UnstructuredToStructuredProcessor.validate_config_fields"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.common.processor.UnstructuredToStructuredProcessor.validate_config_fields" title="Link to this definition"></a></dt>
+<dd><p>Validate and normalize the field configuration.</p>
+<p>This method separates the input field configuration into signal
+and axis definitions, performs basic validation, and ensures
+that all axes referenced by signals are defined as axis fields.</p>
+<p>The returned signal and axis dictionaries are normalized into a
+consistent internal representation used by later processing
+stages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>fields</strong> (<em>list</em><em>[</em><em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>]</em>) – Configuration describing how input data should
+be structured. Each item must define a <code class="docutils literal notranslate"><span class="pre">&quot;name&quot;</span></code> and
+<code class="docutils literal notranslate"><span class="pre">&quot;type&quot;</span></code> key, where <code class="docutils literal notranslate"><span class="pre">&quot;type&quot;</span></code> is either <code class="docutils literal notranslate"><span class="pre">&quot;signal&quot;</span></code>
+or <code class="docutils literal notranslate"><span class="pre">&quot;axis&quot;</span></code>. Signal entries must additionally define an
+<code class="docutils literal notranslate"><span class="pre">&quot;axes&quot;</span></code> list.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If a signal references an axis that is not
+defined, or if a signal is defined before any axis exist.</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Validated signal and axis definitions.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple[list[dict], list[dict]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.common.processor.UnstructuredToStructuredProcessor.validate_data">
+<span class="sig-name descname"><span class="pre">validate_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/common/processor.html#UnstructuredToStructuredProcessor.validate_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.common.processor.UnstructuredToStructuredProcessor.validate_data" title="Link to this definition"></a></dt>
+<dd><p>Validate and normalize input data for axes and signals.</p>
+<p>This method retrieves raw input data for each axis and signal,
+propagates metadata attributes, computes unique axis values,
+and allocates structured arrays for signal data.</p>
+<dl class="simple">
+<dt>For each axis:</dt><dd><ul class="simple">
+<li><p>Raw data is loaded.</p></li>
+<li><p>Attributes are merged (without overwriting user-specified
+ones).</p></li>
+<li><p>Unique axis values are computed.</p></li>
+</ul>
+</dd>
+<dt>For each signal:</dt><dd><ul class="simple">
+<li><p>Raw data is loaded.</p></li>
+<li><p>Attributes are merged (without overwriting user-specified
+ones).</p></li>
+<li><p>A structured output array is allocated based on its axes.</p></li>
+<li><p>Total signal size is validated against the expected shape.</p></li>
+</ul>
+</dd>
+</dl>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>data</strong> (<em>list</em><em>[</em><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineData" title="CHAP.pipeline.PipelineData"><em>PipelineData</em></a><em>]</em>) – Input data.</p></li>
-<li><p><strong>nxname</strong> (<em>str</em><em>, </em><em>optional</em>) – Name for the returned
-<a class="reference external" href="https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0">NXdata</a>
-object, defaults to <cite>‘data’</cite>.</p></li>
+<li><p><strong>signals</strong> (<em>list</em><em>[</em><em>dict</em><em>]</em>) – Validated signal field definitions.</p></li>
+<li><p><strong>axes</strong> (<em>list</em><em>[</em><em>dict</em><em>]</em>) – Validated axis field definitions.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Converted data.</p>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If a signal’s data size does not match the
+expected size derived from its axes.</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>nexusformat.nexus.NXdata</p>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Updated signal and axis definitions with populated
+values and derived metadata.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple[list[dict], list[dict]]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -3081,8 +3222,7 @@ input file, defaults to <cite>‘#’</cite>.</p></li>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>config</strong> (<em>dict</em><em>, </em><em>optional</em>) – SPEC configuration to be passed directly to the
 constructor of <a class="reference internal" href="CHAP.common.models.html#CHAP.common.models.map.SpecConfig" title="CHAP.common.models.map.SpecConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpecConfig</span></code></a>.</p></li>
-<li><p><strong>detectors</strong> (<em>dict</em><em> | </em><a class="reference internal" href="CHAP.common.models.html#CHAP.common.models.map.DetectorConfig" title="CHAP.common.models.map.DetectorConfig"><em>DetectorConfig</em></a><em>,
-</em><em>optional</em>) – Detector configurations of the detectors to
+<li><p><strong>detector_config</strong> (<em>dict</em><em> | </em><a class="reference internal" href="CHAP.common.models.html#CHAP.common.models.map.DetectorConfig" title="CHAP.common.models.map.DetectorConfig"><em>DetectorConfig</em></a><em>, </em><em>optional</em>) – Detector configurations of the detectors to
 include raw data for in the returned NeXus
 <a class="reference external" href="https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0">NXroot</a>
 object, defaults to None (only a valid input for EDD).</p></li>

@@ -13,7 +13,7 @@
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=9174d659"></script>
+      <script src="../../../_static/documentation_options.js?v=bd6294fc"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -100,10 +100,10 @@
            <div itemprop="articleBody">
              
   <h1>Source code for CHAP.foxden.models</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;`Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__ model</span>
+<span></span><span class="sd">"""`Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__ model</span>
 <span class="sd">configuration classes unique to the the </span>
 <span class="sd">`FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__ integration.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="c1"># System modules</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -125,7 +125,7 @@
 <div class="viewcode-block" id="FoxdenRequestConfig">
 <a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.models.FoxdenRequestConfig">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">FoxdenRequestConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;`FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
+<span class="w">    </span><span class="sd">"""`FOXDEN &lt;https://github.com/CHESSComputing/FOXDEN&gt;`__</span>
 <span class="sd">    HTTP request base configuration class.</span>
 
 <span class="sd">    :ivar did: FOXDEN dataset identifier (DID).</span>
@@ -142,13 +142,13 @@
 <span class="sd">    :vartype url: str</span>
 <span class="sd">    :ivar verbose: Verbose output flag, defaults to `False`.</span>
 <span class="sd">    :vartype verbose: bool, optional</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <span class="c1">#    :ivar method: HTTP request method (not case sensitive),</span>
-<span class="c1">#        defaults to `&#39;POST&#39;`.</span>
-<span class="c1">#    :vartype method: Literal[&#39;DELETE&#39;, &#39;GET&#39;, &#39;POST&#39;, &#39;PUT&#39;], optional</span>
+<span class="c1">#        defaults to `'POST'`.</span>
+<span class="c1">#    :vartype method: Literal['DELETE', 'GET', 'POST', 'PUT'], optional</span>
 <span class="c1">#    :ivar scope: FOXDEN scope (not case sensitive).</span>
-<span class="c1">#    :vartype scope: Literal[&#39;read&#39;, &#39;write&#39;], optional</span>
+<span class="c1">#    :vartype scope: Literal['read', 'write'], optional</span>
     <span class="c1"># Mimics golib.services.data.ServiceQuery</span>
     <span class="n">did</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span>
         <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">to_lower</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -156,26 +156,26 @@
     <span class="n">limit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">10</span>
     <span class="n">query</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span>
         <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">to_lower</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
-<span class="c1">#    method: Optional[Literal[&#39;DELETE&#39;, &#39;GET&#39;, &#39;POST&#39;, &#39;PUT&#39;]] = &#39;POST&#39;</span>
-<span class="c1">#    scope: Optional[Literal[&#39;read&#39;, &#39;write&#39;]] = None</span>
+<span class="c1">#    method: Optional[Literal['DELETE', 'GET', 'POST', 'PUT']] = 'POST'</span>
+<span class="c1">#    scope: Optional[Literal['read', 'write']] = None</span>
 <span class="c1">#    sortkeys: Optional[</span>
 <span class="c1">#        conlist[item_type=constr(strict=True, strip_whitespace=True)]] = None</span>
 <span class="c1">#    sortorder: Optional[int] = None</span>
 <span class="c1">#    spec: Optional[map[string]any] ?</span>
 <span class="c1">#    sql: Optional[constr(strict=True, strip_whitespace=True)] = None</span>
     <span class="n">url</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">constr</span><span class="p">(</span><span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">strip_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">verbose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;False&#39;</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'False'</span>
 
-<span class="c1">#    @field_validator(&#39;method&#39;, mode=&#39;before&#39;)</span>
+<span class="c1">#    @field_validator('method', mode='before')</span>
 <span class="c1">#    @classmethod</span>
 <span class="c1">#    def validate_method(cls, method):</span>
-<span class="c1">#        &quot;&quot;&quot;Capitalize method.&quot;&quot;&quot;</span>
+<span class="c1">#        """Capitalize method."""</span>
 <span class="c1">#        return method.upper()</span>
 
-<span class="c1">#    @field_validator(&#39;scope&#39;, mode=&#39;before&#39;)</span>
+<span class="c1">#    @field_validator('scope', mode='before')</span>
 <span class="c1">#    @classmethod</span>
 <span class="c1">#    def validate_scope(cls, scope):</span>
-<span class="c1">#        &quot;&quot;&quot;Enforce lowercase for scope.&quot;&quot;&quot;</span>
+<span class="c1">#        """Enforce lowercase for scope."""</span>
 <span class="c1">#        if isinstance(scope, str):</span>
 <span class="c1">#            return scope.lower()</span>
 <span class="c1">#        return scope</span>
@@ -183,7 +183,7 @@
 <div class="viewcode-block" id="FoxdenRequestConfig.create_http_request_payload">
 <a class="viewcode-back" href="../../../CHAP.foxden.html#CHAP.foxden.models.FoxdenRequestConfig.create_http_request_payload">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">create_http_request_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reader</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create the payload for a HTTP request.</span>
+<span class="w">        </span><span class="sd">"""Create the payload for a HTTP request.</span>
 
 <span class="sd">        :param reader: Any of the FOXDEN readers in</span>
 <span class="sd">            :mod:`~CHAP.foxden.reader`.</span>
@@ -191,34 +191,34 @@
 <span class="sd">            FoxdenMetadataReader or FoxdenProvenanceReader</span>
 <span class="sd">        :return: JSON string of the HTTP request.</span>
 <span class="sd">        :rtype: str</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># Third party modules</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">json</span><span class="w"> </span><span class="kn">import</span> <span class="n">dumps</span>
 
         <span class="n">request</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s1">&#39;client&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;CHAP-</span><span class="si">{</span><span class="n">reader</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;service_query&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;query&#39;</span><span class="p">:</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">&#39;</span><span class="p">}}</span>
+            <span class="s1">'client'</span><span class="p">:</span> <span class="sa">f</span><span class="s1">'CHAP-</span><span class="si">{</span><span class="n">reader</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">'</span><span class="p">,</span>
+            <span class="s1">'service_query'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'query'</span><span class="p">:</span> <span class="s1">'</span><span class="si">{}</span><span class="s1">'</span><span class="p">}}</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">did</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">request</span><span class="p">[</span><span class="s1">&#39;service_query&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;query&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">})</span>
+                <span class="n">request</span><span class="p">[</span><span class="s1">'service_query'</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">'query'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">})</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">reader</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;FoxdenMetadataReader&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">reader</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">'FoxdenMetadataReader'</span><span class="p">:</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">reader</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s1">&#39;Ignoring parameter &quot;idx&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="si">}</span><span class="s1">), &#39;</span>
-                        <span class="s1">&#39;when &quot;did&quot; is specified&#39;</span><span class="p">)</span>
+                        <span class="sa">f</span><span class="s1">'Ignoring parameter "idx" (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="si">}</span><span class="s1">), '</span>
+                        <span class="s1">'when "did" is specified'</span><span class="p">)</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">reader</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s1">&#39;Ignoring parameter &quot;limit&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="si">}</span><span class="s1">), &#39;</span>
-                        <span class="s1">&#39;when &quot;did&quot; is specified&#39;</span><span class="p">)</span>
+                        <span class="sa">f</span><span class="s1">'Ignoring parameter "limit" (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="si">}</span><span class="s1">), '</span>
+                        <span class="s1">'when "did" is specified'</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">request</span><span class="p">[</span><span class="s1">&#39;service_query&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
-                    <span class="s1">&#39;idx&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="p">,</span> <span class="s1">&#39;limit&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="p">})</span>
+                <span class="n">request</span><span class="p">[</span><span class="s1">'service_query'</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+                    <span class="s1">'idx'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="p">,</span> <span class="s1">'limit'</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span><span class="p">})</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">reader</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s1">&#39;Ignoring parameter &quot;query&quot; (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="si">}</span><span class="s1">), &#39;</span>
-                    <span class="s1">&#39;when &quot;did&quot; is specified&#39;</span><span class="p">)</span>
-            <span class="n">request</span><span class="p">[</span><span class="s1">&#39;service_query&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">&#39;query&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;did:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">did</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">})</span>
+                    <span class="sa">f</span><span class="s1">'Ignoring parameter "query" (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="si">}</span><span class="s1">), '</span>
+                    <span class="s1">'when "did" is specified'</span><span class="p">)</span>
+            <span class="n">request</span><span class="p">[</span><span class="s1">'service_query'</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s1">'query'</span><span class="p">:</span> <span class="sa">f</span><span class="s1">'did:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">did</span><span class="si">}</span><span class="s1">'</span><span class="p">})</span>
         <span class="k">return</span> <span class="n">dumps</span><span class="p">(</span><span class="n">request</span><span class="p">)</span></div>
 </div>
 

@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=9174d659"></script>
+      <script src="_static/documentation_options.js?v=bd6294fc"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -74,6 +74,7 @@
 <li class="toctree-l4"><a class="reference internal" href="CHAP.saxswaxs.html">CHAP.saxswaxs package</a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html">CHAP.tomo package</a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html">CHAP.utils package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html">CHAP.xrf package</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#submodules">Submodules</a></li>
@@ -102,6 +103,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#module-CHAP.runner">CHAP.runner module</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.batch_runner"><code class="docutils literal notranslate"><span class="pre">batch_runner()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.get_current_git_hash"><code class="docutils literal notranslate"><span class="pre">get_current_git_hash()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.parser"><code class="docutils literal notranslate"><span class="pre">parser()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.run"><code class="docutils literal notranslate"><span class="pre">run()</span></code></a></li>
@@ -314,11 +316,9 @@ from.</p>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.MapProcessor.detector_config"><code class="docutils literal notranslate"><span class="pre">MapProcessor.detector_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.MapProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">MapProcessor.model_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.MapProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">MapProcessor.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.MapProcessor.num_proc"><code class="docutils literal notranslate"><span class="pre">MapProcessor.num_proc</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.MapProcessor.pipeline_fields"><code class="docutils literal notranslate"><span class="pre">MapProcessor.pipeline_fields</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.MapProcessor.process"><code class="docutils literal notranslate"><span class="pre">MapProcessor.process()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.MapProcessor.remove_constant_dims"><code class="docutils literal notranslate"><span class="pre">MapProcessor.remove_constant_dims</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.MapProcessor.validate_num_proc"><code class="docutils literal notranslate"><span class="pre">MapProcessor.validate_num_proc()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.NXdataToDataPointsProcessor"><code class="docutils literal notranslate"><span class="pre">NXdataToDataPointsProcessor</span></code></a><ul>
@@ -418,9 +418,13 @@ from.</p>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor"><code class="docutils literal notranslate"><span class="pre">UnstructuredToStructuredProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.get_common_axes"><code class="docutils literal notranslate"><span class="pre">UnstructuredToStructuredProcessor.get_common_axes()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">UnstructuredToStructuredProcessor.model_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">UnstructuredToStructuredProcessor.model_post_init()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.process"><code class="docutils literal notranslate"><span class="pre">UnstructuredToStructuredProcessor.process()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.structure_signal_values"><code class="docutils literal notranslate"><span class="pre">UnstructuredToStructuredProcessor.structure_signal_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.validate_config_fields"><code class="docutils literal notranslate"><span class="pre">UnstructuredToStructuredProcessor.validate_config_fields()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.validate_data"><code class="docutils literal notranslate"><span class="pre">UnstructuredToStructuredProcessor.validate_data()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.common.html#CHAP.common.processor.UpdateNXdataProcessor"><code class="docutils literal notranslate"><span class="pre">UpdateNXdataProcessor</span></code></a><ul>
@@ -608,37 +612,35 @@ from.</p>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.FitConfig.validate_background"><code class="docutils literal notranslate"><span class="pre">FitConfig.validate_background()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.FitConfig.validate_baseline"><code class="docutils literal notranslate"><span class="pre">FitConfig.validate_baseline()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.FitConfig.validate_energy_mask_ranges"><code class="docutils literal notranslate"><span class="pre">FitConfig.validate_energy_mask_ranges()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.FitConfig.validate_fitconfig_after"><code class="docutils literal notranslate"><span class="pre">FitConfig.validate_fitconfig_after()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.FitConfig.validate_mask_ranges"><code class="docutils literal notranslate"><span class="pre">FitConfig.validate_mask_ranges()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.flux_correction_interpolation_function"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.flux_correction_interpolation_function()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.flux_file"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.flux_file</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.flux_file_energy_range"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.flux_file_energy_range()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.materials"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.materials</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.model_config"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.model_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.peak_energies"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.peak_energies</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.scan_step_indices"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.scan_step_indices</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.validate_mcacalibrationconfig_before"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.validate_mcacalibrationconfig_before()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.validate_scan_step_indices"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.validate_scan_step_indices()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.convert_mask_ranges"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.convert_mask_ranges()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.energies"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.energies</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.energy_calibration_coeffs"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.energy_calibration_coeffs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.energy_calibration_mask_ranges"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.energy_calibration_mask_ranges</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.get_energy_mask_ranges"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.get_energy_mask_ranges()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.get_mask_ranges"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.get_mask_ranges()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.hkl_indices"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.hkl_indices</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.mca_mask"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.mca_mask()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.mask"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.mask</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.model_config"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.model_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.model_post_init"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.model_post_init()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.num_bins"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.num_bins</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.processor_type"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.processor_type</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.set_energy_calibration_mask_ranges"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.set_energy_calibration_mask_ranges()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.tth_calibrated"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.tth_calibrated</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.tth_initial_guess"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.tth_initial_guess</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.tth_max"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.tth_max</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.tth_tol"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.tth_tol</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.validate_mcadetectorcalibration_after"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.validate_mcadetectorcalibration_after()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig</span></code></a><ul>
@@ -669,7 +671,6 @@ from.</p>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.centers_range_fraction"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.centers_range_fraction</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.fwhm_max"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.fwhm_max</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.fwhm_min"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.fwhm_min</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.get_calibration_mask_ranges"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.get_calibration_mask_ranges()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.get_tth_map"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.get_tth_map()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.model_config"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.model_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.model_post_init"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.model_post_init()</span></code></a></li>
@@ -691,7 +692,6 @@ from.</p>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.calibration_method"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig.calibration_method</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.flux_file_energy_range"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig.flux_file_energy_range()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.model_config"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig.model_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.quadratic_energy_calibration"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig.quadratic_energy_calibration</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.tth_initial_guess"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig.tth_initial_guess</span></code></a></li>
@@ -1669,6 +1669,45 @@ from.</p>
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="CHAP.xrf.html">CHAP.xrf package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.xrf.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.xrf.html#module-CHAP.xrf.processor">CHAP.xrf.processor module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.NXfluoProcessor"><code class="docutils literal notranslate"><span class="pre">NXfluoProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.NXfluoProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">NXfluoProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.NXfluoProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">NXfluoProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.NXfluoProcessor.process"><code class="docutils literal notranslate"><span class="pre">NXfluoProcessor.process()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor"><code class="docutils literal notranslate"><span class="pre">PyMcaProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.analyze_spectra"><code class="docutils literal notranslate"><span class="pre">PyMcaProcessor.analyze_spectra()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.analyze_spectrum"><code class="docutils literal notranslate"><span class="pre">PyMcaProcessor.analyze_spectrum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.init_pymca"><code class="docutils literal notranslate"><span class="pre">PyMcaProcessor.init_pymca()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">PyMcaProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">PyMcaProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.pipeline_fields"><code class="docutils literal notranslate"><span class="pre">PyMcaProcessor.pipeline_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.process"><code class="docutils literal notranslate"><span class="pre">PyMcaProcessor.process()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.pymca_config"><code class="docutils literal notranslate"><span class="pre">PyMcaProcessor.pymca_config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaResultsProcessor"><code class="docutils literal notranslate"><span class="pre">PyMcaResultsProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaResultsProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">PyMcaResultsProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaResultsProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">PyMcaResultsProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaResultsProcessor.process"><code class="docutils literal notranslate"><span class="pre">PyMcaResultsProcessor.process()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.xrf.html#module-CHAP.xrf.reader">CHAP.xrf.reader module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.reader.PyMcaFitConfigReader"><code class="docutils literal notranslate"><span class="pre">PyMcaFitConfigReader</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.reader.PyMcaFitConfigReader.model_config"><code class="docutils literal notranslate"><span class="pre">PyMcaFitConfigReader.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.reader.PyMcaFitConfigReader.model_post_init"><code class="docutils literal notranslate"><span class="pre">PyMcaFitConfigReader.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html#CHAP.xrf.reader.PyMcaFitConfigReader.read"><code class="docutils literal notranslate"><span class="pre">PyMcaFitConfigReader.read()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </div>
 </section>
@@ -1841,6 +1880,14 @@ context: The context.</p>
 <span class="sig-name descname"><span class="pre">root</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.models.RunConfig.root" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.models.RunConfig.set_log_level">
+<span class="sig-name descname"><span class="pre">set_log_level</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_level</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/models.html#RunConfig.set_log_level"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.models.RunConfig.set_log_level" title="Link to this definition"></a></dt>
+<dd><p>Set and capitalize <cite>log_level</cite>.</p>
+<p>param log_level: Input value for <cite>log_level</cite>.
+:type log_level: str</p>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="CHAP.models.RunConfig.spawn">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spawn</span></span><a class="headerlink" href="#CHAP.models.RunConfig.spawn" title="Link to this definition"></a></dt>
@@ -1856,8 +1903,8 @@ context: The context.</p>
 <dt class="sig sig-object py" id="CHAP.models.RunConfig.validate_log_level">
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate_log_level</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_level</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/models.html#RunConfig.validate_log_level"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.models.RunConfig.validate_log_level" title="Link to this definition"></a></dt>
 <dd><p>Capitalize <cite>log_level</cite>.</p>
-<p>param value: Input value for <cite>log_level</cite>.
-:type value: str
+<p>param log_level: Input value for <cite>log_level</cite>.
+:type log_level: str
 :return: Capitalized <cite>log_level</cite>.
 :rtype: str</p>
 </dd></dl>
@@ -1909,7 +1956,7 @@ full pipeline.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="CHAP.pipeline.Pipeline.execute">
-<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/pipeline.html#Pipeline.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.pipeline.Pipeline.execute" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipeline_config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/pipeline.html#Pipeline.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.pipeline.Pipeline.execute" title="Link to this definition"></a></dt>
 <dd><p>Executes the pipeline.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -2004,6 +2051,11 @@ result.</p>
 </dd>
 </dl>
 </dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.pipeline.PipelineItem.executed_pipeline">
+<span class="sig-name descname"><span class="pre">executed_pipeline</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.pipeline.PipelineItem.executed_pipeline" title="Link to this definition"></a></dt>
+<dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="CHAP.pipeline.PipelineItem.get_args">
@@ -2472,12 +2524,12 @@ validator data object.</p>
 in a file to the list of <cite>PipelineItem</cite>s.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Variables<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>filename</strong> (<em>str</em>) – Name of file to read from.</p>
+<dd class="field-odd"><p><strong>filename</strong> (<em>pydantic.FilePath</em><em> or </em><em>str</em>) – Name of file to read from.</p>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="CHAP.reader.Reader.filename">
-<span class="sig-name descname"><span class="pre">filename</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#CHAP.reader.Reader.filename" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">filename</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">file</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#CHAP.reader.Reader.filename" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -2531,10 +2583,10 @@ context: The context.</p>
 <dd><p>Validate the reader configuration.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Validated model.</p>
+<dd class="field-odd"><p>Validated reader configuration.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>Any</p>
+<dd class="field-even"><p>:class:<a href="#id9"><span class="problematic" id="id10">`</span></a>~CHAP.reader.Reader</p>
 </dd>
 </dl>
 </dd></dl>
@@ -2559,6 +2611,11 @@ function.</p>
 </dd>
 </dl>
 </dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.runner.get_current_git_hash">
+<span class="sig-name descname"><span class="pre">get_current_git_hash</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/runner.html#get_current_git_hash"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.runner.get_current_git_hash" title="Link to this definition"></a></dt>
+<dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="CHAP.runner.main">
@@ -2663,22 +2720,22 @@ deployment. Use a production WSGI server instead.</p>
 <p>Press CTRL+C to quit</p>
 <p>CHAP output:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>CHAP.server         : Call pipeline args=()
-    kwds={&#39;pipeline&#39;: [{&#39;common.PrintProcessor&#39;: {}}]}
-CHAP.server         : pipeline [{&#39;common.PrintProcessor&#39;: {}}]
+    kwds={'pipeline': [{'common.PrintProcessor': {}}]}
+CHAP.server         : pipeline [{'common.PrintProcessor': {}}]
 CHAP.server         : Loaded
     &lt;CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0&gt;
 CHAP.server         : Loaded
     &lt;CHAP.pipeline.Pipeline object at 0x10e0f1f10&gt; with 1 items
-CHAP.server         : Calling &quot;execute&quot; on &lt;CHAP.pipeline.Pipeline
+CHAP.server         : Calling "execute" on &lt;CHAP.pipeline.Pipeline
     object at 0x10e0f1f10&gt;
-Pipeline            : Executing &quot;execute&quot;
-Pipeline            : Calling &quot;process&quot; on
+Pipeline            : Executing "execute"
+Pipeline            : Calling "process" on
     &lt;CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0&gt;
-PrintProcessor      : Executing &quot;process&quot; with
-    type(data)=&lt;class &#39;NoneType&#39;&gt;
+PrintProcessor      : Executing "process" with
+    type(data)=&lt;class 'NoneType'&gt;
 PrintProcessor data : None
-PrintProcessor      : Finished &quot;process&quot; in 0.000 seconds
-Pipeline            : Executed &quot;execute&quot; in 0.000 seconds
+PrintProcessor      : Finished "process" in 0.000 seconds
+Pipeline            : Executed "execute" in 0.000 seconds
 </pre></div>
 </div>
 </section>

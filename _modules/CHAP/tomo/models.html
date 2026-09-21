@@ -13,7 +13,7 @@
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=9174d659"></script>
+      <script src="../../../_static/documentation_options.js?v=bd6294fc"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -100,9 +100,9 @@
            <div itemprop="articleBody">
              
   <h1>Source code for CHAP.tomo.models</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;`Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__ model</span>
+<span></span><span class="sd">"""`Pydantic &lt;https://github.com/pydantic/pydantic&gt;`__ model</span>
 <span class="sd">configuration classes unique to the the tomography workflow.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="c1"># Third party imports</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -123,7 +123,7 @@
 <div class="viewcode-block" id="TomoCombineConfig">
 <a class="viewcode-back" href="../../../CHAP.tomo.html#CHAP.tomo.models.TomoCombineConfig">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TomoCombineConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the combine tomography stacks processor</span>
+<span class="w">    </span><span class="sd">"""Configuration for the combine tomography stacks processor</span>
 <span class="sd">    :class:`~CHAP.tomo.processor.TomoCombineProcessor`.</span>
 
 <span class="sd">    :ivar x_bounds: Combined image bounds in the x-direction.</span>
@@ -132,7 +132,7 @@
 <span class="sd">    :vartype y_bounds: list[int], optional</span>
 <span class="sd">    :ivar z_bounds: Combined image bounds in the z-direction.</span>
 <span class="sd">    :vartype z_bounds: list[int], optional</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">x_bounds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
         <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">2</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -146,7 +146,7 @@
 <div class="viewcode-block" id="TomoFindCenterConfig">
 <a class="viewcode-back" href="../../../CHAP.tomo.html#CHAP.tomo.models.TomoFindCenterConfig">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TomoFindCenterConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the tomography center axis finding processor</span>
+<span class="w">    </span><span class="sd">"""Configuration for the tomography center axis finding processor</span>
 <span class="sd">    :class:`~CHAP.tomo.processor.TomoFindCenterProcessor`.</span>
 
 <span class="sd">    :ivar center_stack_index: Stack index of the tomography set to find</span>
@@ -173,7 +173,7 @@
 <span class="sd">        `filter ring artifacts &lt;https://tomopy.readthedocs.io/en/stable/api/tomopy.misc.corr.html#tomopy.misc.corr.remove_ring&gt;`__</span>
 <span class="sd">        during image reconstruction, defaults to no ring removal performed.</span>
 <span class="sd">    :vartype ring_width: float, optional</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">center_stack_index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">center_rows</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">conlist</span><span class="p">(</span>
@@ -194,7 +194,7 @@
 <div class="viewcode-block" id="TomoReconstructConfig">
 <a class="viewcode-back" href="../../../CHAP.tomo.html#CHAP.tomo.models.TomoReconstructConfig">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TomoReconstructConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the tomography image reconstruction processor</span>
+<span class="w">    </span><span class="sd">"""Configuration for the tomography image reconstruction processor</span>
 <span class="sd">    :class:`~CHAP.tomo.processor.TomoReconstructProcessor`.</span>
 
 <span class="sd">    :ivar x_bounds: Reconstructed image bounds in the x-direction.</span>
@@ -215,7 +215,7 @@
 <span class="sd">        `filter ring artifacts &lt;https://tomopy.readthedocs.io/en/stable/api/tomopy.misc.corr.html#tomopy.misc.corr.remove_ring&gt;`__</span>
 <span class="sd">        during image reconstruction, defaults to no ring removal performed.</span>
 <span class="sd">    :vartype ring_width: float, optional</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">x_bounds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
         <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">2</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -233,7 +233,7 @@
 <div class="viewcode-block" id="TomoReduceConfig">
 <a class="viewcode-back" href="../../../CHAP.tomo.html#CHAP.tomo.models.TomoReduceConfig">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TomoReduceConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the tomography image reduction processor</span>
+<span class="w">    </span><span class="sd">"""Configuration for the tomography image reduction processor</span>
 <span class="sd">    :class:`~CHAP.tomo.processor.TomoReduceProcessor`.</span>
 
 <span class="sd">    :ivar img_row_bounds: Detector image bounds in the row-direction</span>
@@ -249,10 +249,10 @@
 
 <span class="sd">        Example usage::</span>
 
-<span class="sd">            remove_stripe={&#39;remove_all_stripe&#39;: {&#39;ncore&#39;: 16}}</span>
+<span class="sd">            remove_stripe={'remove_all_stripe': {'ncore': 16}}</span>
 
 <span class="sd">    :vartype remove_stripe: dict(str, dict)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">img_row_bounds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
         <span class="n">conlist</span><span class="p">(</span><span class="n">item_type</span><span class="o">=</span><span class="n">conint</span><span class="p">(</span><span class="n">ge</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">2</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -265,17 +265,17 @@
 <div class="viewcode-block" id="TomoSimConfig">
 <a class="viewcode-back" href="../../../CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TomoSimConfig</span><span class="p">(</span><span class="n">CHAPBaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the tomography simulator processor</span>
+<span class="w">    </span><span class="sd">"""Configuration for the tomography simulator processor</span>
 <span class="sd">    :class:`~CHAP.tomo.processor.TomoSimFieldProcessor`.</span>
 
-<span class="sd">    :ivar station: The station name (in &#39;idxx&#39; format).</span>
-<span class="sd">    :vartype station: Literal[&#39;id1a3&#39;, &#39;id3a&#39;, &#39;id3b&#39;]</span>
+<span class="sd">    :ivar station: The station name (in 'idxx' format).</span>
+<span class="sd">    :vartype station: Literal['id1a3', 'id3a', 'id3b']</span>
 <span class="sd">    :ivar sample_type: Sample type for the tomography simulator.</span>
-<span class="sd">    :vartype sample_type: Literal[&#39;square_rod&#39;, &#39;square_pipe&#39;,</span>
-<span class="sd">        &#39;hollow_cube&#39;, &#39;hollow_brick&#39;, &#39;hollow_pyramid&#39;]</span>
+<span class="sd">    :vartype sample_type: Literal['square_rod', 'square_pipe',</span>
+<span class="sd">        'hollow_cube', 'hollow_brick', 'hollow_pyramid']</span>
 <span class="sd">    :ivar sample_size: Size of each sample dimension in $mm$</span>
 <span class="sd">        (internally converted to an integer number of pixels).</span>
-<span class="sd">        Enter three values for sample_type == `&#39;hollow_pyramid&#39;`,</span>
+<span class="sd">        Enter three values for sample_type == `'hollow_pyramid'`,</span>
 <span class="sd">        the height and the side at the respective bottom and the top</span>
 <span class="sd">        of the pyramid.</span>
 <span class="sd">    :vartype sample_size: list[float]</span>
@@ -296,12 +296,12 @@
 <span class="sd">    :vartype background_intensity: float, optional</span>
 <span class="sd">    :ivar slit_size: Vertical beam height in $mm$, defaults to `1.0`.</span>
 <span class="sd">    :vartype slit_size: float, optional</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
-    <span class="n">station</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;id1a3&#39;</span><span class="p">,</span> <span class="s1">&#39;id3a&#39;</span><span class="p">,</span> <span class="s1">&#39;id3b&#39;</span><span class="p">]</span>
+    <span class="n">station</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'id1a3'</span><span class="p">,</span> <span class="s1">'id3a'</span><span class="p">,</span> <span class="s1">'id3b'</span><span class="p">]</span>
     <span class="n">sample_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
-        <span class="s1">&#39;square_rod&#39;</span><span class="p">,</span> <span class="s1">&#39;square_pipe&#39;</span><span class="p">,</span> <span class="s1">&#39;hollow_cube&#39;</span><span class="p">,</span> <span class="s1">&#39;hollow_brick&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;hollow_pyramid&#39;</span><span class="p">]</span>
+        <span class="s1">'square_rod'</span><span class="p">,</span> <span class="s1">'square_pipe'</span><span class="p">,</span> <span class="s1">'hollow_cube'</span><span class="p">,</span> <span class="s1">'hollow_brick'</span><span class="p">,</span>
+        <span class="s1">'hollow_pyramid'</span><span class="p">]</span>
     <span class="n">sample_size</span><span class="p">:</span> <span class="n">conlist</span><span class="p">(</span>
         <span class="n">item_type</span><span class="o">=</span><span class="n">confloat</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">allow_inf_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
         <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>

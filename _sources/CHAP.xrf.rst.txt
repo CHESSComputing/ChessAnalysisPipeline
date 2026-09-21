@@ -1,0 +1,26 @@
+CHAP.xrf package
+================
+
+.. automodule:: CHAP.xrf
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Submodules
+----------
+
+CHAP.xrf.processor module
+-------------------------
+
+.. automodule:: CHAP.xrf.processor
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+CHAP.xrf.reader module
+----------------------
+
+.. automodule:: CHAP.xrf.reader
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -14,7 +14,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=9174d659"></script>
+      <script src="../_static/documentation_options.js?v=bd6294fc"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -259,7 +259,7 @@ This step also sets the number of chunks for each data array in the container. <
 <span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
 <span class="w">  </span><span class="nt">log_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">debug</span>
 <span class="nt">linkdims</span><span class="p">:</span>
-<span class="c1"># Step 1: Read in the Nexus file in which we&#39;re adding linked data fields</span>
+<span class="c1"># Step 1: Read in the Nexus file in which we're adding linked data fields</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 <span class="w">    </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rw</span>
@@ -284,7 +284,7 @@ This step also sets the number of chunks for each data array in the container. <
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spec_file_012/independent_dimensions/samx</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spec_file_012/independent_dimensions/samzmakelink</span>
 <span class="c1"># No writing tool necessary, `common.NexusMakeLinkProcessor` will</span>
-<span class="c1"># modilfy the file in place as long as it&#39;s read in with `mode:</span>
+<span class="c1"># modilfy the file in place as long as it's read in with `mode:</span>
 <span class="c1"># rw`.</span>
 </pre></div>
 </div>
@@ -397,7 +397,7 @@ This step also sets the number of chunks for each data array in the container. <
 <span class="c1"># A title for this map. Recommended: use snake_case.</span>
 <span class="nt">title</span><span class="p">:</span>
 
-<span class="c1"># The station at which this map&#39;s data were taken. Choices: id1a3,</span>
+<span class="c1"># The station at which this map's data were taken. Choices: id1a3,</span>
 <span class="c1"># id3a, or id3b.</span>
 <span class="nt">station</span><span class="p">:</span><span class="w"> </span>
 
@@ -468,7 +468,7 @@ This step also sets the number of chunks for each data array in the container. <
 <span class="w">  </span><span class="c1"># it will be ignored.</span>
 <span class="w">  </span><span class="nt">units</span><span class="p">:</span>
 
-<span class="w">  </span><span class="c1"># For data_type == spec_motor: the SPEC motor&#39;s mnemonic.</span>
+<span class="w">  </span><span class="c1"># For data_type == spec_motor: the SPEC motor's mnemonic.</span>
 <span class="w">  </span><span class="c1"># For data_type == scan_column: the SPEC data column label.</span>
 <span class="w">  </span><span class="c1"># For data_type == smb_par: the name of the .par file column (found</span>
 <span class="w">  </span><span class="c1"># in the corresponding .json file).</span>
@@ -476,7 +476,7 @@ This step also sets the number of chunks for each data array in the container. <
 <span class="w">  </span><span class="c1"># use the labels of any items in the scalar_data field (found below)</span>
 <span class="w">  </span><span class="c1"># the built-in python function, `round()`, and any numpy function</span>
 <span class="w">  </span><span class="c1"># (for example: `np.round` or `numpy.round`. Example usage: an</span>
-<span class="w">  </span><span class="c1"># independent dimension of a map is the sum of two spec motors&#39;</span>
+<span class="w">  </span><span class="c1"># independent dimension of a map is the sum of two spec motors'</span>
 <span class="w">  </span><span class="c1"># values. Both spec motors are configured as items in scalar_data</span>
 <span class="w">  </span><span class="c1"># for the map, and have labels m1 and m2. Here, name could be:</span>
 <span class="w">  </span><span class="c1"># round(m1 + m2, 4)</span>
@@ -503,14 +503,14 @@ This step also sets the number of chunks for each data array in the container. <
 <span class="w">  </span><span class="c1"># station id3a.</span>
 <span class="w">  </span><span class="nt">data_type</span><span class="p">:</span>
 
-<span class="w">  </span><span class="c1"># For data_type == spec_motor: the SPEC motor&#39;s mnemonic.</span>
+<span class="w">  </span><span class="c1"># For data_type == spec_motor: the SPEC motor's mnemonic.</span>
 <span class="w">  </span><span class="c1"># For data_type == scan_column: the SPEC data column label.</span>
 <span class="w">  </span><span class="c1"># For data_type == smb_par: the name of the .par file column (found</span>
 <span class="w">  </span><span class="c1"># in the corresponding .json file).</span>
 <span class="w">  </span><span class="c1"># For data_type == expression: a mathematical expression that may</span>
 <span class="w">  </span><span class="c1"># use the labels of any items in the scalar_data field (found below)</span>
 <span class="w">  </span><span class="c1"># and the built-in python function, `round()`. Example usage: an</span>
-<span class="w">  </span><span class="c1"># independent dimension of a map is the sum of two spec motors&#39;</span>
+<span class="w">  </span><span class="c1"># independent dimension of a map is the sum of two spec motors'</span>
 <span class="w">  </span><span class="c1"># values. Both spec motors are configured as items in scalar_data</span>
 <span class="w">  </span><span class="c1"># for the map, and have labels m1 and m2. Here, name could be:</span>
 <span class="w">  </span><span class="c1"># round(m1 + m2, 4)</span>
@@ -548,14 +548,14 @@ This step also sets the number of chunks for each data array in the container. <
 <span class="w">  </span><span class="c1"># map was collected at station id1a3 or station id3a.</span>
 <span class="w">  </span><span class="nt">data_type</span><span class="p">:</span>
 
-<span class="w">  </span><span class="c1"># For data_type == spec_motor: the SPEC motor&#39;s mnemonic.</span>
+<span class="w">  </span><span class="c1"># For data_type == spec_motor: the SPEC motor's mnemonic.</span>
 <span class="w">  </span><span class="c1"># For data_type == scan_column: the SPEC data column label.</span>
 <span class="w">  </span><span class="c1"># For data_type == smb_par: the name of the .par file column (found</span>
 <span class="w">  </span><span class="c1"># in the corresponding .json file).</span>
 <span class="w">  </span><span class="c1"># For data_type == expression: a mathematical expression that may</span>
 <span class="w">  </span><span class="c1"># use the labels of any items in the scalar_data field (found below)</span>
 <span class="w">  </span><span class="c1"># and the built-in python function, `round()`. Example usage: an</span>
-<span class="w">  </span><span class="c1"># independent dimension of a map is the sum of two spec motors&#39;</span>
+<span class="w">  </span><span class="c1"># independent dimension of a map is the sum of two spec motors'</span>
 <span class="w">  </span><span class="c1"># values. Both spec motors are configured as items in scalar_data</span>
 <span class="w">  </span><span class="c1"># for the map, and have labels m1 and m2. Here, name could be:</span>
 <span class="w">  </span><span class="c1"># round(m1 + m2, 4)</span>
@@ -640,11 +640,11 @@ integrations:
 <summary>Annotated `pyfai_integration_processor_config.yaml`</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># List of detectors whose data will be processed</span>
 <span class="nt">azimuthal_integrators</span><span class="p">:</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="c1"># The detector &quot;indentifier&quot; for filenames, usually the EPICS PV prefix</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="c1"># The detector "indentifier" for filenames, usually the EPICS PV prefix</span>
 <span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL5</span>
 <span class="w">  </span><span class="c1"># A PONI file containing the detetcor calibration data</span>
 <span class="w">  </span><span class="nt">poni_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL5_AgBe.poni</span>
-<span class="w">  </span><span class="c1"># A file containing a mask to apply to every frame of this detetor&#39;s data before processing</span>
+<span class="w">  </span><span class="c1"># A file containing a mask to apply to every frame of this detetor's data before processing</span>
 <span class="w">  </span><span class="nt">mask_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL5_mask.tif</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="c1"># Another detector may be configured here...</span>
 
@@ -665,8 +665,8 @@ integrations:
 <span class="w">  </span><span class="c1"># to see what parameters are accepted.</span>
 <span class="w">  </span><span class="nt">multi_geometry</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">ais</span><span class="p">:</span>
-<span class="w">    </span><span class="c1"># List of integrator objects can be passed by just referring to their detectors&#39; &quot;id&quot;s,</span>
-<span class="w">    </span><span class="c1"># configured in &quot;azimuthal_integrators&quot;.</span>
+<span class="w">    </span><span class="c1"># List of integrator objects can be passed by just referring to their detectors' "id"s,</span>
+<span class="w">    </span><span class="c1"># configured in "azimuthal_integrators".</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL5</span>
 <span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">q_A^-1</span>
 <span class="w">    </span><span class="nt">radial_range</span><span class="p">:</span>

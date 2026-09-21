@@ -13,7 +13,7 @@
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=9174d659"></script>
+      <script src="../../../_static/documentation_options.js?v=bd6294fc"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -102,7 +102,7 @@
   <h1>Source code for CHAP.common.utils</h1><div class="highlight"><pre>
 <span></span><span class="ch">#!/usr/bin/env python</span>
 <span class="c1">#-*- coding: utf-8 -*-</span>
-<span class="sd">&quot;&quot;&quot;Some generic utility functions.&quot;&quot;&quot;</span>
+<span class="sd">"""Some generic utility functions."""</span>
 
 <span class="c1"># System modules</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
@@ -117,15 +117,15 @@
 <div class="viewcode-block" id="osinfo">
 <a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.utils.osinfo">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">osinfo</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper function to provide the current osinfo.</span>
+<span class="w">    </span><span class="sd">"""Helper function to provide the current osinfo.</span>
 
 <span class="sd">    :return: Information about the current OS.</span>
 <span class="sd">    :rtype: dict</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">os_info</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s1">-</span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">release</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;kernel&#39;</span><span class="p">:</span> <span class="n">platform</span><span class="o">.</span><span class="n">version</span><span class="p">(),</span>
-        <span class="s1">&#39;version&#39;</span><span class="p">:</span> <span class="n">platform</span><span class="o">.</span><span class="n">platform</span><span class="p">(),</span>
+        <span class="s1">'name'</span><span class="p">:</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s1">-</span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">release</span><span class="p">()</span><span class="si">}</span><span class="s1">'</span><span class="p">,</span>
+        <span class="s1">'kernel'</span><span class="p">:</span> <span class="n">platform</span><span class="o">.</span><span class="n">version</span><span class="p">(),</span>
+        <span class="s1">'version'</span><span class="p">:</span> <span class="n">platform</span><span class="o">.</span><span class="n">platform</span><span class="p">(),</span>
     <span class="p">}</span>
     <span class="k">return</span> <span class="n">os_info</span></div>
 
@@ -133,89 +133,89 @@
 <div class="viewcode-block" id="environments">
 <a class="viewcode-back" href="../../../CHAP.common.html#CHAP.common.utils.environments">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">environments</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Detects the current Python environment (system, virtualenv,</span>
+<span class="w">    </span><span class="sd">"""Detects the current Python environment (system, virtualenv,</span>
 <span class="sd">    Conda, or pip) and collects package information. Returns a list</span>
 <span class="sd">    of detected environments with installed packages.</span>
 
 <span class="sd">    :return: Information about the current Python environment.</span>
 <span class="sd">    :rtype: list[dict]</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">environments_</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">os_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s1">-</span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">release</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span>
+    <span class="n">os_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s1">-</span><span class="si">{</span><span class="n">platform</span><span class="o">.</span><span class="n">release</span><span class="p">()</span><span class="si">}</span><span class="s1">'</span>
 
     <span class="c1"># Check for Conda environment</span>
-    <span class="n">conda_env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s1">&#39;CONDA_PREFIX&#39;</span><span class="p">)</span>
+    <span class="n">conda_env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s1">'CONDA_PREFIX'</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">conda_env</span><span class="p">:</span>
-        <span class="n">conda_env_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s1">&#39;CONDA_DEFAULT_ENV&#39;</span><span class="p">,</span> <span class="s1">&#39;unknown-conda-env&#39;</span><span class="p">)</span>
+        <span class="n">conda_env_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s1">'CONDA_DEFAULT_ENV'</span><span class="p">,</span> <span class="s1">'unknown-conda-env'</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="c1"># Fetch Conda packages</span>
             <span class="n">conda_packages</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
-                <span class="p">[</span><span class="s1">&#39;conda&#39;</span><span class="p">,</span> <span class="s1">&#39;list&#39;</span><span class="p">,</span> <span class="s1">&#39;--json&#39;</span><span class="p">],</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="p">[</span><span class="s1">'conda'</span><span class="p">,</span> <span class="s1">'list'</span><span class="p">,</span> <span class="s1">'--json'</span><span class="p">],</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">conda_packages</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">conda_packages</span><span class="p">)</span>
-            <span class="n">packages</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">pkg</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="s1">&#39;version&#39;</span><span class="p">:</span> <span class="n">pkg</span><span class="p">[</span><span class="s1">&#39;version&#39;</span><span class="p">]}</span>
+            <span class="n">packages</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">'name'</span><span class="p">:</span> <span class="n">pkg</span><span class="p">[</span><span class="s1">'name'</span><span class="p">],</span> <span class="s1">'version'</span><span class="p">:</span> <span class="n">pkg</span><span class="p">[</span><span class="s1">'version'</span><span class="p">]}</span>
                         <span class="k">for</span> <span class="n">pkg</span> <span class="ow">in</span> <span class="n">conda_packages</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="n">packages</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">environments_</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">conda_env_name</span><span class="p">,</span>
-            <span class="s1">&#39;version&#39;</span><span class="p">:</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
-            <span class="s1">&#39;details&#39;</span><span class="p">:</span> <span class="s1">&#39;Conda environment&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;parent_environment&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="s1">&#39;os_name&#39;</span><span class="p">:</span> <span class="n">os_name</span><span class="p">,</span>
-            <span class="s1">&#39;packages&#39;</span><span class="p">:</span> <span class="n">packages</span><span class="p">,</span>
+            <span class="s1">'name'</span><span class="p">:</span> <span class="n">conda_env_name</span><span class="p">,</span>
+            <span class="s1">'version'</span><span class="p">:</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s1">'details'</span><span class="p">:</span> <span class="s1">'Conda environment'</span><span class="p">,</span>
+            <span class="s1">'parent_environment'</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">'os_name'</span><span class="p">:</span> <span class="n">os_name</span><span class="p">,</span>
+            <span class="s1">'packages'</span><span class="p">:</span> <span class="n">packages</span><span class="p">,</span>
         <span class="p">})</span>
 
     <span class="c1"># Check for Virtualenv (excluding Conda)</span>
-    <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">&#39;real_prefix&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s1">&#39;VIRTUAL_ENV&#39;</span><span class="p">):</span>
-        <span class="n">venv_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s1">&#39;VIRTUAL_ENV&#39;</span><span class="p">,</span> <span class="s1">&#39;unknown-venv&#39;</span><span class="p">))</span>
-        <span class="n">packages</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">pkg</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;Name&#39;</span><span class="p">],</span>
-                     <span class="s1">&#39;version&#39;</span><span class="p">:</span> <span class="n">pkg</span><span class="o">.</span><span class="n">version</span><span class="p">}</span>
+    <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'real_prefix'</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s1">'VIRTUAL_ENV'</span><span class="p">):</span>
+        <span class="n">venv_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s1">'VIRTUAL_ENV'</span><span class="p">,</span> <span class="s1">'unknown-venv'</span><span class="p">))</span>
+        <span class="n">packages</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">'name'</span><span class="p">:</span> <span class="n">pkg</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">'Name'</span><span class="p">],</span>
+                     <span class="s1">'version'</span><span class="p">:</span> <span class="n">pkg</span><span class="o">.</span><span class="n">version</span><span class="p">}</span>
                     <span class="k">for</span> <span class="n">pkg</span> <span class="ow">in</span> <span class="n">distributions</span><span class="p">()]</span>
         <span class="n">environments_</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">venv_name</span><span class="p">,</span>
-            <span class="s1">&#39;version&#39;</span><span class="p">:</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
-            <span class="s1">&#39;details&#39;</span><span class="p">:</span> <span class="s1">&#39;Virtualenv environment&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;parent_environment&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="s1">&#39;os_name&#39;</span><span class="p">:</span> <span class="n">os_name</span><span class="p">,</span>
-            <span class="s1">&#39;packages&#39;</span><span class="p">:</span> <span class="n">packages</span><span class="p">,</span>
+            <span class="s1">'name'</span><span class="p">:</span> <span class="n">venv_name</span><span class="p">,</span>
+            <span class="s1">'version'</span><span class="p">:</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s1">'details'</span><span class="p">:</span> <span class="s1">'Virtualenv environment'</span><span class="p">,</span>
+            <span class="s1">'parent_environment'</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">'os_name'</span><span class="p">:</span> <span class="n">os_name</span><span class="p">,</span>
+            <span class="s1">'packages'</span><span class="p">:</span> <span class="n">packages</span><span class="p">,</span>
         <span class="p">})</span>
 
     <span class="c1"># System Python (not inside Conda or Virtualenv)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">packages</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">pkg</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;Name&#39;</span><span class="p">],</span>
-                     <span class="s1">&#39;version&#39;</span><span class="p">:</span> <span class="n">pkg</span><span class="o">.</span><span class="n">version</span><span class="p">}</span>
+        <span class="n">packages</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">'name'</span><span class="p">:</span> <span class="n">pkg</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">'Name'</span><span class="p">],</span>
+                     <span class="s1">'version'</span><span class="p">:</span> <span class="n">pkg</span><span class="o">.</span><span class="n">version</span><span class="p">}</span>
                     <span class="k">for</span> <span class="n">pkg</span> <span class="ow">in</span> <span class="n">distributions</span><span class="p">()]</span>
         <span class="n">environments_</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;system-python&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;version&#39;</span><span class="p">:</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
-            <span class="s1">&#39;details&#39;</span><span class="p">:</span> <span class="s1">&#39;System-wide Python&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;parent_environment&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="s1">&#39;os_name&#39;</span><span class="p">:</span> <span class="n">os_name</span><span class="p">,</span>
-            <span class="s1">&#39;packages&#39;</span><span class="p">:</span> <span class="n">packages</span><span class="p">,</span>
+            <span class="s1">'name'</span><span class="p">:</span> <span class="s1">'system-python'</span><span class="p">,</span>
+            <span class="s1">'version'</span><span class="p">:</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s1">'details'</span><span class="p">:</span> <span class="s1">'System-wide Python'</span><span class="p">,</span>
+            <span class="s1">'parent_environment'</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">'os_name'</span><span class="p">:</span> <span class="n">os_name</span><span class="p">,</span>
+            <span class="s1">'packages'</span><span class="p">:</span> <span class="n">packages</span><span class="p">,</span>
         <span class="p">})</span>
 
     <span class="c1"># Check for PIP installed editable packages</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="c1"># Fetch Git repo info for PIP installed editable packages</span>
         <span class="n">pip_packages</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
-            <span class="p">[</span><span class="s1">&#39;pip&#39;</span><span class="p">,</span> <span class="s1">&#39;list&#39;</span><span class="p">,</span> <span class="s1">&#39;--format&#39;</span><span class="p">,</span> <span class="s1">&#39;json&#39;</span><span class="p">],</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="p">[</span><span class="s1">'pip'</span><span class="p">,</span> <span class="s1">'list'</span><span class="p">,</span> <span class="s1">'--format'</span><span class="p">,</span> <span class="s1">'json'</span><span class="p">],</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">pip_packages</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">pip_packages</span><span class="p">)</span>
-        <span class="n">packages</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">pkg</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span>
-<span class="c1">#                     &#39;version&#39;: pkg[&#39;version&#39;],</span>
-<span class="c1">#                     &#39;commit_hash&#39;: subprocess.check_output(</span>
-                     <span class="s1">&#39;version&#39;</span><span class="p">:</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
-                         <span class="p">[</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;rev-parse&quot;</span><span class="p">,</span> <span class="s2">&quot;HEAD&quot;</span><span class="p">],</span>
-                         <span class="n">cwd</span><span class="o">=</span><span class="n">pkg</span><span class="p">[</span><span class="s1">&#39;editable_project_location&#39;</span><span class="p">]</span>
+        <span class="n">packages</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">'name'</span><span class="p">:</span> <span class="n">pkg</span><span class="p">[</span><span class="s1">'name'</span><span class="p">],</span>
+<span class="c1">#                     'version': pkg['version'],</span>
+<span class="c1">#                     'commit_hash': subprocess.check_output(</span>
+                     <span class="s1">'version'</span><span class="p">:</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
+                         <span class="p">[</span><span class="s2">"git"</span><span class="p">,</span> <span class="s2">"rev-parse"</span><span class="p">,</span> <span class="s2">"HEAD"</span><span class="p">],</span>
+                         <span class="n">cwd</span><span class="o">=</span><span class="n">pkg</span><span class="p">[</span><span class="s1">'editable_project_location'</span><span class="p">]</span>
                      <span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">()}</span>
                     <span class="k">for</span> <span class="n">pkg</span> <span class="ow">in</span> <span class="n">pip_packages</span>
-                    <span class="k">if</span> <span class="s1">&#39;editable_project_location&#39;</span> <span class="ow">in</span> <span class="n">pkg</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="s1">'editable_project_location'</span> <span class="ow">in</span> <span class="n">pkg</span><span class="p">]</span>
         <span class="n">environments_</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;Python Package Installer&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;version&#39;</span><span class="p">:</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
-            <span class="s1">&#39;details&#39;</span><span class="p">:</span> <span class="s1">&#39;Editable project locations&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;parent_environment&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="s1">&#39;os_name&#39;</span><span class="p">:</span> <span class="n">os_name</span><span class="p">,</span>
-            <span class="s1">&#39;packages&#39;</span><span class="p">:</span> <span class="n">packages</span><span class="p">,</span>
+            <span class="s1">'name'</span><span class="p">:</span> <span class="s1">'Python Package Installer'</span><span class="p">,</span>
+            <span class="s1">'version'</span><span class="p">:</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s1">'details'</span><span class="p">:</span> <span class="s1">'Editable project locations'</span><span class="p">,</span>
+            <span class="s1">'parent_environment'</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">'os_name'</span><span class="p">:</span> <span class="n">os_name</span><span class="p">,</span>
+            <span class="s1">'packages'</span><span class="p">:</span> <span class="n">packages</span><span class="p">,</span>
         <span class="p">})</span>
     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
         <span class="k">pass</span>

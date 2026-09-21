@@ -13,7 +13,7 @@
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=9174d659"></script>
+      <script src="../../_static/documentation_options.js?v=bd6294fc"></script>
       <script src="../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -102,8 +102,8 @@
   <h1>Source code for CHAP.writer</h1><div class="highlight"><pre>
 <span></span><span class="ch">#!/usr/bin/env python</span>
 <span class="c1">#-*- coding: utf-8 -*-</span>
-<span class="sd">&quot;&quot;&quot;Module defining the base `Writer` class to derive all others from.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""Module defining the base `Writer` class to derive all others from.</span>
+<span class="sd">"""</span>
 
 <span class="c1"># System modules</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
@@ -125,20 +125,20 @@
 <div class="viewcode-block" id="validate_writer_model">
 <a class="viewcode-back" href="../../CHAP.html#CHAP.writer.validate_writer_model">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">validate_writer_model</span><span class="p">(</span><span class="n">writer</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate the writer configuration.</span>
+<span class="w">    </span><span class="sd">"""Validate the writer configuration.</span>
 
 <span class="sd">    :return: Validated model.</span>
 <span class="sd">    :rtype: Any</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">writer</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span>
         <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">writer</span><span class="o">.</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">writer</span><span class="o">.</span><span class="n">filename</span><span class="p">)))</span>
     <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">writer</span><span class="o">.</span><span class="n">force_overwrite</span>
             <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">writer</span><span class="o">.</span><span class="n">filename</span><span class="p">)):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s1">&#39;Writing to an existing file without overwrite permission. &#39;</span>
-            <span class="sa">f</span><span class="s1">&#39;permission. Remove </span><span class="si">{</span><span class="n">writer</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1"> or set &#39;</span>
-            <span class="s1">&#39;&quot;force_overwrite&quot; in pipeline configuration for &#39;</span>
-            <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">writer</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="s1">'Writing to an existing file without overwrite permission. '</span>
+            <span class="sa">f</span><span class="s1">'permission. Remove </span><span class="si">{</span><span class="n">writer</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1"> or set '</span>
+            <span class="s1">'"force_overwrite" in pipeline configuration for '</span>
+            <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">writer</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">writer</span></div>
 
 
@@ -146,7 +146,7 @@
 <div class="viewcode-block" id="Writer">
 <a class="viewcode-back" href="../../CHAP.html#CHAP.writer.Writer">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Writer</span><span class="p">(</span><span class="n">PipelineItem</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base writer.</span>
+<span class="w">    </span><span class="sd">"""Base writer.</span>
 
 <span class="sd">    The job of any `Writer` in a pipeline is to receive input returned</span>
 <span class="sd">    as a previous `PipelineItem` and write its data to file in a</span>
@@ -160,106 +160,106 @@
 <span class="sd">    :ivar remove: Flag to remove the dictionary from `data`,</span>
 <span class="sd">        defaults to `False`.</span>
 <span class="sd">    :vartype remove: bool, optional</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">force_overwrite</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">remove</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
 
-    <span class="n">_validate_filename</span> <span class="o">=</span> <span class="n">model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)(</span><span class="n">validate_writer_model</span><span class="p">)</span>
+    <span class="n">_validate_filename</span> <span class="o">=</span> <span class="n">model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">'after'</span><span class="p">)(</span><span class="n">validate_writer_model</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_update_provenance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add output file name to the provenance.</span>
+<span class="w">        </span><span class="sd">"""Add output file name to the provenance.</span>
 
 <span class="sd">        :param data: Input data.</span>
 <span class="sd">        :type data: list[PipelineData]</span>
 <span class="sd">        :return: Provenance with added output file name.</span>
 <span class="sd">        :rtype: PipelineData</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># System modules</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">os</span><span class="w"> </span><span class="kn">import</span> <span class="n">path</span> <span class="k">as</span> <span class="n">os_path</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">provenance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
-                <span class="n">data</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="s1">&#39;foxden.reader.FoxdenProvenanceReader&#39;</span><span class="p">)</span>
+                <span class="n">data</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="s1">'foxden.reader.FoxdenProvenanceReader'</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="n">output_files</span> <span class="o">=</span> <span class="n">provenance</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;output_files&#39;</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="n">output_files</span> <span class="o">=</span> <span class="n">provenance</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">'output_files'</span><span class="p">,</span> <span class="p">[])</span>
         <span class="n">output_files</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">os_path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)})</span>
-        <span class="n">provenance</span><span class="p">[</span><span class="s1">&#39;output_files&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_files</span>
+            <span class="s1">'name'</span><span class="p">:</span> <span class="n">os_path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)})</span>
+        <span class="n">provenance</span><span class="p">[</span><span class="s1">'output_files'</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_files</span>
         <span class="k">return</span> <span class="n">PipelineData</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">provenance</span><span class="p">,</span>
-            <span class="n">schema</span><span class="o">=</span><span class="s1">&#39;foxden.reader.FoxdenProvenanceReader&#39;</span><span class="p">)</span>
+            <span class="n">schema</span><span class="o">=</span><span class="s1">'foxden.reader.FoxdenProvenanceReader'</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Writer.write">
 <a class="viewcode-back" href="../../CHAP.html#CHAP.writer.Writer.write">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write the last `PipelineData` item in `data` as text to a</span>
+<span class="w">        </span><span class="sd">"""Write the last `PipelineData` item in `data` as text to a</span>
 <span class="sd">        file.</span>
 
 <span class="sd">        :param data: Input data.</span>
 <span class="sd">        :type data: list[PipelineData]</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_pipelinedata_item</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">remove</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_overwrite</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1"> already exists&#39;</span><span class="p">)</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1"> already exists'</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="s1">&#39;written&#39;</span> <span class="c1"># Right now does nothing yet, but could</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="s1">'written'</span> <span class="c1"># Right now does nothing yet, but could</span></div>
 </div>
 
                                 <span class="c1"># add a sort of modification flag later</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_OptionParser</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;User based option parser.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""User based option parser."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s1">&#39;PROG&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s1">'PROG'</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-            <span class="s1">&#39;--data&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store&#39;</span><span class="p">,</span>
-            <span class="n">dest</span><span class="o">=</span><span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Input data&#39;</span><span class="p">)</span>
+            <span class="s1">'--data'</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">'store'</span><span class="p">,</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s1">'data'</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Input data'</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-            <span class="s1">&#39;--filename&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store&#39;</span><span class="p">,</span>
-            <span class="n">dest</span><span class="o">=</span><span class="s1">&#39;filename&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Output file&#39;</span><span class="p">)</span>
+            <span class="s1">'--filename'</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">'store'</span><span class="p">,</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s1">'filename'</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Output file'</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-            <span class="s1">&#39;--writer&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store&#39;</span><span class="p">,</span>
-            <span class="n">dest</span><span class="o">=</span><span class="s1">&#39;writer&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;Writer&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Writer class name&#39;</span><span class="p">)</span>
+            <span class="s1">'--writer'</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">'store'</span><span class="p">,</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s1">'writer'</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">'Writer'</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Writer class name'</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-            <span class="s1">&#39;--log-level&#39;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">_nameToLevel</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span>
-            <span class="n">dest</span><span class="o">=</span><span class="s1">&#39;log_level&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;INFO&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;logging level&#39;</span><span class="p">)</span>
+            <span class="s1">'--log-level'</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">_nameToLevel</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span>
+            <span class="n">dest</span><span class="o">=</span><span class="s1">'log_level'</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">'INFO'</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'logging level'</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="main">
 <a class="viewcode-back" href="../../CHAP.html#CHAP.writer.main">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="n">opt_parser</span><span class="o">=</span><span class="n">_OptionParser</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Main function.</span>
+<span class="w">    </span><span class="sd">"""Main function.</span>
 
 <span class="sd">    :param opt_parser: User based option parser.</span>
 <span class="sd">    :type opt_parser: CHAP.writer._OptionParser</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">optmgr</span> <span class="o">=</span> <span class="n">opt_parser</span><span class="p">()</span>
     <span class="n">opts</span> <span class="o">=</span> <span class="n">optmgr</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
     <span class="n">cls_name</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">writer</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">writer_cls</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">modules</span><span class="p">[</span><span class="vm">__name__</span><span class="p">],</span> <span class="n">cls_name</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unsupported writer </span><span class="si">{</span><span class="n">cls_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Unsupported writer </span><span class="si">{</span><span class="n">cls_name</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
         <span class="k">raise</span>
 
     <span class="n">writer</span> <span class="o">=</span> <span class="n">writer_cls</span><span class="p">()</span>
     <span class="n">writer</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">opts</span><span class="o">.</span><span class="n">log_level</span><span class="p">))</span>
     <span class="n">log_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">()</span>
     <span class="n">log_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span>
-        <span class="s1">&#39;</span><span class="si">{name:20}</span><span class="s1">: </span><span class="si">{message}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;{&#39;</span><span class="p">))</span>
+        <span class="s1">'</span><span class="si">{name:20}</span><span class="s1">: </span><span class="si">{message}</span><span class="s1">'</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">'{'</span><span class="p">))</span>
     <span class="n">writer</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">log_handler</span><span class="p">)</span>
     <span class="n">data</span> <span class="o">=</span> <span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">opts</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">opts</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Writer </span><span class="si">{</span><span class="n">writer</span><span class="si">}</span><span class="s1"> writes to </span><span class="si">{</span><span class="n">opts</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1">, data </span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Writer </span><span class="si">{</span><span class="n">writer</span><span class="si">}</span><span class="s1"> writes to </span><span class="si">{</span><span class="n">opts</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1">, data </span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span></div>
 
 
 
-<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
     <span class="n">main</span><span class="p">()</span>
 </pre></div>
 

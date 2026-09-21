@@ -19,6 +19,7 @@ Subpackages
    CHAP.saxswaxs
    CHAP.tomo
    CHAP.utils
+   CHAP.xrf
 
 Submodules
 ----------

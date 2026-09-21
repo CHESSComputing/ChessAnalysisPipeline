@@ -13,7 +13,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=9174d659"></script>
+      <script src="_static/documentation_options.js?v=bd6294fc"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -179,9 +179,13 @@
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.all_scalar_data">all_scalar_data (MapConfig property)</a>
 </li>
+      <li><a href="CHAP.utils.html#CHAP.utils.general.almost_equal">almost_equal() (in module CHAP.utils.general)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="CHAP.utils.html#CHAP.utils.general.almost_equal">almost_equal() (in module CHAP.utils.general)</a>
+      <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.analyze_spectra">analyze_spectra() (PyMcaProcessor method)</a>
+</li>
+      <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.analyze_spectrum">analyze_spectrum() (PyMcaProcessor method)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.common.ImageProcessorConfig.animation">animation (ImageProcessorConfig attribute)</a>
 </li>
@@ -586,8 +590,6 @@
         <li><a href="CHAP.saxswaxs.html#module-CHAP.saxswaxs.reader">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     CHAP.saxswaxs.utils
 
@@ -595,6 +597,8 @@
         <li><a href="CHAP.saxswaxs.html#module-CHAP.saxswaxs.utils">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     CHAP.saxswaxs.writer
 
@@ -707,6 +711,27 @@
         <li><a href="CHAP.html#module-CHAP.writer">module</a>
 </li>
       </ul></li>
+      <li>
+    CHAP.xrf
+
+      <ul>
+        <li><a href="CHAP.xrf.html#module-CHAP.xrf">module</a>
+</li>
+      </ul></li>
+      <li>
+    CHAP.xrf.processor
+
+      <ul>
+        <li><a href="CHAP.xrf.html#module-CHAP.xrf.processor">module</a>
+</li>
+      </ul></li>
+      <li>
+    CHAP.xrf.reader
+
+      <ul>
+        <li><a href="CHAP.xrf.html#module-CHAP.xrf.reader">module</a>
+</li>
+      </ul></li>
       <li><a href="CHAP.html#CHAP.models.CHAPBaseModel">CHAPBaseModel (class in CHAP.models)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.CHAPSlice">CHAPSlice (class in CHAP.common.models.map)</a>
@@ -792,8 +817,6 @@
       <li><a href="CHAP.common.html#CHAP.common.processor.ConstructBaseline.construct_baseline">construct_baseline() (ConstructBaseline static method)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.processor.ConstructBaseline">ConstructBaseline (class in CHAP.common.processor)</a>
-</li>
-      <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.convert_mask_ranges">convert_mask_ranges() (MCADetectorCalibration method)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.converters.convert_sparse_dense">convert_sparse_dense() (in module CHAP.utils.converters)</a>
 </li>
@@ -957,6 +980,8 @@
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.energy_calibration_coeffs">energy_calibration_coeffs (MCADetectorCalibration attribute)</a>
 </li>
+      <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.energy_calibration_mask_ranges">energy_calibration_mask_ranges (MCADetectorCalibration property)</a>
+</li>
       <li><a href="CHAP.edd.html#CHAP.edd.models.FitConfig.energy_mask_ranges">energy_mask_ranges (FitConfig attribute)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.utils.environments">environments() (in module CHAP.common.utils)</a>
@@ -983,6 +1008,8 @@
         <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.execute">(PipelineItem method)</a>
 </li>
       </ul></li>
+      <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.executed_pipeline">executed_pipeline (PipelineItem attribute)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.experiment_type">experiment_type (MapConfig attribute)</a>
 
       <ul>
@@ -1063,24 +1090,14 @@
       </ul></li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.FitMap">FitMap (class in CHAP.utils.fit)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitModel">FitModel (class in CHAP.utils.models)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitParameter">FitParameter (class in CHAP.utils.models)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.FitProcessor">FitProcessor (class in CHAP.utils.fit)</a>
 </li>
-      <li><a href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.flux_correction_interpolation_function">flux_correction_interpolation_function() (MCACalibrationConfig method)</a>
-</li>
-      <li><a href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.flux_file">flux_file (MCACalibrationConfig attribute)</a>
-</li>
-      <li><a href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.flux_file_energy_range">flux_file_energy_range() (MCACalibrationConfig method)</a>
-
-      <ul>
-        <li><a href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.flux_file_energy_range">(MCATthCalibrationConfig method)</a>
-</li>
-      </ul></li>
       <li><a href="CHAP.html#CHAP.taskmanager.Worker.force_exit">force_exit() (Worker method)</a>
 </li>
       <li><a href="CHAP.html#CHAP.writer.Writer.force_overwrite">force_overwrite (Writer attribute)</a>
@@ -1155,7 +1172,7 @@
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.get_axes_indices">get_axes_indices() (PyfaiIntegratorConfig method)</a>
 </li>
-      <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.get_calibration_mask_ranges">get_calibration_mask_ranges() (MCADetectorStrainAnalysis method)</a>
+      <li><a href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.get_common_axes">get_common_axes() (UnstructuredToStructuredProcessor method)</a>
 </li>
       <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.get_config">get_config() (PipelineItem method)</a>
 
@@ -1166,6 +1183,8 @@
       <li><a href="CHAP.utils.html#CHAP.utils.general.get_consecutive_int_range">get_consecutive_int_range() (in module CHAP.utils.general)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.get_coords">get_coords() (MapConfig method)</a>
+</li>
+      <li><a href="CHAP.html#CHAP.runner.get_current_git_hash">get_current_git_hash() (in module CHAP.runner)</a>
 </li>
       <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.get_data">get_data() (PipelineItem static method)</a>
 </li>
@@ -1185,6 +1204,8 @@
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.material.Material.get_ds_unique">get_ds_unique() (Material method)</a>
 </li>
+      <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.get_energy_mask_ranges">get_energy_mask_ranges() (MCADetectorCalibration method)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.get_expression_value">get_expression_value() (in module CHAP.common.models.map)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.Detector.get_id">get_id() (Detector method)</a>
@@ -1195,10 +1216,10 @@
         <li><a href="CHAP.common.models.html#CHAP.common.models.map.SpecScans.get_index">(SpecScans method)</a>
 </li>
       </ul></li>
-      <li><a href="CHAP.utils.html#CHAP.utils.parfile.ParFile.get_map">get_map() (ParFile method)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="CHAP.utils.html#CHAP.utils.parfile.ParFile.get_map">get_map() (ParFile method)</a>
+</li>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.get_mask_ranges">get_mask_ranges() (MCADetectorCalibration method)</a>
 </li>
       <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.get_nxroot">get_nxroot() (PipelineItem static method)</a>
@@ -1344,6 +1365,8 @@
       <li><a href="CHAP.utils.html#CHAP.utils.fit.FitMap.init_parameters">init_parameters() (FitMap method)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.init_placeholder_results">init_placeholder_results() (PyfaiIntegratorConfig method)</a>
+</li>
+      <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.init_pymca">init_pymca() (PyMcaProcessor method)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitParameter.init_value">init_value (FitParameter property)</a>
 </li>
@@ -1583,6 +1606,8 @@
 </li>
       <li><a href="CHAP.common.html#CHAP.common.reader.MapReader">MapReader (class in CHAP.common.reader)</a>
 </li>
+      <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.mask">mask (MCADetectorCalibration property)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.AzimuthalIntegratorConfig.mask_data">mask_data (AzimuthalIntegratorConfig property)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.AzimuthalIntegratorConfig.mask_file">mask_file (AzimuthalIntegratorConfig attribute)</a>
@@ -1622,8 +1647,6 @@
 </li>
       </ul></li>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.max_peak_index">max_peak_index (MCAEnergyCalibrationConfig attribute)</a>
-</li>
-      <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.mca_mask">mca_mask() (MCADetectorCalibration method)</a>
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig">MCACalibrationConfig (class in CHAP.edd.models)</a>
 </li>
@@ -1848,6 +1871,8 @@
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.NXfieldReader.model_config">(NXfieldReader attribute)</a>
 </li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.processor.NXfluoProcessor.model_config">(NXfluoProcessor attribute)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.reader.PandasReader.model_config">(PandasReader attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.processor.PandasToXarrayProcessor.model_config">(PandasToXarrayProcessor attribute)</a>
@@ -1877,6 +1902,12 @@
         <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.model_config">(PyfaiIntegrationProcessor attribute)</a>
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.model_config">(PyfaiIntegratorConfig attribute)</a>, <a href="CHAP.giwaxs.html#CHAP.giwaxs.models.PyfaiIntegratorConfig.model_config">[1]</a>
+</li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.reader.PyMcaFitConfigReader.model_config">(PyMcaFitConfigReader attribute)</a>
+</li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.model_config">(PyMcaProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaResultsProcessor.model_config">(PyMcaResultsProcessor attribute)</a>
 </li>
         <li><a href="CHAP.utils.html#CHAP.utils.models.QuadraticModel.model_config">(QuadraticModel attribute)</a>
 </li>
@@ -2122,6 +2153,8 @@
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.NXfieldReader.model_post_init">(NXfieldReader method)</a>
 </li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.processor.NXfluoProcessor.model_post_init">(NXfluoProcessor method)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.reader.PandasReader.model_post_init">(PandasReader method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.processor.PandasToXarrayProcessor.model_post_init">(PandasToXarrayProcessor method)</a>
@@ -2143,6 +2176,12 @@
         <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.model_post_init">(PyfaiIntegrationProcessor method)</a>
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.model_post_init">(PyfaiIntegratorConfig method)</a>
+</li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.reader.PyMcaFitConfigReader.model_post_init">(PyMcaFitConfigReader method)</a>
+</li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.model_post_init">(PyMcaProcessor method)</a>
+</li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaResultsProcessor.model_post_init">(PyMcaResultsProcessor method)</a>
 </li>
         <li><a href="CHAP.utils.html#CHAP.utils.models.QuadraticModel.model_post_init">(QuadraticModel method)</a>
 </li>
@@ -2357,6 +2396,12 @@
 </li>
         <li><a href="CHAP.html#module-CHAP.writer">CHAP.writer</a>
 </li>
+        <li><a href="CHAP.xrf.html#module-CHAP.xrf">CHAP.xrf</a>
+</li>
+        <li><a href="CHAP.xrf.html#module-CHAP.xrf.processor">CHAP.xrf.processor</a>
+</li>
+        <li><a href="CHAP.xrf.html#module-CHAP.xrf.reader">CHAP.xrf.reader</a>
+</li>
       </ul></li>
       <li><a href="CHAP.common.html#CHAP.common.processor.MPICollectProcessor">MPICollectProcessor (class in CHAP.common.processor)</a>
 </li>
@@ -2451,8 +2496,6 @@
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitConfig.num_proc">num_proc (FitConfig attribute)</a>
 
       <ul>
-        <li><a href="CHAP.common.html#CHAP.common.processor.MapProcessor.num_proc">(MapProcessor attribute)</a>
-</li>
         <li><a href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.num_proc">(StrainAnalysisConfig attribute)</a>
 </li>
         <li><a href="CHAP.tomo.html#CHAP.tomo.processor.TomoCombineProcessor.num_proc">(TomoCombineProcessor attribute)</a>
@@ -2485,6 +2528,8 @@
       <li><a href="CHAP.common.html#CHAP.common.processor.NXdataToDataPointsProcessor">NXdataToDataPointsProcessor (class in CHAP.common.processor)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.reader.NXfieldReader">NXfieldReader (class in CHAP.common.reader)</a>
+</li>
+      <li><a href="CHAP.xrf.html#CHAP.xrf.processor.NXfluoProcessor">NXfluoProcessor (class in CHAP.xrf.processor)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.processor.BinarizeProcessor.nxmemory">nxmemory (BinarizeProcessor attribute)</a>
 
@@ -2617,6 +2662,8 @@
 </li>
         <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.pipeline_fields">(PyfaiIntegrationProcessor attribute)</a>
 </li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.pipeline_fields">(PyMcaProcessor attribute)</a>
+</li>
         <li><a href="CHAP.utils.html#CHAP.utils.fit.SetupProcessor.pipeline_fields">(SetupProcessor attribute)</a>
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.processor.StrainAnalysisProcessor.pipeline_fields">(StrainAnalysisProcessor attribute)</a>
@@ -2725,6 +2772,8 @@
 </li>
         <li><a href="CHAP.common.html#CHAP.common.processor.NXdataToDataPointsProcessor.process">(NXdataToDataPointsProcessor method)</a>
 </li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.processor.NXfluoProcessor.process">(NXfluoProcessor method)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.processor.PandasToXarrayProcessor.process">(PandasToXarrayProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.processor.PrintProcessor.process">(PrintProcessor method)</a>
@@ -2736,6 +2785,10 @@
         <li><a href="CHAP.common.html#CHAP.common.processor.PyfaiAzimuthalIntegrationProcessor.process">(PyfaiAzimuthalIntegrationProcessor method)</a>
 </li>
         <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.process">(PyfaiIntegrationProcessor method)</a>
+</li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.process">(PyMcaProcessor method)</a>
+</li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaResultsProcessor.process">(PyMcaResultsProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.processor.RawDetectorDataMapProcessor.process">(RawDetectorDataMapProcessor method)</a>
 </li>
@@ -2820,6 +2873,14 @@
         <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.models.PyfaiIntegratorConfig">(class in CHAP.giwaxs.models)</a>
 </li>
       </ul></li>
+      <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor.pymca_config">pymca_config (PyMcaProcessor attribute)</a>
+</li>
+      <li><a href="CHAP.xrf.html#CHAP.xrf.reader.PyMcaFitConfigReader">PyMcaFitConfigReader (class in CHAP.xrf.reader)</a>
+</li>
+      <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaProcessor">PyMcaProcessor (class in CHAP.xrf.processor)</a>
+</li>
+      <li><a href="CHAP.xrf.html#CHAP.xrf.processor.PyMcaResultsProcessor">PyMcaResultsProcessor (class in CHAP.xrf.processor)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -2890,6 +2951,8 @@
         <li><a href="CHAP.common.html#CHAP.common.reader.NXfieldReader.read">(NXfieldReader method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.PandasReader.read">(PandasReader method)</a>
+</li>
+        <li><a href="CHAP.xrf.html#CHAP.xrf.reader.PyMcaFitConfigReader.read">(PyMcaFitConfigReader method)</a>
 </li>
         <li><a href="CHAP.html#CHAP.reader.Reader.read">(Reader method)</a>
 </li>
@@ -3104,7 +3167,7 @@
 </li>
       <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.set_args">set_args() (PipelineItem method)</a>
 </li>
-      <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.set_energy_calibration_mask_ranges">set_energy_calibration_mask_ranges() (MCADetectorCalibration method)</a>
+      <li><a href="CHAP.html#CHAP.models.RunConfig.set_log_level">set_log_level() (RunConfig method)</a>
 </li>
       <li><a href="CHAP.html#CHAP.runner.set_logger">set_logger() (in module CHAP.runner)</a>
 </li>
@@ -3219,6 +3282,8 @@
       <li><a href="CHAP.edd.html#CHAP.edd.writer.StrainAnalysisUpdateWriter">StrainAnalysisUpdateWriter (class in CHAP.edd.writer)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.string_to_list">string_to_list() (in module CHAP.utils.general)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.structure_signal_values">structure_signal_values() (UnstructuredToStructuredProcessor method)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.success">success (Fit property)</a>
 
@@ -3418,6 +3483,10 @@
         <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.validate_config">(PyfaiIntegratorConfig class method)</a>
 </li>
       </ul></li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.validate_config_fields">validate_config_fields() (UnstructuredToStructuredProcessor method)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.validate_data">validate_data() (UnstructuredToStructuredProcessor method)</a>
+</li>
       <li><a href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor.validate_data_point">validate_data_point() (SetupNXdataProcessor method)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.validate_data_present">validate_data_present (MapConfig attribute)</a>
@@ -3447,6 +3516,8 @@
       <li><a href="CHAP.utils.html#CHAP.utils.models.ExpressionModel.validate_expressionmodel_after">validate_expressionmodel_after() (ExpressionModel method)</a>
 </li>
       <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.models.FiberIntegratorConfig.validate_fiberintegratorconfig_after">validate_fiberintegratorconfig_after() (FiberIntegratorConfig method)</a>
+</li>
+      <li><a href="CHAP.edd.html#CHAP.edd.models.FitConfig.validate_fitconfig_after">validate_fitconfig_after() (FitConfig method)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitModel.validate_fitmodel_after">validate_fitmodel_after() (FitModel method)</a>
 </li>
@@ -3486,18 +3557,18 @@
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.validate_max_peak_index">validate_max_peak_index() (MCAEnergyCalibrationConfig class method)</a>
 </li>
-      <li><a href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.validate_mcacalibrationconfig_before">validate_mcacalibrationconfig_before() (MCACalibrationConfig class method)</a>
+      <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.validate_mcadetectorcalibration_after">validate_mcadetectorcalibration_after() (MCADetectorCalibration method)</a>
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.validate_mcadetectorconfig_after">validate_mcadetectorconfig_after() (MCADetectorConfig method)</a>
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.validate_mcadetectorconfig_before">validate_mcadetectorconfig_before() (MCADetectorConfig class method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_after">validate_mcaenergycalibrationconfig_after() (MCAEnergyCalibrationConfig method)</a>
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_before">validate_mcaenergycalibrationconfig_before() (MCAEnergyCalibrationConfig class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.edd.html#CHAP.edd.processor.MCAEnergyCalibrationProcessor.validate_mcaenergycalibrationprocessor_before">validate_mcaenergycalibrationprocessor_before() (MCAEnergyCalibrationProcessor class method)</a>
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.processor.MCATthCalibrationProcessor.validate_mcatthcalibrationprocessor_before">validate_mcatthcalibrationprocessor_before() (MCATthCalibrationProcessor class method)</a>
@@ -3507,8 +3578,6 @@
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitParameter.validate_min">validate_min() (FitParameter class method)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.reader.validate_model">validate_model() (in module CHAP.common.reader)</a>
-</li>
-      <li><a href="CHAP.common.html#CHAP.common.processor.MapProcessor.validate_num_proc">validate_num_proc() (MapProcessor class method)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.common.UnstructuredToStructuredConfig.validate_nxpath">validate_nxpath() (UnstructuredToStructuredConfig class method)</a>
 </li>

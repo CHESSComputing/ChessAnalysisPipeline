@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=9174d659"></script>
+      <script src="_static/documentation_options.js?v=bd6294fc"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -22,6 +22,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="CHAP.xrf package" href="CHAP.xrf.html" />
     <link rel="prev" title="CHAP.tomo package" href="CHAP.tomo.html" /> 
 </head>
 
@@ -73,6 +74,7 @@
 <li class="toctree-l4"><a class="reference internal" href="CHAP.saxswaxs.html">CHAP.saxswaxs package</a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html">CHAP.tomo package</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">CHAP.utils package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html">CHAP.xrf package</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.html#submodules">Submodules</a></li>
@@ -263,7 +265,7 @@ nexusformat.nexus.NXdata</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="CHAP.utils.fit.Fit">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/utils/fit.html#Fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.utils.fit.Fit" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/utils/fit.html#Fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.utils.fit.Fit" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Wrapper class for scipy/lmfit.</p>
 <dl class="py method">
@@ -490,7 +492,8 @@ defaults to <cite>True</cite>.</p></li>
 <li><p><strong>plot_comp_legends</strong> (<em>bool</em><em>, </em><em>optional</em>) – Add a legend for the individual
 model components, defaults to <cite>False</cite>.</p></li>
 <li><p><strong>plot_residual</strong> (<em>bool</em><em>, </em><em>optional</em>) – Plot the residual, defaults to <cite>False</cite>.</p></li>
-<li><p><strong>plot_masked_data</strong> (<em>bool</em><em>, </em><em>optional</em>)</p></li>
+<li><p><strong>plot_masked_data</strong> (<em>bool</em><em>, </em><em>optional</em>) – Visually distinguish the masked from
+the unmasked data, defaults to <cite>True</cite>.</p></li>
 <li><p><strong>**kwargs</strong> – <p>Additional key, value pairs to pass on
 directly to the Matplotlib plot function.</p>
 </p></li>
@@ -575,7 +578,7 @@ property.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="CHAP.utils.fit.FitMap">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FitMap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/utils/fit.html#FitMap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.utils.fit.FitMap" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FitMap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/utils/fit.html#FitMap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.utils.fit.FitMap" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#CHAP.utils.fit.Fit" title="CHAP.utils.fit.Fit"><code class="xref py py-class docutils literal notranslate"><span class="pre">Fit</span></code></a></p>
 <p>Wrapper to the Fit class to fit data on a N-dimensional map.</p>
 <dl class="py property">
@@ -775,7 +778,8 @@ defaults to <cite>None</cite> which will plot the first data point.</p></li>
 <li><p><strong>plot_comp_legends</strong> (<em>bool</em><em>, </em><em>optional</em>) – Add a legend for the individual
 model components, defaults to <cite>False</cite>.</p></li>
 <li><p><strong>plot_residual</strong> (<em>bool</em><em>, </em><em>optional</em>) – Plot the residual, defaults to <cite>False</cite>.</p></li>
-<li><p><strong>plot_masked_data</strong> (<em>bool</em><em>, </em><em>optional</em>)</p></li>
+<li><p><strong>plot_masked_data</strong> (<em>bool</em><em>, </em><em>optional</em>) – Visually distinguish the masked from
+the unmasked data, defaults to <cite>True</cite>.</p></li>
 <li><p><strong>**kwargs</strong> – <p>Additional key, value pairs to pass on
 directly to the Matplotlib plot function.</p>
 </p></li>
@@ -2458,10 +2462,8 @@ tuple(int, int, int, int) or <cite>None</cite>.</p>
 <li><p><strong>y</strong> (<em>array-like</em>) – One-dimensional data array for which a mask will be
 constructed.</p></li>
 <li><p><strong>x</strong> (<em>array-like</em><em>, </em><em>optional</em>) – x-coordinates of the reference data.</p></li>
-<li><p><strong>preselected_index_ranges</strong> (<em>list</em><em>[</em><em>tuple</em><em>(</em><em>int</em><em>, </em><em>int</em><em>)</em><em>] or
-</em><em>list</em><em>[</em><em>list</em><em>[</em><em>int</em><em>]</em><em>] or </em><em>list</em><em>[</em><em>tuple</em><em>(</em><em>float</em><em>, </em><em>float</em><em>)</em><em>] or
-</em><em>list</em><em>[</em><em>list</em><em>[</em><em>float</em><em>]</em><em>]</em><em>)</em><em>, </em><em>optional</em>) – List of preselected index ranges
-to mask (bounds are inclusive).</p></li>
+<li><p><strong>preselected_index_ranges</strong> (<em>list</em><em>[</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em><em>]</em><em>, </em><em>optional</em>) – List of preselected index ranges
+to mask, lower bounds are inclusive, upper bounds not.</p></li>
 <li><p><strong>preselected_mask</strong> (<em>array-like</em><em>, </em><em>optional</em>) – Preselected boolean mask array.</p></li>
 <li><p><strong>title</strong> (<em>str</em><em>, </em><em>optional</em>) – Title for the displayed figure.</p></li>
 <li><p><strong>xlabel</strong> (<em>str</em><em>, </em><em>optional</em>) – Label for the x-axis of the displayed figure.</p></li>
@@ -2485,7 +2487,7 @@ and the list of selected index ranges.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>tuple[_io.BytesIO, str] or <cite>None</cite>, numpy.ndarray,
-list[list[int, int]]</p>
+list[[int, int]]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -4277,6 +4279,7 @@ will be reshaped.</p></li>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="CHAP.tomo.html" class="btn btn-neutral float-left" title="CHAP.tomo package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="CHAP.xrf.html" class="btn btn-neutral float-right" title="CHAP.xrf package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -13,7 +13,7 @@
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=9174d659"></script>
+      <script src="../../../_static/documentation_options.js?v=bd6294fc"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -102,7 +102,7 @@
   <h1>Source code for CHAP.utils.material</h1><div class="highlight"><pre>
 <span></span><span class="ch">#!/usr/bin/env python</span>
 <span class="c1">#-*- coding: utf-8 -*-</span>
-<span class="sd">&quot;&quot;&quot;Module defining the Material class.&quot;&quot;&quot;</span>
+<span class="sd">"""Module defining the Material class."""</span>
 
 <span class="c1"># System modules</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">getLogger</span>
@@ -140,16 +140,16 @@
 <div class="viewcode-block" id="Material">
 <a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.material.Material">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Material</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for materials in an sin2psi or EDD analysis. Right</span>
+<span class="w">    </span><span class="sd">"""Base class for materials in an sin2psi or EDD analysis. Right</span>
 <span class="sd">    now it assumes a single material, extend its ability to do</span>
 <span class="sd">    differently when test data is available.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span> <span class="n">material_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">material_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sgnum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">lattice_parameters_angstroms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atoms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pos</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">enrgy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize Material.</span>
+<span class="w">        </span><span class="sd">"""Initialize Material.</span>
 
 <span class="sd">        :param material_name: Material name.</span>
 <span class="sd">        :type material_name: str, optional</span>
@@ -166,7 +166,7 @@
 <span class="sd">        :type pos: list, optional</span>
 <span class="sd">        :param enrgy: X-ray energy in eV.</span>
 <span class="sd">        :type enrgy: float, optional</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_enrgy</span> <span class="o">=</span> <span class="n">enrgy</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_materials</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ds_min</span> <span class="o">=</span> <span class="p">[]</span>
@@ -180,27 +180,27 @@
 <div class="viewcode-block" id="Material.lattice_parameters">
 <a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.material.Material.lattice_parameters">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">lattice_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert from internal nm units to angstrom.</span>
+<span class="w">        </span><span class="sd">"""Convert from internal nm units to angstrom.</span>
 
 <span class="sd">        :param index: List index of the material, defaults to `0`.</span>
 <span class="sd">        :type index: int, optional</span>
 <span class="sd">        :return: Lattice parameters in angstrom.</span>
 <span class="sd">        :rtype: list</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">matl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_materials</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">matl</span><span class="p">,</span> <span class="n">materials</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">Crystal</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">[</span><span class="n">matl</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="n">matl</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="n">matl</span><span class="o">.</span><span class="n">c</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">matl</span><span class="p">,</span> <span class="n">material</span><span class="o">.</span><span class="n">Material</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">[</span>
-                <span class="n">lpars</span><span class="o">.</span><span class="n">getVal</span><span class="p">(</span><span class="s1">&#39;angstrom&#39;</span><span class="p">)</span>
+                <span class="n">lpars</span><span class="o">.</span><span class="n">getVal</span><span class="p">(</span><span class="s1">'angstrom'</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">lpars</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_materials</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">latticeParameters</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">]]</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Illegal material class type&#39;</span><span class="p">)</span></div>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Illegal material class type'</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Material.ds_unique">
 <a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.material.Material.ds_unique">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ds_unique</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tth_tol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tth_max</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">round_sig</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the unique lattice spacings.</span>
+<span class="w">        </span><span class="sd">"""Return the unique lattice spacings.</span>
 
 <span class="sd">        :param tth_tol: Two-theta tolerance (in degrees).</span>
 <span class="sd">        :type tth_tol: float, optional</span>
@@ -211,7 +211,7 @@
 <span class="sd">        :type round_sig: int, optional</span>
 <span class="sd">        :returns: Unique lattice spacings.</span>
 <span class="sd">        :rtype: list</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds_unique</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">get_ds_unique</span><span class="p">(</span><span class="n">tth_tol</span><span class="p">,</span> <span class="n">tth_max</span><span class="p">,</span> <span class="n">round_sig</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds_unique</span></div>
@@ -220,7 +220,7 @@
 <div class="viewcode-block" id="Material.hkls_unique">
 <a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.material.Material.hkls_unique">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">hkls_unique</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tth_tol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tth_max</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">round_sig</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the unique HKLs.</span>
+<span class="w">        </span><span class="sd">"""Return the unique HKLs.</span>
 
 <span class="sd">        :param tth_tol: Two-theta tolerance (in degrees).</span>
 <span class="sd">        :type tth_tol: float, optional</span>
@@ -232,7 +232,7 @@
 <span class="sd">        :returns: HKLs corresponding to the unique lattice</span>
 <span class="sd">            spacings.</span>
 <span class="sd">        :rtype: list</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hkls_unique</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">get_ds_unique</span><span class="p">(</span><span class="n">tth_tol</span><span class="p">,</span> <span class="n">tth_max</span><span class="p">,</span> <span class="n">round_sig</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hkls_unique</span></div>
@@ -244,7 +244,7 @@
             <span class="bp">self</span><span class="p">,</span> <span class="n">material_name</span><span class="p">,</span> <span class="n">material_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sgnum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">lattice_parameters_angstroms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atoms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pos</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">dmin_angstroms</span><span class="o">=</span><span class="mf">0.35</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a material to the internal list of materials.</span>
+<span class="w">        </span><span class="sd">"""Add a material to the internal list of materials.</span>
 
 <span class="sd">        :param material_name: Material name.</span>
 <span class="sd">        :type material_name: str</span>
@@ -262,12 +262,12 @@
 <span class="sd">        :param dmin_angstroms: Minimum lattice spacing in angstrom,</span>
 <span class="sd">            defaults to `0.35`.</span>
 <span class="sd">        :type dmin_angstroms: float, optional</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># At this point only for a single material</span>
         <span class="c1"># Unique energies works for more, but fitting with different</span>
         <span class="c1">#     materials is not implemented</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_materials</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Multiple materials not implemented yet&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Multiple materials not implemented yet'</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ds_min</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dmin_angstroms</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_materials</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
             <span class="n">Material</span><span class="o">.</span><span class="n">make_material</span><span class="p">(</span>
@@ -278,7 +278,7 @@
 <div class="viewcode-block" id="Material.get_ds_unique">
 <a class="viewcode-back" href="../../../CHAP.utils.html#CHAP.utils.material.Material.get_ds_unique">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_ds_unique</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tth_tol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tth_max</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">round_sig</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the list of unique lattice spacings from material HKLs.</span>
+<span class="w">        </span><span class="sd">"""Get the list of unique lattice spacings from material HKLs.</span>
 
 <span class="sd">        :param tth_tol: Two-theta tolerance (in degrees).</span>
 <span class="sd">        :type tth_tol: float, optional</span>
@@ -290,7 +290,7 @@
 <span class="sd">        :returns: HKLs corresponding to the unique lattice spacings</span>
 <span class="sd">            and the list of the unique lattice spacings.</span>
 <span class="sd">        :rtype: list, list</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">hkls</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">))</span>
         <span class="n">ds_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">))</span>
@@ -303,9 +303,9 @@
                     <span class="k">else</span><span class="p">:</span>
                         <span class="n">powder</span> <span class="o">=</span> <span class="n">simpack</span><span class="o">.</span><span class="n">PowderDiffraction</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">en</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_enrgy</span><span class="p">)</span>
                     <span class="n">hklsi</span> <span class="o">=</span> <span class="p">[</span><span class="n">hkl</span> <span class="k">for</span> <span class="n">hkl</span> <span class="ow">in</span> <span class="n">powder</span><span class="o">.</span><span class="n">data</span>
-                             <span class="k">if</span> <span class="n">powder</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">hkl</span><span class="p">][</span><span class="s1">&#39;active&#39;</span><span class="p">]]</span>
+                             <span class="k">if</span> <span class="n">powder</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">hkl</span><span class="p">][</span><span class="s1">'active'</span><span class="p">]]</span>
                     <span class="n">ds_i</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">planeDistance</span><span class="p">(</span><span class="n">hkl</span><span class="p">)</span> <span class="k">for</span> <span class="n">hkl</span> <span class="ow">in</span> <span class="n">powder</span><span class="o">.</span><span class="n">data</span>
-                            <span class="k">if</span> <span class="n">powder</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">hkl</span><span class="p">][</span><span class="s1">&#39;active&#39;</span><span class="p">]]</span>
+                            <span class="k">if</span> <span class="n">powder</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">hkl</span><span class="p">][</span><span class="s1">'active'</span><span class="p">]]</span>
                     <span class="n">mask</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds_min</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">ds_i</span><span class="p">]</span>
                     <span class="n">hkls</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">hkls</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">hklsi</span><span class="p">)[</span><span class="n">mask</span><span class="p">,:]))</span>
                     <span class="n">ds_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ds_i</span><span class="p">)[</span><span class="n">mask</span><span class="p">]</span>
@@ -322,7 +322,7 @@
                     <span class="n">ds_i</span> <span class="o">=</span> <span class="n">plane_data</span><span class="o">.</span><span class="n">getPlaneSpacings</span><span class="p">()</span>
                     <span class="n">material_class_valid</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">material_class_valid</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Illegal material class type&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Illegal material class type'</span><span class="p">)</span>
             <span class="n">ds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds_i</span><span class="p">))</span>
             <span class="n">ds_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">ds_index</span><span class="p">,</span> <span class="n">i</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ds_i</span><span class="p">))))</span>
 
@@ -337,11 +337,11 @@
         <span class="n">hkl_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span>
             <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ds_unique</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">ds_index</span><span class="p">[</span><span class="n">ds_index_unique</span><span class="p">],</span>
              <span class="bp">self</span><span class="o">.</span><span class="n">_hkls_unique</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds_unique</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Unique d&#39;s:&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Unique d's:"</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">hkl</span> <span class="ow">in</span> <span class="n">hkl_list</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">4.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> &#39;</span>
-                <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="si">:</span><span class="s1">.6f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">4.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> '</span>
+                <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">hkl</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="si">:</span><span class="s1">.6f</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hkls_unique</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds_unique</span></div>
 
@@ -353,7 +353,7 @@
             <span class="n">material_name</span><span class="p">,</span> <span class="n">material_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sgnum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">lattice_parameters_angstroms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atoms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pos</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">dmin_angstroms</span><span class="o">=</span><span class="mf">0.35</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Use `HeXRD &lt;https://github.com/HEXRD/hexrd&gt;`__ to get</span>
+<span class="w">        </span><span class="sd">"""Use `HeXRD &lt;https://github.com/HEXRD/hexrd&gt;`__ to get</span>
 <span class="sd">        material properties when a materials file is provided. Use</span>
 <span class="sd">        `xrayutilities &lt;https://github.com/dkriegner/xrayutilities&gt;`__</span>
 <span class="sd">        otherwise.</span>
@@ -377,19 +377,19 @@
 <span class="sd">        :return: Material properties.</span>
 <span class="sd">        :rtype: hexrd.material.Material or</span>
 <span class="sd">            xrayutilities.materials.Crystal</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># pylint: disable=possibly-used-before-assignment</span>
         <span class="n">lattice_parameters</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">material_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;Illegal material_name: </span><span class="si">{</span><span class="n">material_name</span><span class="si">}</span><span class="s1"> &#39;</span>
-                <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">material_name</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="sa">f</span><span class="s1">'Illegal material_name: </span><span class="si">{</span><span class="n">material_name</span><span class="si">}</span><span class="s1"> '</span>
+                <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">material_name</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">lattice_parameters_angstroms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">material_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s1">&#39;Overwrite lattice_parameters of material_file with input &#39;</span>
-                    <span class="sa">f</span><span class="s1">&#39;values (</span><span class="si">{</span><span class="n">lattice_parameters_angstroms</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;material_file needs testing&#39;</span><span class="p">)</span>
+                    <span class="s1">'Overwrite lattice_parameters of material_file with input '</span>
+                    <span class="sa">f</span><span class="s1">'values (</span><span class="si">{</span><span class="n">lattice_parameters_angstroms</span><span class="si">}</span><span class="s1">)'</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">'material_file needs testing'</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lattice_parameters_angstroms</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
                 <span class="n">lattice_parameters</span> <span class="o">=</span> <span class="p">[</span><span class="n">lattice_parameters_angstroms</span><span class="p">]</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span>
@@ -397,11 +397,11 @@
                 <span class="n">lattice_parameters</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">lattice_parameters_angstroms</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s1">&#39;Illegal lattice_parameters_angstroms: &#39;</span>
-                    <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">lattice_parameters_angstroms</span><span class="si">}</span><span class="s1"> &#39;</span>
-                    <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">lattice_parameters_angstroms</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="s1">'Illegal lattice_parameters_angstroms: '</span>
+                    <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">lattice_parameters_angstroms</span><span class="si">}</span><span class="s1"> '</span>
+                    <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">lattice_parameters_angstroms</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 
-        <span class="c1"># FIX use &quot;old&quot; method for now (moved from CHAP/edd/utils.py)</span>
+        <span class="c1"># FIX use "old" method for now (moved from CHAP/edd/utils.py)</span>
         <span class="c1"># Do not instantial with material name, it is ignored when you</span>
         <span class="c1"># do not also provide a material file</span>
         <span class="n">matl</span> <span class="o">=</span> <span class="n">material</span><span class="o">.</span><span class="n">Material</span><span class="p">()</span>
@@ -410,22 +410,22 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lattice_parameters</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
             <span class="n">lattice_parameters</span> <span class="o">=</span> <span class="p">[</span><span class="n">lattice_parameters</span><span class="p">]</span>
         <span class="n">matl</span><span class="o">.</span><span class="n">latticeParameters</span> <span class="o">=</span> <span class="n">lattice_parameters</span>
-        <span class="n">matl</span><span class="o">.</span><span class="n">dmin</span> <span class="o">=</span> <span class="n">valWUnit</span><span class="p">(</span><span class="s1">&#39;lp&#39;</span><span class="p">,</span> <span class="s1">&#39;length&#39;</span><span class="p">,</span>  <span class="n">dmin_angstroms</span><span class="p">,</span> <span class="s1">&#39;angstrom&#39;</span><span class="p">)</span>
+        <span class="n">matl</span><span class="o">.</span><span class="n">dmin</span> <span class="o">=</span> <span class="n">valWUnit</span><span class="p">(</span><span class="s1">'lp'</span><span class="p">,</span> <span class="s1">'length'</span><span class="p">,</span>  <span class="n">dmin_angstroms</span><span class="p">,</span> <span class="s1">'angstrom'</span><span class="p">)</span>
         <span class="n">nhkls</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">exclusions</span><span class="p">)</span>
         <span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">set_exclusions</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nhkls</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">matl</span>
 
         <span class="k">if</span> <span class="n">material_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">pos</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;pos </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">pos</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'pos </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">pos</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sgnum</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Illegal sgnum: </span><span class="si">{</span><span class="n">sgnum</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">sgnum</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Illegal sgnum: </span><span class="si">{</span><span class="n">sgnum</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">sgnum</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">sgnum</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">lattice_parameters_angstroms</span> <span class="ow">is</span> <span class="kc">None</span>
                     <span class="ow">or</span> <span class="n">pos</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s1">&#39;Valid inputs for sgnum, lattice_parameters_angstroms and &#39;</span>
-                    <span class="s1">&#39;pos are required if materials file is not specified&#39;</span>
-                    <span class="sa">f</span><span class="s1">&#39; </span><span class="si">{</span><span class="n">sgnum</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">lattice_parameters_angstroms</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">pos</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="s1">'Valid inputs for sgnum, lattice_parameters_angstroms and '</span>
+                    <span class="s1">'pos are required if materials file is not specified'</span>
+                    <span class="sa">f</span><span class="s1">' </span><span class="si">{</span><span class="n">sgnum</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">lattice_parameters_angstroms</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="n">pos</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="n">pos</span> <span class="o">=</span> <span class="p">[</span><span class="n">pos</span><span class="p">]</span>
             <span class="n">use_xu</span> <span class="o">=</span> <span class="kc">True</span>
@@ -442,7 +442,7 @@
             <span class="k">elif</span> <span class="ow">not</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pos</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">str</span><span class="p">)</span>
                       <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">HAVE_XU</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s1">&#39;Illegal pos (HAVE_XU = </span><span class="si">{</span><span class="n">HAVE_XU</span><span class="si">}</span><span class="s1">): </span><span class="si">{</span><span class="n">pos</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="sa">f</span><span class="s1">'Illegal pos (HAVE_XU = </span><span class="si">{</span><span class="n">HAVE_XU</span><span class="si">}</span><span class="s1">): </span><span class="si">{</span><span class="n">pos</span><span class="si">}</span><span class="s1"> </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">use_xu</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">atoms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">atoms</span> <span class="o">=</span> <span class="p">[</span><span class="n">material_name</span><span class="p">]</span>
@@ -459,7 +459,7 @@
                 <span class="c1">#matl.atominfo = np.vstack((pos.T, np.ones(pos.shape[0]))).T</span>
                 <span class="n">matl</span><span class="o">.</span><span class="n">latticeParameters</span> <span class="o">=</span> <span class="n">lattice_parameters</span>
                 <span class="n">matl</span><span class="o">.</span><span class="n">dmin</span> <span class="o">=</span> <span class="n">valWUnit</span><span class="p">(</span>
-                    <span class="s1">&#39;lp&#39;</span><span class="p">,</span> <span class="s1">&#39;length&#39;</span><span class="p">,</span> <span class="n">dmin_angstroms</span><span class="p">,</span> <span class="s1">&#39;angstrom&#39;</span><span class="p">)</span>
+                    <span class="s1">'lp'</span><span class="p">,</span> <span class="s1">'length'</span><span class="p">,</span> <span class="n">dmin_angstroms</span><span class="p">,</span> <span class="s1">'angstrom'</span><span class="p">)</span>
                 <span class="n">exclusions</span> <span class="o">=</span> <span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">get_exclusions</span><span class="p">()</span>
                 <span class="n">powder_intensity</span> <span class="o">=</span> <span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">powder_intensity</span>
                 <span class="n">exclusions</span> <span class="o">=</span> <span class="p">[</span>
@@ -468,22 +468,22 @@
                     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">exclusion</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">exclusions</span><span class="p">)]</span>
                 <span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">set_exclusions</span><span class="p">(</span><span class="n">exclusions</span><span class="p">)</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s1">&#39;powder_intensity = </span><span class="si">{</span><span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">powder_intensity</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;exclusions = </span><span class="si">{</span><span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">exclusions</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="sa">f</span><span class="s1">'powder_intensity = </span><span class="si">{</span><span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">powder_intensity</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">'exclusions = </span><span class="si">{</span><span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">exclusions</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">HAVE_HEXRD</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s1">&#39;Illegal inputs: must provide detailed material info when &#39;</span>
-                    <span class="s1">&#39;hexrd package is unavailable&#39;</span><span class="p">)</span>
+                    <span class="s1">'Illegal inputs: must provide detailed material info when '</span>
+                    <span class="s1">'hexrd package is unavailable'</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">sgnum</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s1">&#39;Ignore sgnum input when material_file is specified&#39;</span><span class="p">)</span>
+                    <span class="s1">'Ignore sgnum input when material_file is specified'</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">material_file</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span>
-                    <span class="p">(</span><span class="s1">&#39;.h5&#39;</span><span class="p">,</span> <span class="s1">&#39;.hdf5&#39;</span><span class="p">,</span> <span class="s1">&#39;.xtal&#39;</span><span class="p">,</span> <span class="s1">&#39;.cif&#39;</span><span class="p">)):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Illegal material file </span><span class="si">{</span><span class="n">material_file</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="p">(</span><span class="s1">'.h5'</span><span class="p">,</span> <span class="s1">'.hdf5'</span><span class="p">,</span> <span class="s1">'.xtal'</span><span class="p">,</span> <span class="s1">'.cif'</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Illegal material file </span><span class="si">{</span><span class="n">material_file</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
             <span class="n">matl</span> <span class="o">=</span> <span class="n">material</span><span class="o">.</span><span class="n">Material</span><span class="p">(</span>
                 <span class="n">material_name</span><span class="p">,</span> <span class="n">material_file</span><span class="p">,</span>
-                <span class="n">dmin</span><span class="o">=</span><span class="n">valWUnit</span><span class="p">(</span><span class="s1">&#39;lp&#39;</span><span class="p">,</span> <span class="s1">&#39;length&#39;</span><span class="p">,</span> <span class="n">dmin_angstroms</span><span class="p">,</span> <span class="s1">&#39;angstrom&#39;</span><span class="p">))</span>
+                <span class="n">dmin</span><span class="o">=</span><span class="n">valWUnit</span><span class="p">(</span><span class="s1">'lp'</span><span class="p">,</span> <span class="s1">'length'</span><span class="p">,</span> <span class="n">dmin_angstroms</span><span class="p">,</span> <span class="s1">'angstrom'</span><span class="p">))</span>
             <span class="k">if</span> <span class="n">lattice_parameters_angstroms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">matl</span><span class="o">.</span><span class="n">latticeParameters</span> <span class="o">=</span> <span class="n">lattice_parameters</span>
             <span class="n">exclusions</span> <span class="o">=</span> <span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">get_exclusions</span><span class="p">()</span>
@@ -494,8 +494,8 @@
                 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">exclusion</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">exclusions</span><span class="p">)]</span>
             <span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">set_exclusions</span><span class="p">(</span><span class="n">exclusions</span><span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s1">&#39;powder_intensity = </span><span class="si">{</span><span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">powder_intensity</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;exclusions = </span><span class="si">{</span><span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">exclusions</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="sa">f</span><span class="s1">'powder_intensity = </span><span class="si">{</span><span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">powder_intensity</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">'exclusions = </span><span class="si">{</span><span class="n">matl</span><span class="o">.</span><span class="n">planeData</span><span class="o">.</span><span class="n">exclusions</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">matl</span></div>
 </div>

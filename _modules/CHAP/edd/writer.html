@@ -13,7 +13,7 @@
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=9174d659"></script>
+      <script src="../../../_static/documentation_options.js?v=bd6294fc"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -102,7 +102,7 @@
   <h1>Source code for CHAP.edd.writer</h1><div class="highlight"><pre>
 <span></span><span class="ch">#!/usr/bin/env python</span>
 <span class="c1">#-*- coding: utf-8 -*-</span>
-<span class="sd">&quot;&quot;&quot;Module for Writers unique to the EDD workflow.&quot;&quot;&quot;</span>
+<span class="sd">"""Module for Writers unique to the EDD workflow."""</span>
 
 <span class="c1"># Local modules</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.writer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Writer</span>
@@ -110,18 +110,18 @@
 <div class="viewcode-block" id="StrainAnalysisUpdateWriter">
 <a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.writer.StrainAnalysisUpdateWriter">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">StrainAnalysisUpdateWriter</span><span class="p">(</span><span class="n">Writer</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Writer to add or update the strain analysis for a set of map</span>
+<span class="w">    </span><span class="sd">"""Writer to add or update the strain analysis for a set of map</span>
 <span class="sd">    points.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="StrainAnalysisUpdateWriter.write">
 <a class="viewcode-back" href="../../../CHAP.edd.html#CHAP.edd.writer.StrainAnalysisUpdateWriter.write">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write or update strain analysis results for a set of points.</span>
+<span class="w">        </span><span class="sd">"""Write or update strain analysis results for a set of points.</span>
 
 <span class="sd">        :param data: Input data.</span>
 <span class="sd">        :type data: list[PipelineData]</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># Third party modules</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">nexusformat.nexus</span><span class="w"> </span><span class="kn">import</span> <span class="n">nxload</span>
 
@@ -129,13 +129,13 @@
         <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.edd.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrainAnalysisProcessor</span>
 
         <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_pipelinedata_item</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">remove</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">)</span>
-        <span class="n">nxroot</span> <span class="o">=</span> <span class="n">nxload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;r+&#39;</span><span class="p">)</span>
+        <span class="n">nxroot</span> <span class="o">=</span> <span class="n">nxload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'r+'</span><span class="p">)</span>
         <span class="n">StrainAnalysisProcessor</span><span class="o">.</span><span class="n">add_points</span><span class="p">(</span><span class="n">nxroot</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">)</span></div>
 </div>
 
 
 
-<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
     <span class="c1"># Local modules</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.writer</span><span class="w"> </span><span class="kn">import</span> <span class="n">main</span>
 

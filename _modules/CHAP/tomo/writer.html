@@ -13,7 +13,7 @@
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../../_static/documentation_options.js?v=9174d659"></script>
+      <script src="../../../_static/documentation_options.js?v=bd6294fc"></script>
       <script src="../../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
@@ -101,7 +101,7 @@
              
   <h1>Source code for CHAP.tomo.writer</h1><div class="highlight"><pre>
 <span></span><span class="ch">#!/usr/bin/env python</span>
-<span class="sd">&quot;&quot;&quot;Module for Writers unique to the tomography workflow.&quot;&quot;&quot;</span>
+<span class="sd">"""Module for Writers unique to the tomography workflow."""</span>
 
 <span class="c1"># System modules</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
@@ -122,48 +122,48 @@
 <div class="viewcode-block" id="TomoWriter">
 <a class="viewcode-back" href="../../../CHAP.tomo.html#CHAP.tomo.writer.TomoWriter">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TomoWriter</span><span class="p">(</span><span class="n">Writer</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Writer for saving tomo data.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Writer for saving tomo data."""</span>
 
 <div class="viewcode-block" id="TomoWriter.validate_tomowriter_after">
 <a class="viewcode-back" href="../../../CHAP.tomo.html#CHAP.tomo.writer.TomoWriter.validate_tomowriter_after">[docs]</a>
-    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;after&#39;</span><span class="p">)</span>
+    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">'after'</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">validate_tomowriter_after</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the filename extension.</span>
+<span class="w">        </span><span class="sd">"""Validate the filename extension.</span>
 
 <span class="sd">        :return: Validated writer configuration</span>
 <span class="sd">        :rtype: TomoWriter</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span>
-        <span class="k">if</span> <span class="n">ext</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;nxs&#39;</span><span class="p">,</span> <span class="s1">&#39;yml&#39;</span><span class="p">,</span> <span class="s1">&#39;yaml&#39;</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid filename extension </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ext</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'nxs'</span><span class="p">,</span> <span class="s1">'yml'</span><span class="p">,</span> <span class="s1">'yaml'</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Invalid filename extension </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
 
 <div class="viewcode-block" id="TomoWriter.write">
 <a class="viewcode-back" href="../../../CHAP.tomo.html#CHAP.tomo.writer.TomoWriter.write">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write the results of the (partial) tomographic</span>
+<span class="w">        </span><span class="sd">"""Write the results of the (partial) tomographic</span>
 <span class="sd">        reconstruction and add provenance data to the data pipeline.</span>
 
 <span class="sd">        :param data: Input data.</span>
 <span class="sd">        :type data: list[PipelineData]</span>
 <span class="sd">        :return: Output data.</span>
 <span class="sd">        :rtype: list[PipelineData]</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># Local modules</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipelineData</span>
 
         <span class="c1"># Load the (partial) tomographic reconstruction result</span>
         <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span>
-        <span class="k">if</span> <span class="n">ext</span> <span class="o">==</span> <span class="s1">&#39;nxs&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ext</span> <span class="o">==</span> <span class="s1">'nxs'</span><span class="p">:</span>
             <span class="n">tomodata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
-                <span class="n">data</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="s1">&#39;tomodata&#39;</span><span class="p">,</span> <span class="n">remove</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">ext</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;yml&#39;</span><span class="p">,</span> <span class="s1">&#39;yaml&#39;</span><span class="p">):</span>
+                <span class="n">data</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="s1">'tomodata'</span><span class="p">,</span> <span class="n">remove</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">ext</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'yml'</span><span class="p">,</span> <span class="s1">'yaml'</span><span class="p">):</span>
             <span class="n">tomodata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span>
-                <span class="n">data</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="s1">&#39;tomo.models.TomoFindCenterConfig&#39;</span><span class="p">,</span>
+                <span class="n">data</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="s1">'tomo.models.TomoFindCenterConfig'</span><span class="p">,</span>
                 <span class="n">remove</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid filename extension </span><span class="si">{</span><span class="n">ext</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Invalid filename extension </span><span class="si">{</span><span class="n">ext</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
 
         <span class="c1"># Local modules</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tomodata</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
@@ -184,7 +184,7 @@
 
 
 
-<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
     <span class="c1"># Local modules</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.writer</span><span class="w"> </span><span class="kn">import</span> <span class="n">main</span>
 

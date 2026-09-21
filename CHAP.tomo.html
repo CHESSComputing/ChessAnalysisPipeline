@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=9174d659"></script>
+      <script src="_static/documentation_options.js?v=bd6294fc"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -74,6 +74,7 @@
 <li class="toctree-l4"><a class="reference internal" href="CHAP.saxswaxs.html">CHAP.saxswaxs package</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">CHAP.tomo package</a></li>
 <li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html">CHAP.utils package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html">CHAP.xrf package</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.html#submodules">Submodules</a></li>
@@ -364,7 +365,7 @@ in degrees.</p></li>
 to apply during data reduction with a dictionary of any additional
 function parameters.</p>
 <p>Example usage:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">remove_stripe</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;remove_all_stripe&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;ncore&#39;</span><span class="p">:</span> <span class="mi">16</span><span class="p">}}</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">remove_stripe</span><span class="o">=</span><span class="p">{</span><span class="s1">'remove_all_stripe'</span><span class="p">:</span> <span class="p">{</span><span class="s1">'ncore'</span><span class="p">:</span> <span class="mi">16</span><span class="p">}}</span>
 </pre></div>
 </div>
 </p></li>
@@ -1495,13 +1496,70 @@ nexusformat.nexus.NXroot</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="CHAP.tomo.processor.create_metadata_provenance">
-<span class="sig-name descname"><span class="pre">create_metadata_provenance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">did_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">provenance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">read</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/tomo/processor.html#create_metadata_provenance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.tomo.processor.create_metadata_provenance" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<span class="sig-name descname"><span class="pre">create_metadata_provenance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">did_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">provenance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">read</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/tomo/processor.html#create_metadata_provenance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.tomo.processor.create_metadata_provenance" title="Link to this definition"></a></dt>
+<dd><p>Create metadata and provenance for CHAP processors with the
+correct schema to submit to the
+<a class="reference external" href="https://github.com/CHESSComputing/FOXDEN">FOXDEN</a>
+Data Discovery and Metadata services.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>did_suffix</strong> (<em>str</em>) – The FOXDEN DID suffix to add to the parent
+record’s DID.</p></li>
+<li><p><strong>data</strong> (<em>list</em><em>[</em><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineData" title="CHAP.pipeline.PipelineData"><em>PipelineData</em></a><em>]</em><em>, </em><em>optional</em>) – Input data pipeline, only required when <cite>read</cite> is
+<cite>True</cite> (its default value).</p></li>
+<li><p><strong>metadata</strong> (<em>dict</em><em>, </em><em>optional</em>) – Parent metadata to create the output metadata
+record, only used when <cite>read</cite> is <cite>False</cite>.</p></li>
+<li><p><strong>provenance</strong> (<em>dict</em><em>, </em><em>optional</em>) – Parent provenance to create the output
+provenance record, only used when <cite>read</cite> is <cite>False</cite>.</p></li>
+<li><p><strong>user_metadata</strong> (<em>dict</em><em>, </em><em>optional</em>) – Any workflow specific  metadata to add to the
+<cite>‘metadata’</cite> field of the output metadata record.</p></li>
+<li><p><strong>logger</strong> (<em>logging.Logger</em><em>, </em><em>optional</em>) – A python Logger object.</p></li>
+<li><p><strong>update</strong> (<em>bool</em><em>, </em><em>optional</em>) – Update the parent metadata record if <cite>True</cite>,
+otherwise return a clean child metadata record with only the
+updated fields required by the FOXDEN schema in addition to the
+<cite>‘metadata’</cite> field, defaults to <cite>False</cite>.</p></li>
+<li><p><strong>read</strong> (<em>bool</em><em>, </em><em>optional</em>) – Read the parent metadata and provenance from the data
+pipeline when <cite>True</cite>, defaults to <cite>True</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>AssertionError</strong> – When the DID doesn’t match between the metadata
+and the provenance records.</p></li>
+<li><p><strong>RuntimeError</strong> – When <cite>read</cite> is True and the <cite>data</cite> is omitted.</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The metadata and provenance information.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict, dict</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="CHAP.tomo.processor.read_metadata_provenance">
 <span class="sig-name descname"><span class="pre">read_metadata_provenance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remove</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/tomo/processor.html#read_metadata_provenance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.tomo.processor.read_metadata_provenance" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<dd><p>Retrieve metadata and provenance records from the data pipeline.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>list</em><em>[</em><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineData" title="CHAP.pipeline.PipelineData"><em>PipelineData</em></a><em>]</em>) – Input data.</p></li>
+<li><p><strong>logger</strong> (<em>logging.Logger</em><em>, </em><em>optional</em>) – A python Logger object.</p></li>
+<li><p><strong>remove</strong> (<em>bool</em><em>, </em><em>optional</em>) – If there is a matching entry in <cite>data</cite>, remove it
+from the list, defaults to <cite>True</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The metadata and provenance records.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict, dict</p>
+</dd>
+</dl>
+</dd></dl>
 
 </section>
 <section id="module-CHAP.tomo.reader">
