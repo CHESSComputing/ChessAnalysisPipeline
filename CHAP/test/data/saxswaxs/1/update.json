@@ -1,0 +1,12 @@
+{
+  "spec_file": "/data/spec/scan.spec",
+  "scan_number": 1,
+  "detectors_yaml": "/data/config/detectors.yaml",
+  "map_yaml": "/data/config/map.yaml",
+  "pyfai_yaml": "/data/config/pyfai.yaml",
+  "corrections_yaml": "/data/config/corrections.yaml",
+  "fits_yaml": "/data/config/fits.yaml",
+  "idx_slice_start": 10,
+  "idx_slice_stop": 20,
+  "idx_slice_step": 1
+}
