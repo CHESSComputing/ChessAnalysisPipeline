@@ -9,6 +9,7 @@ from CHAP.saxswaxs.processor import SetupProcessor, UpdateValuesProcessor
 from functools import cache
 from pathlib import Path
 import subprocess
+import sys
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -35,6 +36,10 @@ from chess_scanparsers.scanparsers import (
 )
 
 logger = get_logger('chap')
+
+
+CHAP = str(Path(sys.executable).parent / "CHAP")
+
 
 def cache_clear():
     """Clear scan parser and file listing caches before processing new data."""
@@ -220,7 +225,7 @@ def convert(cfg):
     with open(logname, "a") as logfile:
         process = subprocess.Popen(
             [
-                "CHAP",
+                CHAP,
                 cfg.outputdir / "pipeline.yaml",
                 "-p",
                 "convert",
@@ -228,7 +233,6 @@ def convert(cfg):
             stdout=logfile,
             stderr=subprocess.STDOUT,
         )
-        process.wait()
     logger.info(f"CHAP convert logging to {logname}")
 
 
