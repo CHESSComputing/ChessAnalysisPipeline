@@ -17,7 +17,7 @@ The `CHAP.saxswaxs` module contains processing tools unique to SAXS/WAXS process
    1. Integrated data size(s)
 
    In practice, you should prepare [two supplementary configuration files](#related_configuration_objects) in addition to the parameters for the tools involved in this step: one for a `MapConfig`, object, another for a `PyFaiIntegrationProcessorConfig` object. 
-   This step also sets the number of chunks for each data array in the container. [Selecting the right number of chunks is important for optimizing performance](#optimizing_performance) during the next step.
+   This step also sets the number of chunks for each data array in the container. [Selecting the right number of chunks is important for optimizing performance](#optimizing-performance) during the next step.
 
     <details>
     <summary> Example pipeline configuration</summary>
@@ -256,6 +256,171 @@ The `CHAP.saxswaxs` module contains processing tools unique to SAXS/WAXS process
        force_overwrite: true
    ```
     </details>
+### Output data formats
+- This is a basic guide to help find the most essential datasets produced in SAXS/WAXS analysis. It is not an exhaustive specification of every last bit of data / metadata that one can possibly find in the data formats in question.
+- The `CHAP.saxswaxs.processor.SetupProcessor` determines a hierarchical tree structure to contain processed SAXSWAXS data.
+- This tree structure is returned in [Zarr](https://zarr.dev) file format to start, but it may be converted:
+    - to the same format of NeXus file as that produced by [saxswaxsworkflow](https://gitlab01.classe.cornell.edu/msn-c/saxswaxsworkflow) using `CHAP.saxswaxs.processor.NewZarrToOldNexusProcessor`
+    - to an indentically structured [NeXus](https://manual.nexusformat.org/index.html) file in a reversible operation using `CHAP.common.processor.ZarrToNexusProcessor` (reversible with `CHAP.common.processor.NexusToZarrProcessor`).
+
+#### `CHAP.saxswaxs.processor.SetupProcessor` output structure
+##### Root level
+- The structure of the Zarr container is related to the configuration fields provided to `CHAP.saxswaxs.processor.SetupProcessor`:
+    - `map_config` defines the parameters needed to locate and read in a raw CHESS dataset
+    - `pyfai_config` defines one or more [pyFAI](https://pyfai.readthedocs.io/en/stable/) integrations to perform on 2D detector data (raw or corrected)
+    - `correction_config` defines any number of standard SAXS/WAXS corrections to perform (on raw or integrated data)
+    - `fit_config` defines any number of fits to perform on processed 1D data (integrated and corrected, or just integrated)
+    - `map_config` and each individual integration / correction / fit defined in `pyfai_config`/`correction_config`/`fit_config` will correspond to a root-level group of the results container.
+        - The name of the group is determined by the configuration's `title` field.
+        - For instance, suppose `CHAP.saxswaxs.processor.SetupProcessor` is run with the following configurations:
+          ```
+          map_config:
+            title: my_dataset
+            <...>
+          pyfai_config:
+            - title: saxs_radial
+              <...>
+          correction_config:
+            - title: saxs_radial_corrected
+              <...>
+          fit_config:
+            - title: fit_saxs_radial
+              <...>
+            - title: fit_saxs_radial_corrected
+              <...>
+          ```
+            ...then the resulting tree hierarchy will be:
+          ```
+          /                                 # root level group
+              my_dataset/                   # raw data group
+                  <...>
+              saxs_radial/                  # integrated data group
+                  <...>
+              saxs_radial_corrected/        # corrected data group
+                  <...>
+              fit_saxs_radial/              # fit data group
+                  <...>
+              fit_saxs_radial_corrected/    # fit data group
+                  <...>
+          ```
+    - NB: the types and names of the root level groups returned by `CHAP.saxswaxs.processor.SetupProcessor` are the same as those in the NeXus file produced by `saxswaxsworkflow`.
+    - Descriptions of the trees found underneath each root-level group are below.
+
+##### `map_config` sub-tree
+- This structure is generic, not specific to `CHAP.saxswaxs`.
+- The tree underneath looks like:
+  ```
+  <map_config.title>/
+      map_config                    # map configuration serialized as JSON string
+      detector_config               # detector configuration serialized as JSON string
+      spec_scans/                   # metadata about each SPEC scan in the map
+      data/                         # group containing data arrays of raw detector frames, one dataset per detector
+      <sample_name>/                # sample metadata
+      independent_dimensions/       # group containing data arrays of the map's coordinate values, one dataset per dimension
+      scalar_data/                  # group containing data arrays of scalar-valued data, one dataset per scalar readback channel
+                                    #   (includes beam intensity monitors, dwell time, etc.)
+      detector_ids                  # list of detector identifiers
+  ```
+- Dimensions that are constant across the map are demoted from `independent_dimensions/` into `scalar_data/`.
+
+##### `pyfai_config` sub-trees
+- There is one root-level group per integration defined in `pyfai_config` (identified by each integration's `title` / `name` field).
+- The tree underneath looks like:
+  ```
+  <integration_name>/
+      data/
+          I                             # integrated intensity array
+          <radial_or_azimuthal_coord>   # coordinate axis array (e.g. q values, chi angles)
+          [<azimuthal_or_radial_coord>] # other coordinate axis array (if the integration is 2D)
+  ```
+- The coordinate array name and units depend on the integration method:
+    - `integrate1d`: one radial coordinate (e.g. `q_A^-1`)
+    - `integrate2d`: one azimuthal coordinate + one radial coordinate
+    - `integrate_radial`: one azimuthal coordinate (e.g. `chi_deg`)
+- The `data/` group also carries links back to the map coordinate arrays in the `map_config` group.
+
+##### `correction_config` sub-trees
+- There is one root-level group per correction defined in `correction_config` (identified by each correction's `title` / `name` field).
+- The tree underneath looks like:
+  ```
+  <correction_name>/
+      data/
+          I_corrected               # corrected intensity (single upstream source)
+          # — or, if multiple upstream sources are named —
+          I_corrected_<source>      # one corrected-intensity array per source
+          # — when a background scan is configured —
+          I_background              # averaged background intensity frame
+          background_presample_intensity
+          background_postsample_intensity
+  ```
+- The `data/` group carries links back to the map coordinate arrays in the `map_config` group and to the coordinate arrays of the upstream integration.
+##### `fit_config` sub-trees
+- There is one root-level group per fit defined in `fit_config` (identified by each fit's `title` / `name` field).
+- The tree underneath looks like:
+  ```
+  <fit_name>/
+      data/
+          best_fit                  # best-fit curve at each scan point
+          residual                  # residual (data minus best fit) at each scan point
+          redchi                    # reduced chi-squared at each scan point
+          num_func_eval             # number of function evaluations at each scan point
+          success                   # whether the fit converged at each scan point
+      components/
+          <model_name>/             # one sub-group per model component (e.g. "gaussian", "linear")
+              parameters/           # one sub-group per fit parameter
+                  <param_name>/
+                      value         # fitted value at each scan point
+                      error         # uncertainty at each scan point
+                      initial       # initial value
+                      min, max      # bounds
+                      vary          # whether the parameter was free
+                      expression    # constraint expression, if any
+              data/
+                  best_fit          # component's contribution to the best-fit curve
+  ```
+- The `data/` group carries links back to the map coordinate arrays in the `map_config` group and to the coordinate arrays of the upstream integration or correction.
+
+#### `CHAP.saxswaxs.processor.NewZarrToOldNexusProcessor` output structure
+- Converts a Zarr file created by `CHAP.saxswaxs.processor.SetupProcessor` into an `NXroot` object whose layout mimics the NeXus files produced by [saxswaxsworkflow](https://gitlab01.classe.cornell.edu/msn-c/saxswaxsworkflow) and is compatible with the fitting notebook tools in the same repository.
+- The output NeXus file contains two kinds of top-level groups:
+    - One `NXentry` containing the map's coordinate values and scalar-valued data
+    - One `NXprocess` per integration or correction, containing the processed data
+- All data arrays in this structure are reshaped to be the same shape of the map (as opposed to flattened along the map's dimenisions, as they are in the Zarr format above).
+
+##### `map_config` sub-tree
+- This structure is nearly identical to the other `map_config` sub-tree defined above, but with some important differences:
+    - the group containing arrays of raw detector data is not present
+    - coordinate value arrays contain only the _unique, sorted_ values along each dimension (which may or may not be smaller than the length of the full dataset)
+
+##### `pyfai_config` sub-trees
+- There is one `NXprocess` group per integration in the Zarr file.
+- The tree underneath looks like:
+  ```
+  <integration_name>/
+      data/
+          I                             # integrated intensity array
+          <radial_or_azimuthal_coord>   # intensity coordinate axis array (e.g. q values, chi angles)
+          [<azimuthal_or_radial_coord>] # other intensity coordinate axis array (if the integration is 2D)
+          <dim_label>                   # map coordinate axis array (links to /<map_title>/independent_dimensions/<dim_label>)
+          [<other_dim_label>]           # more links to /<map_title>/independent_dimensions/<other_dim_label> if the map has more than one independent_dimension
+  ```
+- Each `data/` group carries `axes` and `*_indices` attributes so that every axis — both map dimensions and signal coordinate axes — is labelled.
+
+##### `correction_config` sub-trees
+- There is one `NXprocess` group per correction in the Zarr file.
+- The tree underneath looks like:
+  ```
+  <correction_name>/
+      data/
+          I_corrected                   # corrected intensity array
+          I_uncorrected                 # uncorrected intensity source array (links to /<uncorrected_data_name>/data/I)
+          <radial_or_azimuthal_coord>   # intensity coordinate axis array (e.g. q values, chi angles)
+          [<azimuthal_or_radial_coord>] # other intensity coordinate axis array (if the integration is 2D)
+          <dim_label>                   # map coordinate axis array (links to /<map_title>/independent_dimensions/<dim_label>)
+          [<other_dim_label>]           # more links to /<map_title>/independent_dimensions/<other_dim_label> if the map has more than one independent_dimension
+   ```
+- Each `data/` group carries `axes` and `*_indices` attributes so that every axis — both map dimensions and signal coordinate axes — is labelled.
+
 
 ### Related Configuration Objects
 Before constructing a `CHAP` pipeline configuration to run a complete SAXS/WAXS data processing workflow, users should first assemble two supplementary configuration files. *Both* these configurations will need to be read in to the pipeline for [the setup step](#setup) and every [update step](#update).
@@ -263,7 +428,7 @@ Before constructing a `CHAP` pipeline configuration to run a complete SAXS/WAXS 
    
    This configuration contains everything `CHAP` needs to know about the location, format, and size of the raw input dataset.
    <details>
-   <summary>Example `map_config`.yaml</summary>
+   <summary>Example `map_config.yaml`</summary>
 
    ```yaml
    validate_data_present: false
@@ -485,6 +650,7 @@ Before constructing a `CHAP` pipeline configuration to run a complete SAXS/WAXS 
    Example `pyfai_integration_processor_config.yaml`
    <details>
    <summary>Example `pyfai_integration_processor_config.yaml`</summary>
+
    ```yaml
    azimuthal_integrators:
    - id: PIL9
@@ -600,10 +766,6 @@ Before constructing a `CHAP` pipeline configuration to run a complete SAXS/WAXS 
 
 ### Optimizing performance
 Guide on selecting appropriate values for dataset_chunks and running multiple update jobs in parallel
-
-### Data in / output formats
-CHESS data in, .zarr data out
-
 
 ## Notes on corrections calculations
 There are currently three convenience tools available for performing corrections: `saxswaxs.FluxCorrectionProcessor`, `saxswaxs.FluxAbsorptionCorrectionProcessor`, and `saxswaxs.FluxAbsorptionBackrgroundCorrectionProcessor`. The exact calculations that each ones performs are detailed below.

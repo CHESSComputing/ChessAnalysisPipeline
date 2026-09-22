@@ -1,0 +1,312 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.saxswaxs.server package &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="CHAP.tomo package" href="CHAP.tomo.html" />
+    <link rel="prev" title="CHAP.saxswaxs package" href="CHAP.saxswaxs.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="CONTRIBUTIONS.html">Contributions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FOXDEN.html">FOXDEN</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="api_documentation.html">CHAP</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="CHAP.html">CHAP package</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#submodules-summary">Submodules summary</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="CHAP.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html">CHAP.common package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html">CHAP.edd package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.foxden.html">CHAP.foxden package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.giwaxs.html">CHAP.giwaxs package</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="CHAP.saxswaxs.html">CHAP.saxswaxs package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html">CHAP.tomo package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html">CHAP.utils package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.xrf.html">CHAP.xrf package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#submodules">Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#module-CHAP.models">CHAP.models module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#module-CHAP.pipeline">CHAP.pipeline module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#module-CHAP.processor">CHAP.processor module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#module-CHAP.reader">CHAP.reader module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#module-CHAP.runner">CHAP.runner module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#module-CHAP.server">CHAP.server module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#module-CHAP.taskmanager">CHAP.taskmanager module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#module-CHAP.writer">CHAP.writer module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <p class="caption"><span class="caption-text">External Links</span></p>
+  <ul>
+    <li class="toctree-l1">
+      <a class="reference internal" href="https://github.com/CHESSComputing/ChessAnalysisPipeline">
+        <i class="fa fa-github"></i> GitHub Repository
+      </a>
+      <a class="reference internal" href="https://github.com/CHESSComputing/ChessAnalysisPipeline/issues">
+        <i class="fa fa-github"></i> Open or contribute to GitHub issues
+      </a>
+    </li>
+  </ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="api_documentation.html">CHAP</a></li>
+          <li class="breadcrumb-item"><a href="CHAP.html">CHAP package</a></li>
+          <li class="breadcrumb-item"><a href="CHAP.saxswaxs.html">CHAP.saxswaxs package</a></li>
+      <li class="breadcrumb-item active">CHAP.saxswaxs.server package</li>
+  <li class="wy-breadcrumbs-aside">
+    <a href="https://github.com/CHESSComputing/ChessAnalysisPipeline" class="fa fa-github"> GitHub</a>
+  </li>
+
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-CHAP.saxswaxs.server">
+<span id="chap-saxswaxs-server-package"></span><h1>CHAP.saxswaxs.server package<a class="headerlink" href="#module-CHAP.saxswaxs.server" title="Link to this heading"></a></h1>
+<p>Daemon-like application for efficient automated SAXS/WAXS data
+processing.</p>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+</section>
+<section id="chap-saxswaxs-server-chap-module">
+<h2>CHAP.saxswaxs.server.chap module<a class="headerlink" href="#chap-saxswaxs-server-chap-module" title="Link to this heading"></a></h2>
+</section>
+<section id="module-CHAP.saxswaxs.server.logging_config">
+<span id="chap-saxswaxs-server-logging-config-module"></span><h2>CHAP.saxswaxs.server.logging_config module<a class="headerlink" href="#module-CHAP.saxswaxs.server.logging_config" title="Link to this heading"></a></h2>
+<p>Logging configuration</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.logging_config.StreamToLogFile">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">StreamToLogFile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">handler</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/logging_config.html#StreamToLogFile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.logging_config.StreamToLogFile" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Write stdout/stderr directly to the rotating log file.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.logging_config.StreamToLogFile.encoding">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">encoding</span></span><a class="headerlink" href="#CHAP.saxswaxs.server.logging_config.StreamToLogFile.encoding" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.logging_config.StreamToLogFile.flush">
+<span class="sig-name descname"><span class="pre">flush</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/logging_config.html#StreamToLogFile.flush"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.logging_config.StreamToLogFile.flush" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.logging_config.StreamToLogFile.isatty">
+<span class="sig-name descname"><span class="pre">isatty</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/logging_config.html#StreamToLogFile.isatty"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.logging_config.StreamToLogFile.isatty" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.logging_config.StreamToLogFile.write">
+<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/logging_config.html#StreamToLogFile.write"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.logging_config.StreamToLogFile.write" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.logging_config.get_logger">
+<span class="sig-name descname"><span class="pre">get_logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'CHAP.saxswaxs.server.logging_config'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'DEBUG'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/logging_config.html#get_logger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.logging_config.get_logger" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.logging_config.get_task_logger">
+<span class="sig-name descname"><span class="pre">get_task_logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'DEBUG'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/logging_config.html#get_task_logger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.logging_config.get_task_logger" title="Link to this definition"></a></dt>
+<dd><p>Return a logger that writes only to the active task log file.</p>
+<p>Unlike <a class="reference internal" href="#CHAP.saxswaxs.server.logging_config.get_logger" title="CHAP.saxswaxs.server.logging_config.get_logger"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_logger()</span></code></a>, the returned logger is not attached to the
+shared application log handler.  If no task context is active the logger
+has no handlers and its output is silently discarded.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.logging_config.set_logdir">
+<span class="sig-name descname"><span class="pre">set_logdir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/logging_config.html#set_logdir"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.logging_config.set_logdir" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.logging_config.task_log_context">
+<span class="sig-name descname"><span class="pre">task_log_context</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/logging_config.html#task_log_context"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.logging_config.task_log_context" title="Link to this definition"></a></dt>
+<dd><p>Context manager that tees log output to a per-task append-only file.</p>
+<p>While active, all loggers created via <a class="reference internal" href="#CHAP.saxswaxs.server.logging_config.get_logger" title="CHAP.saxswaxs.server.logging_config.get_logger"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_logger()</span></code></a> write to
+<em>log_path</em> in addition to the shared rotating log file, using the same
+formatter.  Raw stdout/stderr writes are also teed to the same file
+without any additional formatting.  The file is always opened in append
+mode so successive calls accumulate rather than overwrite.</p>
+</dd></dl>
+
+</section>
+<section id="module-CHAP.saxswaxs.server.saxswaxs_to_chap">
+<span id="chap-saxswaxs-server-saxswaxs-to-chap-module"></span><h2>CHAP.saxswaxs.server.saxswaxs_to_chap module<a class="headerlink" href="#module-CHAP.saxswaxs.server.saxswaxs_to_chap" title="Link to this heading"></a></h2>
+<p>Script to act as a drop-in replacement for the old saxswaxsworkflow
+CLI tool.
+Instead of running the old workflow code, a new CHAP pipeline will be
+constructed &amp; run from the given tool &amp; map configs.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.saxswaxs_to_chap.VerboseSafeDumper">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">VerboseSafeDumper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stream</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_flow_style</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">canonical</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_unicode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_break</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encoding</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">explicit_start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">explicit_end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tags</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/saxswaxs_to_chap.html#VerboseSafeDumper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.saxswaxs_to_chap.VerboseSafeDumper" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">SafeDumper</span></code></p>
+<p>YAML SafeDumper subclass that writes all nodes explicitly without aliases.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.saxswaxs_to_chap.VerboseSafeDumper.ignore_aliases">
+<span class="sig-name descname"><span class="pre">ignore_aliases</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/saxswaxs_to_chap.html#VerboseSafeDumper.ignore_aliases"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.saxswaxs_to_chap.VerboseSafeDumper.ignore_aliases" title="Link to this definition"></a></dt>
+<dd><p>Return True to prevent YAML from using anchor/alias references.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.saxswaxs_to_chap.convert_configs">
+<span class="sig-name descname"><span class="pre">convert_configs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outputdir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tool_config_files</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detector_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detector_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pyfai_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pyfai_integration_processor_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">correction_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'corrections_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fits_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'fits_config.yaml'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/saxswaxs_to_chap.html#convert_configs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.saxswaxs_to_chap.convert_configs" title="Link to this definition"></a></dt>
+<dd><p>Write the new CHAP.saxswaxs-formatted pyfai and corrections
+config files based on the old workflow tool files provided. Should
+be independent from any map configuration or
+saxswaxsworkflow.workflow.Workflow object – use the dictionaries
+in the tool_config_files only.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.saxswaxs_to_chap.make_pipeline">
+<span class="sig-name descname"><span class="pre">make_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outputdir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'map_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detector_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detector_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pyfai_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pyfai_integration_processor_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">correction_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'corrections_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fits_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'fits_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pipeline.yaml'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/saxswaxs_to_chap.html#make_pipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.saxswaxs_to_chap.make_pipeline" title="Link to this definition"></a></dt>
+<dd><p>Compose a pipeline file for a complete saxswaxs workflow based
+on the config files provided, and asssuming they all already
+exist. Sort of a lightweight version of wf_to_chap.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.saxswaxs.server.saxswaxs_to_chap.saxswaxs_to_chap">
+<span class="sig-name descname"><span class="pre">saxswaxs_to_chap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">map_config_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tool_config_files</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputdir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detector_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'detector_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pyfai_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pyfai_integration_processor_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">correction_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'corrections_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fits_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'fits_config.yaml'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline_filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pipeline.yaml'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/CHAP/saxswaxs/server/saxswaxs_to_chap.html#saxswaxs_to_chap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#CHAP.saxswaxs.server.saxswaxs_to_chap.saxswaxs_to_chap" title="Link to this definition"></a></dt>
+<dd><p>Build CHAP pipeline config files from old-style saxswaxs workflow configs.</p>
+<p>Converts old-style tool config files to CHAP-format detector, pyFAI
+integration, and corrections config files via <a class="reference internal" href="#CHAP.saxswaxs.server.saxswaxs_to_chap.convert_configs" title="CHAP.saxswaxs.server.saxswaxs_to_chap.convert_configs"><code class="xref py py-func docutils literal notranslate"><span class="pre">convert_configs()</span></code></a>,
+then composes the CHAP pipeline config YAML via <a class="reference internal" href="#CHAP.saxswaxs.server.saxswaxs_to_chap.make_pipeline" title="CHAP.saxswaxs.server.saxswaxs_to_chap.make_pipeline"><code class="xref py py-func docutils literal notranslate"><span class="pre">make_pipeline()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>map_config_file</strong> (<em>str</em>) – Path to the map config YAML file.</p></li>
+<li><p><strong>tool_config_files</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – List of tool config YAML file paths.</p></li>
+<li><p><strong>outputdir</strong> (<em>str</em>) – Directory in which to write the output CHAP config files.</p></li>
+<li><p><strong>detector_filename</strong> (<em>str</em><em>, </em><em>optional</em>) – Output filename for the detector config YAML,
+defaults to <code class="docutils literal notranslate"><span class="pre">'detector_config.yaml'</span></code>.</p></li>
+<li><p><strong>pyfai_filename</strong> (<em>str</em><em>, </em><em>optional</em>) – Output filename for the pyFAI integration processor
+config YAML, defaults to <code class="docutils literal notranslate"><span class="pre">'pyfai_integration_processor_config.yaml'</span></code>.</p></li>
+<li><p><strong>correction_filename</strong> (<em>str</em><em>, </em><em>optional</em>) – Output filename for the corrections config YAML,
+defaults to <code class="docutils literal notranslate"><span class="pre">'corrections_config.yaml'</span></code>.</p></li>
+<li><p><strong>fits_filename</strong> (<em>str</em><em>, </em><em>optional</em>) – Output filename for the fits config YAML,
+defaults to <code class="docutils literal notranslate"><span class="pre">'fits_config.yaml'</span></code>.</p></li>
+<li><p><strong>pipeline_filename</strong> (<em>str</em><em>, </em><em>optional</em>) – Output filename for the CHAP pipeline config YAML,
+defaults to <code class="docutils literal notranslate"><span class="pre">'pipeline.yaml'</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="chap-saxswaxs-server-server-module">
+<h2>CHAP.saxswaxs.server.server module<a class="headerlink" href="#chap-saxswaxs-server-server-module" title="Link to this heading"></a></h2>
+</section>
+<section id="chap-saxswaxs-server-slack-module">
+<h2>CHAP.saxswaxs.server.slack module<a class="headerlink" href="#chap-saxswaxs-server-slack-module" title="Link to this heading"></a></h2>
+</section>
+<section id="chap-saxswaxs-server-task-queue-module">
+<h2>CHAP.saxswaxs.server.task_queue module<a class="headerlink" href="#chap-saxswaxs-server-task-queue-module" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="CHAP.saxswaxs.html" class="btn btn-neutral float-left" title="CHAP.saxswaxs package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="CHAP.tomo.html" class="btn btn-neutral float-right" title="CHAP.tomo package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

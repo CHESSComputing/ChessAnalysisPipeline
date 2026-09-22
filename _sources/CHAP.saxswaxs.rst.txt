@@ -6,6 +6,14 @@ CHAP.saxswaxs package
    :undoc-members:
    :show-inheritance:
 
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   CHAP.saxswaxs.server
+
 Submodules
 ----------
 

@@ -14,7 +14,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=bd6294fc"></script>
+      <script src="../_static/documentation_options.js?v=d45e8c67"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -119,7 +119,7 @@
 <li><p>Integrated data size(s)</p></li>
 </ol>
 <p>In practice, you should prepare <a class="reference internal" href="#related_configuration_objects"><span class="xref myst">two supplementary configuration files</span></a> in addition to the parameters for the tools involved in this step: one for a <code class="docutils literal notranslate"><span class="pre">MapConfig</span></code>, object, another for a <code class="docutils literal notranslate"><span class="pre">PyFaiIntegrationProcessorConfig</span></code> object.
-This step also sets the number of chunks for each data array in the container. <a class="reference internal" href="#optimizing_performance"><span class="xref myst">Selecting the right number of chunks is important for optimizing performance</span></a> during the next step.</p>
+This step also sets the number of chunks for each data array in the container. <a class="reference internal" href="#optimizing-performance"><span class="xref myst">Selecting the right number of chunks is important for optimizing performance</span></a> during the next step.</p>
  <details>
  <summary> Example pipeline configuration</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
@@ -350,6 +350,229 @@ This step also sets the number of chunks for each data array in the container. <
 </li>
 </ol>
 </section>
+<section id="output-data-formats">
+<h3>Output data formats<a class="headerlink" href="#output-data-formats" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>This is a basic guide to help find the most essential datasets produced in SAXS/WAXS analysis. It is not an exhaustive specification of every last bit of data / metadata that one can possibly find in the data formats in question.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs.processor.SetupProcessor</span></code> determines a hierarchical tree structure to contain processed SAXSWAXS data.</p></li>
+<li><p>This tree structure is returned in <a class="reference external" href="https://zarr.dev">Zarr</a> file format to start, but it may be converted:</p>
+<ul>
+<li><p>to the same format of NeXus file as that produced by <a class="reference external" href="https://gitlab01.classe.cornell.edu/msn-c/saxswaxsworkflow">saxswaxsworkflow</a> using <code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs.processor.NewZarrToOldNexusProcessor</span></code></p></li>
+<li><p>to an indentically structured <a class="reference external" href="https://manual.nexusformat.org/index.html">NeXus</a> file in a reversible operation using <code class="docutils literal notranslate"><span class="pre">CHAP.common.processor.ZarrToNexusProcessor</span></code> (reversible with <code class="docutils literal notranslate"><span class="pre">CHAP.common.processor.NexusToZarrProcessor</span></code>).</p></li>
+</ul>
+</li>
+</ul>
+<section id="chap-saxswaxs-processor-setupprocessor-output-structure">
+<h4><code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs.processor.SetupProcessor</span></code> output structure<a class="headerlink" href="#chap-saxswaxs-processor-setupprocessor-output-structure" title="Link to this heading"></a></h4>
+<section id="root-level">
+<h5>Root level<a class="headerlink" href="#root-level" title="Link to this heading"></a></h5>
+<ul>
+<li><p>The structure of the Zarr container is related to the configuration fields provided to <code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs.processor.SetupProcessor</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">map_config</span></code> defines the parameters needed to locate and read in a raw CHESS dataset</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pyfai_config</span></code> defines one or more <a class="reference external" href="https://pyfai.readthedocs.io/en/stable/">pyFAI</a> integrations to perform on 2D detector data (raw or corrected)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">correction_config</span></code> defines any number of standard SAXS/WAXS corrections to perform (on raw or integrated data)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fit_config</span></code> defines any number of fits to perform on processed 1D data (integrated and corrected, or just integrated)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">map_config</span></code> and each individual integration / correction / fit defined in <code class="docutils literal notranslate"><span class="pre">pyfai_config</span></code>/<code class="docutils literal notranslate"><span class="pre">correction_config</span></code>/<code class="docutils literal notranslate"><span class="pre">fit_config</span></code> will correspond to a root-level group of the results container.</p>
+<ul>
+<li><p>The name of the group is determined by the configuration’s <code class="docutils literal notranslate"><span class="pre">title</span></code> field.</p></li>
+<li><p>For instance, suppose <code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs.processor.SetupProcessor</span></code> is run with the following configurations:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">map_config</span><span class="p">:</span>
+  <span class="n">title</span><span class="p">:</span> <span class="n">my_dataset</span>
+  <span class="o">&lt;...&gt;</span>
+<span class="n">pyfai_config</span><span class="p">:</span>
+  <span class="o">-</span> <span class="n">title</span><span class="p">:</span> <span class="n">saxs_radial</span>
+    <span class="o">&lt;...&gt;</span>
+<span class="n">correction_config</span><span class="p">:</span>
+  <span class="o">-</span> <span class="n">title</span><span class="p">:</span> <span class="n">saxs_radial_corrected</span>
+    <span class="o">&lt;...&gt;</span>
+<span class="n">fit_config</span><span class="p">:</span>
+  <span class="o">-</span> <span class="n">title</span><span class="p">:</span> <span class="n">fit_saxs_radial</span>
+    <span class="o">&lt;...&gt;</span>
+  <span class="o">-</span> <span class="n">title</span><span class="p">:</span> <span class="n">fit_saxs_radial_corrected</span>
+    <span class="o">&lt;...&gt;</span>
+</pre></div>
+</div>
+<p>…then the resulting tree hierarchy will be:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span>                                 <span class="c1"># root level group</span>
+    <span class="n">my_dataset</span><span class="o">/</span>                   <span class="c1"># raw data group</span>
+        <span class="o">&lt;...&gt;</span>
+    <span class="n">saxs_radial</span><span class="o">/</span>                  <span class="c1"># integrated data group</span>
+        <span class="o">&lt;...&gt;</span>
+    <span class="n">saxs_radial_corrected</span><span class="o">/</span>        <span class="c1"># corrected data group</span>
+        <span class="o">&lt;...&gt;</span>
+    <span class="n">fit_saxs_radial</span><span class="o">/</span>              <span class="c1"># fit data group</span>
+        <span class="o">&lt;...&gt;</span>
+    <span class="n">fit_saxs_radial_corrected</span><span class="o">/</span>    <span class="c1"># fit data group</span>
+        <span class="o">&lt;...&gt;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</li>
+<li><p>NB: the types and names of the root level groups returned by <code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs.processor.SetupProcessor</span></code> are the same as those in the NeXus file produced by <code class="docutils literal notranslate"><span class="pre">saxswaxsworkflow</span></code>.</p></li>
+<li><p>Descriptions of the trees found underneath each root-level group are below.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="map-config-sub-tree">
+<h5><code class="docutils literal notranslate"><span class="pre">map_config</span></code> sub-tree<a class="headerlink" href="#map-config-sub-tree" title="Link to this heading"></a></h5>
+<ul>
+<li><p>This structure is generic, not specific to <code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>.</p></li>
+<li><p>The tree underneath looks like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">map_config</span><span class="o">.</span><span class="n">title</span><span class="o">&gt;/</span>
+    <span class="n">map_config</span>                    <span class="c1"># map configuration serialized as JSON string</span>
+    <span class="n">detector_config</span>               <span class="c1"># detector configuration serialized as JSON string</span>
+    <span class="n">spec_scans</span><span class="o">/</span>                   <span class="c1"># metadata about each SPEC scan in the map</span>
+    <span class="n">data</span><span class="o">/</span>                         <span class="c1"># group containing data arrays of raw detector frames, one dataset per detector</span>
+    <span class="o">&lt;</span><span class="n">sample_name</span><span class="o">&gt;/</span>                <span class="c1"># sample metadata</span>
+    <span class="n">independent_dimensions</span><span class="o">/</span>       <span class="c1"># group containing data arrays of the map's coordinate values, one dataset per dimension</span>
+    <span class="n">scalar_data</span><span class="o">/</span>                  <span class="c1"># group containing data arrays of scalar-valued data, one dataset per scalar readback channel</span>
+                                  <span class="c1">#   (includes beam intensity monitors, dwell time, etc.)</span>
+    <span class="n">detector_ids</span>                  <span class="c1"># list of detector identifiers</span>
+</pre></div>
+</div>
+</li>
+<li><p>Dimensions that are constant across the map are demoted from <code class="docutils literal notranslate"><span class="pre">independent_dimensions/</span></code> into <code class="docutils literal notranslate"><span class="pre">scalar_data/</span></code>.</p></li>
+</ul>
+</section>
+<section id="pyfai-config-sub-trees">
+<h5><code class="docutils literal notranslate"><span class="pre">pyfai_config</span></code> sub-trees<a class="headerlink" href="#pyfai-config-sub-trees" title="Link to this heading"></a></h5>
+<ul>
+<li><p>There is one root-level group per integration defined in <code class="docutils literal notranslate"><span class="pre">pyfai_config</span></code> (identified by each integration’s <code class="docutils literal notranslate"><span class="pre">title</span></code> / <code class="docutils literal notranslate"><span class="pre">name</span></code> field).</p></li>
+<li><p>The tree underneath looks like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">integration_name</span><span class="o">&gt;/</span>
+    <span class="n">data</span><span class="o">/</span>
+        <span class="n">I</span>                             <span class="c1"># integrated intensity array</span>
+        <span class="o">&lt;</span><span class="n">radial_or_azimuthal_coord</span><span class="o">&gt;</span>   <span class="c1"># coordinate axis array (e.g. q values, chi angles)</span>
+        <span class="p">[</span><span class="o">&lt;</span><span class="n">azimuthal_or_radial_coord</span><span class="o">&gt;</span><span class="p">]</span> <span class="c1"># other coordinate axis array (if the integration is 2D)</span>
+</pre></div>
+</div>
+</li>
+<li><p>The coordinate array name and units depend on the integration method:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">integrate1d</span></code>: one radial coordinate (e.g. <code class="docutils literal notranslate"><span class="pre">q_A^-1</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">integrate2d</span></code>: one azimuthal coordinate + one radial coordinate</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">integrate_radial</span></code>: one azimuthal coordinate (e.g. <code class="docutils literal notranslate"><span class="pre">chi_deg</span></code>)</p></li>
+</ul>
+</li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">data/</span></code> group also carries links back to the map coordinate arrays in the <code class="docutils literal notranslate"><span class="pre">map_config</span></code> group.</p></li>
+</ul>
+</section>
+<section id="correction-config-sub-trees">
+<h5><code class="docutils literal notranslate"><span class="pre">correction_config</span></code> sub-trees<a class="headerlink" href="#correction-config-sub-trees" title="Link to this heading"></a></h5>
+<ul>
+<li><p>There is one root-level group per correction defined in <code class="docutils literal notranslate"><span class="pre">correction_config</span></code> (identified by each correction’s <code class="docutils literal notranslate"><span class="pre">title</span></code> / <code class="docutils literal notranslate"><span class="pre">name</span></code> field).</p></li>
+<li><p>The tree underneath looks like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">correction_name</span><span class="o">&gt;/</span>
+    <span class="n">data</span><span class="o">/</span>
+        <span class="n">I_corrected</span>               <span class="c1"># corrected intensity (single upstream source)</span>
+        <span class="c1"># — or, if multiple upstream sources are named —</span>
+        <span class="n">I_corrected_</span><span class="o">&lt;</span><span class="n">source</span><span class="o">&gt;</span>      <span class="c1"># one corrected-intensity array per source</span>
+        <span class="c1"># — when a background scan is configured —</span>
+        <span class="n">I_background</span>              <span class="c1"># averaged background intensity frame</span>
+        <span class="n">background_presample_intensity</span>
+        <span class="n">background_postsample_intensity</span>
+</pre></div>
+</div>
+</li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">data/</span></code> group carries links back to the map coordinate arrays in the <code class="docutils literal notranslate"><span class="pre">map_config</span></code> group and to the coordinate arrays of the upstream integration.</p></li>
+</ul>
+</section>
+<section id="fit-config-sub-trees">
+<h5><code class="docutils literal notranslate"><span class="pre">fit_config</span></code> sub-trees<a class="headerlink" href="#fit-config-sub-trees" title="Link to this heading"></a></h5>
+<ul>
+<li><p>There is one root-level group per fit defined in <code class="docutils literal notranslate"><span class="pre">fit_config</span></code> (identified by each fit’s <code class="docutils literal notranslate"><span class="pre">title</span></code> / <code class="docutils literal notranslate"><span class="pre">name</span></code> field).</p></li>
+<li><p>The tree underneath looks like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">fit_name</span><span class="o">&gt;/</span>
+    <span class="n">data</span><span class="o">/</span>
+        <span class="n">best_fit</span>                  <span class="c1"># best-fit curve at each scan point</span>
+        <span class="n">residual</span>                  <span class="c1"># residual (data minus best fit) at each scan point</span>
+        <span class="n">redchi</span>                    <span class="c1"># reduced chi-squared at each scan point</span>
+        <span class="n">num_func_eval</span>             <span class="c1"># number of function evaluations at each scan point</span>
+        <span class="n">success</span>                   <span class="c1"># whether the fit converged at each scan point</span>
+    <span class="n">components</span><span class="o">/</span>
+        <span class="o">&lt;</span><span class="n">model_name</span><span class="o">&gt;/</span>             <span class="c1"># one sub-group per model component (e.g. "gaussian", "linear")</span>
+            <span class="n">parameters</span><span class="o">/</span>           <span class="c1"># one sub-group per fit parameter</span>
+                <span class="o">&lt;</span><span class="n">param_name</span><span class="o">&gt;/</span>
+                    <span class="n">value</span>         <span class="c1"># fitted value at each scan point</span>
+                    <span class="n">error</span>         <span class="c1"># uncertainty at each scan point</span>
+                    <span class="n">initial</span>       <span class="c1"># initial value</span>
+                    <span class="nb">min</span><span class="p">,</span> <span class="nb">max</span>      <span class="c1"># bounds</span>
+                    <span class="n">vary</span>          <span class="c1"># whether the parameter was free</span>
+                    <span class="n">expression</span>    <span class="c1"># constraint expression, if any</span>
+            <span class="n">data</span><span class="o">/</span>
+                <span class="n">best_fit</span>          <span class="c1"># component's contribution to the best-fit curve</span>
+</pre></div>
+</div>
+</li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">data/</span></code> group carries links back to the map coordinate arrays in the <code class="docutils literal notranslate"><span class="pre">map_config</span></code> group and to the coordinate arrays of the upstream integration or correction.</p></li>
+</ul>
+</section>
+</section>
+<section id="chap-saxswaxs-processor-newzarrtooldnexusprocessor-output-structure">
+<h4><code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs.processor.NewZarrToOldNexusProcessor</span></code> output structure<a class="headerlink" href="#chap-saxswaxs-processor-newzarrtooldnexusprocessor-output-structure" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p>Converts a Zarr file created by <code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs.processor.SetupProcessor</span></code> into an <code class="docutils literal notranslate"><span class="pre">NXroot</span></code> object whose layout mimics the NeXus files produced by <a class="reference external" href="https://gitlab01.classe.cornell.edu/msn-c/saxswaxsworkflow">saxswaxsworkflow</a> and is compatible with the fitting notebook tools in the same repository.</p></li>
+<li><p>The output NeXus file contains two kinds of top-level groups:</p>
+<ul>
+<li><p>One <code class="docutils literal notranslate"><span class="pre">NXentry</span></code> containing the map’s coordinate values and scalar-valued data</p></li>
+<li><p>One <code class="docutils literal notranslate"><span class="pre">NXprocess</span></code> per integration or correction, containing the processed data</p></li>
+</ul>
+</li>
+<li><p>All data arrays in this structure are reshaped to be the same shape of the map (as opposed to flattened along the map’s dimenisions, as they are in the Zarr format above).</p></li>
+</ul>
+<section id="id1">
+<h5><code class="docutils literal notranslate"><span class="pre">map_config</span></code> sub-tree<a class="headerlink" href="#id1" title="Link to this heading"></a></h5>
+<ul class="simple">
+<li><p>This structure is nearly identical to the other <code class="docutils literal notranslate"><span class="pre">map_config</span></code> sub-tree defined above, but with some important differences:</p>
+<ul>
+<li><p>the group containing arrays of raw detector data is not present</p></li>
+<li><p>coordinate value arrays contain only the <em>unique, sorted</em> values along each dimension (which may or may not be smaller than the length of the full dataset)</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id2">
+<h5><code class="docutils literal notranslate"><span class="pre">pyfai_config</span></code> sub-trees<a class="headerlink" href="#id2" title="Link to this heading"></a></h5>
+<ul>
+<li><p>There is one <code class="docutils literal notranslate"><span class="pre">NXprocess</span></code> group per integration in the Zarr file.</p></li>
+<li><p>The tree underneath looks like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">integration_name</span><span class="o">&gt;/</span>
+    <span class="n">data</span><span class="o">/</span>
+        <span class="n">I</span>                             <span class="c1"># integrated intensity array</span>
+        <span class="o">&lt;</span><span class="n">radial_or_azimuthal_coord</span><span class="o">&gt;</span>   <span class="c1"># intensity coordinate axis array (e.g. q values, chi angles)</span>
+        <span class="p">[</span><span class="o">&lt;</span><span class="n">azimuthal_or_radial_coord</span><span class="o">&gt;</span><span class="p">]</span> <span class="c1"># other intensity coordinate axis array (if the integration is 2D)</span>
+        <span class="o">&lt;</span><span class="n">dim_label</span><span class="o">&gt;</span>                   <span class="c1"># map coordinate axis array (links to /&lt;map_title&gt;/independent_dimensions/&lt;dim_label&gt;)</span>
+        <span class="p">[</span><span class="o">&lt;</span><span class="n">other_dim_label</span><span class="o">&gt;</span><span class="p">]</span>           <span class="c1"># more links to /&lt;map_title&gt;/independent_dimensions/&lt;other_dim_label&gt; if the map has more than one independent_dimension</span>
+</pre></div>
+</div>
+</li>
+<li><p>Each <code class="docutils literal notranslate"><span class="pre">data/</span></code> group carries <code class="docutils literal notranslate"><span class="pre">axes</span></code> and <code class="docutils literal notranslate"><span class="pre">*_indices</span></code> attributes so that every axis — both map dimensions and signal coordinate axes — is labelled.</p></li>
+</ul>
+</section>
+<section id="id3">
+<h5><code class="docutils literal notranslate"><span class="pre">correction_config</span></code> sub-trees<a class="headerlink" href="#id3" title="Link to this heading"></a></h5>
+<ul>
+<li><p>There is one <code class="docutils literal notranslate"><span class="pre">NXprocess</span></code> group per correction in the Zarr file.</p></li>
+<li><p>The tree underneath looks like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">correction_name</span><span class="o">&gt;/</span>
+    <span class="n">data</span><span class="o">/</span>
+        <span class="n">I_corrected</span>                   <span class="c1"># corrected intensity array</span>
+        <span class="n">I_uncorrected</span>                 <span class="c1"># uncorrected intensity source array (links to /&lt;uncorrected_data_name&gt;/data/I)</span>
+        <span class="o">&lt;</span><span class="n">radial_or_azimuthal_coord</span><span class="o">&gt;</span>   <span class="c1"># intensity coordinate axis array (e.g. q values, chi angles)</span>
+        <span class="p">[</span><span class="o">&lt;</span><span class="n">azimuthal_or_radial_coord</span><span class="o">&gt;</span><span class="p">]</span> <span class="c1"># other intensity coordinate axis array (if the integration is 2D)</span>
+        <span class="o">&lt;</span><span class="n">dim_label</span><span class="o">&gt;</span>                   <span class="c1"># map coordinate axis array (links to /&lt;map_title&gt;/independent_dimensions/&lt;dim_label&gt;)</span>
+        <span class="p">[</span><span class="o">&lt;</span><span class="n">other_dim_label</span><span class="o">&gt;</span><span class="p">]</span>           <span class="c1"># more links to /&lt;map_title&gt;/independent_dimensions/&lt;other_dim_label&gt; if the map has more than one independent_dimension</span>
+</pre></div>
+</div>
+</li>
+<li><p>Each <code class="docutils literal notranslate"><span class="pre">data/</span></code> group carries <code class="docutils literal notranslate"><span class="pre">axes</span></code> and <code class="docutils literal notranslate"><span class="pre">*_indices</span></code> attributes so that every axis — both map dimensions and signal coordinate axes — is labelled.</p></li>
+</ul>
+</section>
+</section>
+</section>
 <section id="related-configuration-objects">
 <h3>Related Configuration Objects<a class="headerlink" href="#related-configuration-objects" title="Link to this heading"></a></h3>
 <p>Before constructing a <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> pipeline configuration to run a complete SAXS/WAXS data processing workflow, users should first assemble two supplementary configuration files. <em>Both</em> these configurations will need to be read in to the pipeline for <a class="reference internal" href="../CHAP.edd.html#CHAP.edd.processor.StrainAnalysisProcessor.setup" title="CHAP.edd.processor.StrainAnalysisProcessor.setup"><span class="xref myst py py-attr">the setup step</span></a> and every <a class="reference internal" href="../CHAP.edd.html#CHAP.edd.processor.StrainAnalysisProcessor.update" title="CHAP.edd.processor.StrainAnalysisProcessor.update"><span class="xref myst py py-attr">update step</span></a>.</p>
@@ -357,7 +580,7 @@ This step also sets the number of chunks for each data array in the container. <
 <li><p><code class="docutils literal notranslate"><span class="pre">map_config.yaml</span></code> (configuring a <code class="docutils literal notranslate"><span class="pre">CHAP.common.models.map.MapConfig</span></code>)</p>
 <p>This configuration contains everything <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> needs to know about the location, format, and size of the raw input dataset.</p>
 <details>
-<summary>Example `map_config`.yaml</summary>
+<summary>Example `map_config.yaml`</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">validate_data_present</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 <span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spec_file_012</span>
 <span class="nt">station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">id3b</span>
@@ -575,66 +798,66 @@ This step also sets the number of chunks for each data array in the container. <
 Example <code class="docutils literal notranslate"><span class="pre">pyfai_integration_processor_config.yaml</span></code></p>
 <details>
 <summary>Example `pyfai_integration_processor_config.yaml`</summary>
-```yaml
-azimuthal_integrators:
-- id: PIL9
-  poni_file: LaB6_PIL9_10.30.2024.poni
-  mask_file: PIL9_mask.tif
-- id: PIL11
-  poni_file: LaB6_PIL11_10.30.2024.poni
-  mask_file: PIL11_mask.tif
-integrations:
-- name: waxs_azimuthal
-  integration_method: integrate1d
-  integration_params:
-    npt: 200
-    method: bbox_csr_cython
-  multi_geometry:
-    ais:
-    - PIL9
-    - PIL11
-    unit: q_A^-1
-    radial_range:
-    - 0.6
-    - 4.1
-    azimuth_range:
-    - -180.0
-    - 180.0
-- name: waxs_cake
-  integration_method: integrate2d
-  integration_params:
-    npt_rad: 180
-    npt_azim: 360
-    method: bbox_csr_cython
-  multi_geometry:
-    ais:
-    - PIL9
-    - PIL11
-    unit: q_A^-1
-    radial_range:
-    - 0.6
-    - 4.1
-    azimuth_range:
-    - -180.0
-    - 180.0
-- name: waxs_radial
-  integration_method: integrate_radial
-  integration_params:
-    ais:
-    - PIL9
-    - PIL11
-    npt: 360
-    npt_rad: 300
-    radial_range:
-    - 0.6
-    - 4.1
-    azimuth_range:
-    - -180.0
-    - 180.0
-    unit: chi_deg
-    radial_unit: q_A^-1
-    method: bbox_csr_cython
-```
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">azimuthal_integrators</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL9</span>
+<span class="w">  </span><span class="nt">poni_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LaB6_PIL9_10.30.2024.poni</span>
+<span class="w">  </span><span class="nt">mask_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL9_mask.tif</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11</span>
+<span class="w">  </span><span class="nt">poni_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LaB6_PIL11_10.30.2024.poni</span>
+<span class="w">  </span><span class="nt">mask_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11_mask.tif</span>
+<span class="nt">integrations</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_azimuthal</span>
+<span class="w">  </span><span class="nt">integration_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integrate1d</span>
+<span class="w">  </span><span class="nt">integration_params</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">npt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+<span class="w">    </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bbox_csr_cython</span>
+<span class="w">  </span><span class="nt">multi_geometry</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">ais</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL9</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11</span>
+<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">q_A^-1</span>
+<span class="w">    </span><span class="nt">radial_range</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.6</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4.1</span>
+<span class="w">    </span><span class="nt">azimuth_range</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-180.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">180.0</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_cake</span>
+<span class="w">  </span><span class="nt">integration_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integrate2d</span>
+<span class="w">  </span><span class="nt">integration_params</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">npt_rad</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">180</span>
+<span class="w">    </span><span class="nt">npt_azim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">360</span>
+<span class="w">    </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bbox_csr_cython</span>
+<span class="w">  </span><span class="nt">multi_geometry</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">ais</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL9</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11</span>
+<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">q_A^-1</span>
+<span class="w">    </span><span class="nt">radial_range</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.6</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4.1</span>
+<span class="w">    </span><span class="nt">azimuth_range</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-180.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">180.0</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_radial</span>
+<span class="w">  </span><span class="nt">integration_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integrate_radial</span>
+<span class="w">  </span><span class="nt">integration_params</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">ais</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL9</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11</span>
+<span class="w">    </span><span class="nt">npt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">360</span>
+<span class="w">    </span><span class="nt">npt_rad</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+<span class="w">    </span><span class="nt">radial_range</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.6</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4.1</span>
+<span class="w">    </span><span class="nt">azimuth_range</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-180.0</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">180.0</span>
+<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chi_deg</span>
+<span class="w">    </span><span class="nt">radial_unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">q_A^-1</span>
+<span class="w">    </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bbox_csr_cython</span>
+</pre></div>
+</div>
 </details>
 <details>
 <summary>Annotated `pyfai_integration_processor_config.yaml`</summary>
@@ -691,10 +914,6 @@ integrations:
 <section id="optimizing-performance">
 <h3>Optimizing performance<a class="headerlink" href="#optimizing-performance" title="Link to this heading"></a></h3>
 <p>Guide on selecting appropriate values for dataset_chunks and running multiple update jobs in parallel</p>
-</section>
-<section id="data-in-output-formats">
-<h3>Data in / output formats<a class="headerlink" href="#data-in-output-formats" title="Link to this heading"></a></h3>
-<p>CHESS data in, .zarr data out</p>
 </section>
 </section>
 <section id="notes-on-corrections-calculations">

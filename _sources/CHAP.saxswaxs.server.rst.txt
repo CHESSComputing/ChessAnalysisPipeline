@@ -1,0 +1,58 @@
+CHAP.saxswaxs.server package
+============================
+
+.. automodule:: CHAP.saxswaxs.server
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Submodules
+----------
+
+CHAP.saxswaxs.server.chap module
+--------------------------------
+
+.. automodule:: CHAP.saxswaxs.server.chap
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+CHAP.saxswaxs.server.logging\_config module
+-------------------------------------------
+
+.. automodule:: CHAP.saxswaxs.server.logging_config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+CHAP.saxswaxs.server.saxswaxs\_to\_chap module
+----------------------------------------------
+
+.. automodule:: CHAP.saxswaxs.server.saxswaxs_to_chap
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+CHAP.saxswaxs.server.server module
+----------------------------------
+
+.. automodule:: CHAP.saxswaxs.server.server
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+CHAP.saxswaxs.server.slack module
+---------------------------------
+
+.. automodule:: CHAP.saxswaxs.server.slack
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+CHAP.saxswaxs.server.task\_queue module
+---------------------------------------
+
+.. automodule:: CHAP.saxswaxs.server.task_queue
+   :members:
+   :undoc-members:
+   :show-inheritance:

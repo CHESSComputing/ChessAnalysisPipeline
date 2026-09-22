@@ -1,0 +1,560 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP.saxswaxs.server.saxswaxs_to_chap &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  
+              <p class="caption" role="heading"><span class="caption-text">General</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../CONTRIBUTIONS.html">Contributions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pipeline.html">CHAP Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../FOXDEN.html">FOXDEN</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api_documentation.html">CHAP</a></li>
+</ul>
+
+  <p class="caption"><span class="caption-text">External Links</span></p>
+  <ul>
+    <li class="toctree-l1">
+      <a class="reference internal" href="https://github.com/CHESSComputing/ChessAnalysisPipeline">
+        <i class="fa fa-github"></i> GitHub Repository
+      </a>
+      <a class="reference internal" href="https://github.com/CHESSComputing/ChessAnalysisPipeline/issues">
+        <i class="fa fa-github"></i> Open or contribute to GitHub issues
+      </a>
+    </li>
+  </ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">CHAP.saxswaxs.server.saxswaxs_to_chap</li>
+  <li class="wy-breadcrumbs-aside">
+    <a href="https://github.com/CHESSComputing/ChessAnalysisPipeline" class="fa fa-github"> GitHub</a>
+  </li>
+
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for CHAP.saxswaxs.server.saxswaxs_to_chap</h1><div class="highlight"><pre>
+<span></span>
+<span class="sd">"""Script to act as a drop-in replacement for the old saxswaxsworkflow</span>
+<span class="sd">CLI tool.</span>
+<span class="sd">Instead of running the old workflow code, a new CHAP pipeline will be</span>
+<span class="sd">constructed &amp; run from the given tool &amp; map configs.</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
+
+
+<div class="viewcode-block" id="VerboseSafeDumper">
+<a class="viewcode-back" href="../../../../CHAP.saxswaxs.server.html#CHAP.saxswaxs.server.saxswaxs_to_chap.VerboseSafeDumper">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">VerboseSafeDumper</span><span class="p">(</span><span class="n">yaml</span><span class="o">.</span><span class="n">SafeDumper</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""YAML SafeDumper subclass that writes all nodes explicitly without aliases."""</span>
+
+<div class="viewcode-block" id="VerboseSafeDumper.ignore_aliases">
+<a class="viewcode-back" href="../../../../CHAP.saxswaxs.server.html#CHAP.saxswaxs.server.saxswaxs_to_chap.VerboseSafeDumper.ignore_aliases">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ignore_aliases</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Return True to prevent YAML from using anchor/alias references."""</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="saxswaxs_to_chap">
+<a class="viewcode-back" href="../../../../CHAP.saxswaxs.server.html#CHAP.saxswaxs.server.saxswaxs_to_chap.saxswaxs_to_chap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">saxswaxs_to_chap</span><span class="p">(</span>
+        <span class="n">map_config_file</span><span class="p">,</span> <span class="n">tool_config_files</span><span class="p">,</span> <span class="n">outputdir</span><span class="p">,</span>
+        <span class="n">detector_filename</span><span class="o">=</span><span class="s1">'detector_config.yaml'</span><span class="p">,</span>
+        <span class="n">pyfai_filename</span><span class="o">=</span><span class="s1">'pyfai_integration_processor_config.yaml'</span><span class="p">,</span>
+        <span class="n">correction_filename</span><span class="o">=</span><span class="s1">'corrections_config.yaml'</span><span class="p">,</span>
+        <span class="n">fits_filename</span><span class="o">=</span><span class="s1">'fits_config.yaml'</span><span class="p">,</span>
+        <span class="n">pipeline_filename</span><span class="o">=</span><span class="s1">'pipeline.yaml'</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Build CHAP pipeline config files from old-style saxswaxs workflow configs.</span>
+
+<span class="sd">    Converts old-style tool config files to CHAP-format detector, pyFAI</span>
+<span class="sd">    integration, and corrections config files via :func:`convert_configs`,</span>
+<span class="sd">    then composes the CHAP pipeline config YAML via :func:`make_pipeline`.</span>
+
+<span class="sd">    :param map_config_file: Path to the map config YAML file.</span>
+<span class="sd">    :type map_config_file: str</span>
+<span class="sd">    :param tool_config_files: List of tool config YAML file paths.</span>
+<span class="sd">    :type tool_config_files: list[str]</span>
+<span class="sd">    :param outputdir: Directory in which to write the output CHAP config files.</span>
+<span class="sd">    :type outputdir: str</span>
+<span class="sd">    :param detector_filename: Output filename for the detector config YAML,</span>
+<span class="sd">        defaults to ``'detector_config.yaml'``.</span>
+<span class="sd">    :type detector_filename: str, optional</span>
+<span class="sd">    :param pyfai_filename: Output filename for the pyFAI integration processor</span>
+<span class="sd">        config YAML, defaults to ``'pyfai_integration_processor_config.yaml'``.</span>
+<span class="sd">    :type pyfai_filename: str, optional</span>
+<span class="sd">    :param correction_filename: Output filename for the corrections config YAML,</span>
+<span class="sd">        defaults to ``'corrections_config.yaml'``.</span>
+<span class="sd">    :type correction_filename: str, optional</span>
+<span class="sd">    :param fits_filename: Output filename for the fits config YAML,</span>
+<span class="sd">        defaults to ``'fits_config.yaml'``.</span>
+<span class="sd">    :type fits_filename: str, optional</span>
+<span class="sd">    :param pipeline_filename: Output filename for the CHAP pipeline config YAML,</span>
+<span class="sd">        defaults to ``'pipeline.yaml'``.</span>
+<span class="sd">    :type pipeline_filename: str, optional</span>
+<span class="sd">    """</span>
+    <span class="n">convert_configs</span><span class="p">(</span>
+        <span class="n">outputdir</span><span class="p">,</span> <span class="n">tool_config_files</span><span class="p">,</span>
+        <span class="n">detector_filename</span><span class="o">=</span><span class="n">detector_filename</span><span class="p">,</span>
+        <span class="n">pyfai_filename</span><span class="o">=</span><span class="n">pyfai_filename</span><span class="p">,</span>
+        <span class="n">correction_filename</span><span class="o">=</span><span class="n">correction_filename</span><span class="p">,</span>
+        <span class="n">fits_filename</span><span class="o">=</span><span class="n">fits_filename</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">make_pipeline</span><span class="p">(</span>
+        <span class="n">outputdir</span><span class="p">,</span>
+        <span class="n">map_filename</span><span class="o">=</span><span class="n">map_config_file</span><span class="p">,</span>
+        <span class="n">detector_filename</span><span class="o">=</span><span class="n">detector_filename</span><span class="p">,</span>
+        <span class="n">pyfai_filename</span><span class="o">=</span><span class="n">pyfai_filename</span><span class="p">,</span>
+        <span class="n">correction_filename</span><span class="o">=</span><span class="n">correction_filename</span><span class="p">,</span>
+        <span class="n">fits_filename</span><span class="o">=</span><span class="n">fits_filename</span><span class="p">,</span>
+        <span class="n">pipeline_filename</span><span class="o">=</span><span class="n">pipeline_filename</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="make_pipeline">
+<a class="viewcode-back" href="../../../../CHAP.saxswaxs.server.html#CHAP.saxswaxs.server.saxswaxs_to_chap.make_pipeline">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_pipeline</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span>
+                  <span class="n">map_filename</span><span class="o">=</span><span class="s1">'map_config.yaml'</span><span class="p">,</span>
+                  <span class="n">detector_filename</span><span class="o">=</span><span class="s1">'detector_config.yaml'</span><span class="p">,</span>
+                  <span class="n">pyfai_filename</span><span class="o">=</span><span class="s1">'pyfai_integration_processor_config.yaml'</span><span class="p">,</span>
+                  <span class="n">correction_filename</span><span class="o">=</span><span class="s1">'corrections_config.yaml'</span><span class="p">,</span>
+                  <span class="n">fits_filename</span><span class="o">=</span><span class="s1">'fits_config.yaml'</span><span class="p">,</span>
+                  <span class="n">pipeline_filename</span><span class="o">=</span><span class="s1">'pipeline.yaml'</span><span class="p">,</span>
+                  <span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Compose a pipeline file for a complete saxswaxs workflow based</span>
+<span class="sd">    on the config files provided, and asssuming they all already</span>
+<span class="sd">    exist. Sort of a lightweight version of wf_to_chap."""</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.models.map</span><span class="w"> </span><span class="kn">import</span> <span class="n">MapConfig</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">CHAP.common.reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">YAMLReader</span>
+
+    <span class="n">outputdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">outputdir</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">map_filename</span><span class="p">):</span>
+        <span class="n">map_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">map_filename</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">detector_filename</span><span class="p">):</span>
+        <span class="n">detector_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">detector_filename</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">pyfai_filename</span><span class="p">):</span>
+        <span class="n">pyfai_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">pyfai_filename</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">correction_filename</span><span class="p">):</span>
+        <span class="n">correction_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">correction_filename</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">fits_filename</span><span class="p">):</span>
+        <span class="n">fits_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">fits_filename</span><span class="p">)</span>
+
+    <span class="n">map_config</span> <span class="o">=</span> <span class="n">MapConfig</span><span class="p">(</span><span class="o">**</span><span class="n">YAMLReader</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+        <span class="n">filename</span><span class="o">=</span><span class="n">map_filename</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="s1">'common.models.map.MapConfig'</span><span class="p">))</span>
+
+    <span class="n">zarr_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">map_config</span><span class="o">.</span><span class="n">title</span><span class="si">}</span><span class="s1">.zarr'</span><span class="p">)</span>
+    <span class="n">nxs_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="s1">'..'</span><span class="p">,</span> <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">map_config</span><span class="o">.</span><span class="n">title</span><span class="si">}</span><span class="s1">.nxs'</span><span class="p">))</span>
+
+    <span class="n">readers</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s1">'common.reader.YAMLReader'</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">'filename'</span><span class="p">:</span> <span class="n">detector_filename</span><span class="p">,</span>
+                <span class="s1">'schema'</span><span class="p">:</span> <span class="s1">'common.models.map.DetectorConfig'</span>
+            <span class="p">}</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s1">'common.reader.YAMLReader'</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">'filename'</span><span class="p">:</span> <span class="n">map_filename</span><span class="p">,</span>
+                <span class="s1">'schema'</span><span class="p">:</span> <span class="s1">'common.models.map.MapConfig'</span>
+            <span class="p">}</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s1">'common.reader.YAMLReader'</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">'filename'</span><span class="p">:</span> <span class="n">pyfai_filename</span><span class="p">,</span>
+                <span class="s1">'schema'</span><span class="p">:</span> <span class="s1">'common.models.integration.PyfaiIntegrationConfig'</span>
+            <span class="p">}</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s1">'common.reader.YAMLReader'</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">'filename'</span><span class="p">:</span> <span class="n">correction_filename</span><span class="p">,</span>
+                <span class="s1">'schema'</span><span class="p">:</span> <span class="s1">'saxswaxs.models.CorrectionsConfig'</span>
+            <span class="p">}</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s1">'common.reader.YAMLReader'</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">'filename'</span><span class="p">:</span> <span class="n">fits_filename</span><span class="p">,</span>
+                <span class="s1">'schema'</span><span class="p">:</span> <span class="s1">'saxswaxs.models.FitsConfig'</span>
+            <span class="p">}</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+
+    <span class="n">update_pipelines</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">npts</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">nrows</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">row_npts</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">scans</span> <span class="ow">in</span> <span class="n">map_config</span><span class="o">.</span><span class="n">spec_scans</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">scan_number</span> <span class="ow">in</span> <span class="n">scans</span><span class="o">.</span><span class="n">scan_numbers</span><span class="p">:</span>
+            <span class="n">sp</span> <span class="o">=</span> <span class="n">scans</span><span class="o">.</span><span class="n">get_scanparser</span><span class="p">(</span><span class="n">scan_number</span><span class="p">)</span>
+            <span class="n">_npts</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">spec_scan_npts</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">spec_scan_shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">_nrows</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">spec_scan_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">row_npts</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">spec_scan_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">_nrows</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="n">row_npts</span> <span class="o">=</span> <span class="n">_npts</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">_nrows</span><span class="p">):</span>
+                <span class="n">idx_slice</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s1">'start'</span><span class="p">:</span> <span class="n">npts</span> <span class="o">+</span> <span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="n">row_npts</span><span class="p">),</span>
+                    <span class="s1">'stop'</span><span class="p">:</span> <span class="n">npts</span> <span class="o">+</span> <span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="n">row_npts</span><span class="p">)</span> <span class="o">+</span> <span class="n">row_npts</span><span class="p">,</span>
+                    <span class="s1">'step'</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="p">}</span>
+                <span class="n">update_pipelines</span><span class="p">[</span><span class="sa">f</span><span class="s1">'update_</span><span class="si">{</span><span class="n">nrows</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i</span><span class="si">}</span><span class="s1">'</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="o">*</span><span class="n">readers</span><span class="p">,</span>
+                    <span class="p">{</span>
+                        <span class="s1">'saxswaxs.processor.UpdateValuesProcessor'</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s1">'raw_data'</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                            <span class="s1">'filename'</span><span class="p">:</span> <span class="n">zarr_filename</span><span class="p">,</span>
+                            <span class="s1">'spec_file'</span><span class="p">:</span> <span class="n">scans</span><span class="o">.</span><span class="n">spec_file</span><span class="p">,</span>
+                            <span class="s1">'scan_number'</span><span class="p">:</span> <span class="n">scan_number</span><span class="p">,</span>
+                            <span class="s1">'idx_slice'</span><span class="p">:</span> <span class="n">idx_slice</span><span class="p">,</span>
+                        <span class="p">}</span>
+                    <span class="p">},</span>
+                    <span class="p">{</span>
+                        <span class="s1">'common.ZarrValuesWriter'</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s1">'filename'</span><span class="p">:</span> <span class="n">zarr_filename</span><span class="p">,</span>
+                            <span class="s1">'resize_axis'</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                            <span class="s1">'idx_slice'</span><span class="p">:</span> <span class="n">idx_slice</span><span class="p">,</span>
+                            <span class="s1">'force_overwrite'</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                        <span class="p">}</span>
+                    <span class="p">}</span>
+                <span class="p">]</span>
+            <span class="n">nrows</span> <span class="o">+=</span> <span class="n">_nrows</span>
+            <span class="n">npts</span> <span class="o">+=</span> <span class="n">_npts</span>
+
+    <span class="n">chap_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">'config'</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">'root'</span><span class="p">:</span> <span class="n">outputdir</span><span class="p">,</span>
+            <span class="s1">'log_level'</span><span class="p">:</span> <span class="s1">'debug'</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s1">'setup'</span><span class="p">:</span> <span class="p">[</span>
+            <span class="o">*</span><span class="n">readers</span><span class="p">,</span>
+            <span class="p">{</span>
+                <span class="s1">'saxswaxs.processor.SetupProcessor'</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s1">'raw_data'</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="s1">'dataset_chunks'</span><span class="p">:</span> <span class="p">[</span><span class="n">row_npts</span><span class="p">],</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="s1">'common.writer.ZarrWriter'</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s1">'filename'</span><span class="p">:</span> <span class="n">zarr_filename</span><span class="p">,</span>
+                    <span class="s1">'force_overwrite'</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">],</span>
+        <span class="o">**</span><span class="n">update_pipelines</span><span class="p">,</span>
+        <span class="s1">'convert'</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s1">'saxswaxs.processor.NewZarrToOldNexusProcessor'</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s1">'zarr_filename'</span><span class="p">:</span> <span class="n">zarr_filename</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="s1">'common.writer.NexusWriter'</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s1">'filename'</span><span class="p">:</span> <span class="n">nxs_filename</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+        <span class="p">],</span>
+        <span class="s1">'convert_new'</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s1">'common.processor.ZarrToNexusProcessor'</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s1">'zarr_filename'</span><span class="p">:</span> <span class="n">zarr_filename</span><span class="p">,</span>
+                    <span class="s1">'nexus_filename'</span><span class="p">:</span> <span class="n">nxs_filename</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+    <span class="n">pipeline_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">pipeline_filename</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Writing to </span><span class="si">{</span><span class="n">pipeline_path</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">pipeline_path</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pipeline_path</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">outf</span><span class="p">:</span>
+        <span class="n">yaml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">chap_config</span><span class="p">,</span> <span class="n">outf</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">Dumper</span><span class="o">=</span><span class="n">VerboseSafeDumper</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">chap_config</span></div>
+
+
+
+<div class="viewcode-block" id="convert_configs">
+<a class="viewcode-back" href="../../../../CHAP.saxswaxs.server.html#CHAP.saxswaxs.server.saxswaxs_to_chap.convert_configs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">convert_configs</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">tool_config_files</span><span class="p">,</span>
+                    <span class="n">detector_filename</span><span class="o">=</span><span class="s1">'detector_config.yaml'</span><span class="p">,</span>
+                    <span class="n">pyfai_filename</span><span class="o">=</span><span class="s1">'pyfai_integration_processor_config.yaml'</span><span class="p">,</span>
+                    <span class="n">correction_filename</span><span class="o">=</span><span class="s1">'corrections_config.yaml'</span><span class="p">,</span>
+                    <span class="n">fits_filename</span><span class="o">=</span><span class="s1">'fits_config.yaml'</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Write the new CHAP.saxswaxs-formatted pyfai and corrections</span>
+<span class="sd">    config files based on the old workflow tool files provided. Should</span>
+<span class="sd">    be independent from any map configuration or</span>
+<span class="sd">    saxswaxsworkflow.workflow.Workflow object -- use the dictionaries</span>
+<span class="sd">    in the tool_config_files only."""</span>
+
+    <span class="n">outputdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">outputdir</span><span class="p">)</span>
+
+    <span class="n">pyfai_integration_processor_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">'azimuthal_integrators'</span><span class="p">:</span> <span class="p">[],</span>
+        <span class="s1">'integrations'</span><span class="p">:</span> <span class="p">[],</span>
+    <span class="p">}</span>
+    <span class="n">detectors</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">corrections</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">tool_config_file</span> <span class="ow">in</span> <span class="n">tool_config_files</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">tool_config_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'tool_type'</span><span class="p">)</span> <span class="o">==</span> <span class="s1">'integration'</span><span class="p">:</span>
+            <span class="c1"># Build azimuthal_integrators entries</span>
+            <span class="k">for</span> <span class="n">det</span> <span class="ow">in</span> <span class="n">t</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'detectors'</span><span class="p">,</span> <span class="p">[]):</span>
+                <span class="n">prefix</span> <span class="o">=</span> <span class="n">det</span><span class="p">[</span><span class="s1">'prefix'</span><span class="p">]</span>
+                <span class="n">already_added</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+                    <span class="n">ai</span><span class="p">[</span><span class="s1">'id'</span><span class="p">]</span> <span class="o">==</span> <span class="n">prefix</span>
+                    <span class="ow">and</span> <span class="n">ai</span><span class="p">[</span><span class="s1">'poni_file'</span><span class="p">]</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">det</span><span class="p">[</span><span class="s1">'poni_file'</span><span class="p">])</span>
+                    <span class="ow">and</span> <span class="n">ai</span><span class="p">[</span><span class="s1">'mask_file'</span><span class="p">]</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">det</span><span class="p">[</span><span class="s1">'mask_file'</span><span class="p">])</span>
+                    <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="n">pyfai_integration_processor_config</span><span class="p">[</span><span class="s1">'azimuthal_integrators'</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">already_added</span><span class="p">:</span>
+                    <span class="n">pyfai_integration_processor_config</span><span class="p">[</span><span class="s1">'azimuthal_integrators'</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">{</span>
+                            <span class="s1">'id'</span><span class="p">:</span> <span class="n">prefix</span><span class="p">,</span>
+                            <span class="s1">'poni_file'</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">det</span><span class="p">[</span><span class="s1">'poni_file'</span><span class="p">]),</span>
+                            <span class="s1">'mask_file'</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">det</span><span class="p">[</span><span class="s1">'mask_file'</span><span class="p">]),</span>
+                        <span class="p">}</span>
+                    <span class="p">)</span>
+                <span class="c1"># Build detector_config entries</span>
+                <span class="n">visited</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">prefix</span> <span class="o">==</span> <span class="n">d</span><span class="p">[</span><span class="s1">'id'</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">detectors</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">visited</span><span class="p">:</span>
+                    <span class="n">placeholder_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">prefix</span> <span class="o">==</span> <span class="s1">'PIL5'</span><span class="p">:</span>
+                        <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">619</span><span class="p">,</span> <span class="mi">487</span><span class="p">]</span>
+                    <span class="k">elif</span> <span class="n">prefix</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'PIL9'</span><span class="p">,</span> <span class="s1">'PIL11'</span><span class="p">):</span>
+                        <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">407</span><span class="p">,</span> <span class="mi">487</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s1">'WARNING: unrecognized detector prefix </span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s1">; '</span>
+                            <span class="o">+</span> <span class="sa">f</span><span class="s1">'using placeholder shape </span><span class="si">{</span><span class="n">placeholder_shape</span><span class="si">}</span><span class="s1">'</span>
+                        <span class="p">)</span>
+                        <span class="n">shape</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">placeholder_shape</span><span class="p">)</span>
+                    <span class="n">detectors</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">'id'</span><span class="p">:</span> <span class="n">prefix</span><span class="p">,</span> <span class="s1">'shape'</span><span class="p">:</span> <span class="n">shape</span><span class="p">})</span>
+
+            <span class="c1"># Build integrations entry</span>
+            <span class="n">integration_config</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'name'</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">'title'</span><span class="p">]}</span>
+            <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'integration_type'</span><span class="p">)</span> <span class="o">==</span> <span class="s1">'radial'</span><span class="p">:</span>
+                <span class="n">integration_config</span><span class="p">[</span><span class="s1">'integration_method'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'integrate_radial'</span>
+                <span class="n">integration_config</span><span class="p">[</span><span class="s1">'integration_params'</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s1">'ais'</span><span class="p">:</span> <span class="p">[</span><span class="n">det</span><span class="p">[</span><span class="s1">'prefix'</span><span class="p">]</span> <span class="k">for</span> <span class="n">det</span> <span class="ow">in</span> <span class="n">t</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'detectors'</span><span class="p">,</span> <span class="p">[])],</span>
+                    <span class="s1">'npt'</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">'azimuthal_npt'</span><span class="p">],</span>
+                    <span class="s1">'npt_rad'</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">'radial_npt'</span><span class="p">],</span>
+                    <span class="s1">'radial_range'</span><span class="p">:</span> <span class="p">[</span><span class="n">t</span><span class="p">[</span><span class="s1">'radial_min'</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s1">'radial_max'</span><span class="p">]],</span>
+                    <span class="s1">'azimuth_range'</span><span class="p">:</span> <span class="p">[</span><span class="n">t</span><span class="p">[</span><span class="s1">'azimuthal_min'</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s1">'azimuthal_max'</span><span class="p">]],</span>
+                    <span class="s1">'unit'</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">'azimuthal_units'</span><span class="p">],</span>
+                    <span class="s1">'radial_unit'</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">'radial_units'</span><span class="p">],</span>
+                    <span class="s1">'method'</span><span class="p">:</span> <span class="s1">'bbox_csr_cython'</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">integration_config</span><span class="p">[</span><span class="s1">'multi_geometry'</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s1">'ais'</span><span class="p">:</span> <span class="p">[</span><span class="n">det</span><span class="p">[</span><span class="s1">'prefix'</span><span class="p">]</span> <span class="k">for</span> <span class="n">det</span> <span class="ow">in</span> <span class="n">t</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'detectors'</span><span class="p">,</span> <span class="p">[])],</span>
+                    <span class="s1">'unit'</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">'radial_units'</span><span class="p">],</span>
+                    <span class="s1">'radial_range'</span><span class="p">:</span> <span class="p">[</span><span class="n">t</span><span class="p">[</span><span class="s1">'radial_min'</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s1">'radial_max'</span><span class="p">]],</span>
+                    <span class="s1">'azimuth_range'</span><span class="p">:</span> <span class="p">[</span><span class="n">t</span><span class="p">[</span><span class="s1">'azimuthal_min'</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s1">'azimuthal_max'</span><span class="p">]],</span>
+                <span class="p">}</span>
+                <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'integration_type'</span><span class="p">)</span> <span class="o">==</span> <span class="s1">'azimuthal'</span><span class="p">:</span>
+                    <span class="n">integration_config</span><span class="p">[</span><span class="s1">'integration_method'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'integrate1d'</span>
+                    <span class="n">integration_config</span><span class="p">[</span><span class="s1">'integration_params'</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="s1">'npt'</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">'radial_npt'</span><span class="p">],</span>
+                        <span class="s1">'method'</span><span class="p">:</span> <span class="s1">'bbox_csr_cython'</span><span class="p">,</span>
+                    <span class="p">}</span>
+                <span class="k">elif</span> <span class="n">t</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'integration_type'</span><span class="p">)</span> <span class="o">==</span> <span class="s1">'cake'</span><span class="p">:</span>
+                    <span class="n">integration_config</span><span class="p">[</span><span class="s1">'integration_method'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'integrate2d'</span>
+                    <span class="n">integration_config</span><span class="p">[</span><span class="s1">'integration_params'</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="s1">'npt_rad'</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">'radial_npt'</span><span class="p">],</span>
+                        <span class="s1">'npt_azim'</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">'azimuthal_npt'</span><span class="p">],</span>
+                        <span class="s1">'method'</span><span class="p">:</span> <span class="s1">'bbox_csr_cython'</span><span class="p">,</span>
+                    <span class="p">}</span>
+            <span class="n">pyfai_integration_processor_config</span><span class="p">[</span><span class="s1">'integrations'</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integration_config</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># It's a corrections tool — include all fields except tool_type</span>
+            <span class="n">correction</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">t</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                          <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'tool_type'</span><span class="p">,</span> <span class="s1">'validate_data_present'</span><span class="p">)}</span>
+            <span class="n">corrections</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">correction</span><span class="p">)</span>
+
+    <span class="c1"># Write detector config .yaml</span>
+    <span class="n">detector_config</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'detectors'</span><span class="p">:</span> <span class="n">detectors</span><span class="p">}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">detector_filename</span><span class="p">):</span>
+        <span class="n">detector_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">detector_filename</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Writing to </span><span class="si">{</span><span class="n">detector_filename</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">detector_filename</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">detector_filename</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">outf</span><span class="p">:</span>
+        <span class="n">yaml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">detector_config</span><span class="p">,</span> <span class="n">outf</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                  <span class="n">Dumper</span><span class="o">=</span><span class="n">VerboseSafeDumper</span><span class="p">)</span>
+
+    <span class="c1"># Write pyfai config .yaml</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">pyfai_filename</span><span class="p">):</span>
+        <span class="n">pyfai_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">pyfai_filename</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Writing to </span><span class="si">{</span><span class="n">pyfai_filename</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">pyfai_filename</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pyfai_filename</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">outf</span><span class="p">:</span>
+        <span class="n">yaml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">pyfai_integration_processor_config</span><span class="p">,</span> <span class="n">outf</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                  <span class="n">Dumper</span><span class="o">=</span><span class="n">VerboseSafeDumper</span><span class="p">)</span>
+
+    <span class="c1"># Write corrections config .yaml</span>
+    <span class="n">correction_config</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'corrections'</span><span class="p">:</span> <span class="n">corrections</span><span class="p">}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">correction_filename</span><span class="p">):</span>
+        <span class="n">correction_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">correction_filename</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Writing to </span><span class="si">{</span><span class="n">correction_filename</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">correction_filename</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">correction_filename</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">outf</span><span class="p">:</span>
+        <span class="n">yaml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">correction_config</span><span class="p">,</span> <span class="n">outf</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                  <span class="n">Dumper</span><span class="o">=</span><span class="n">VerboseSafeDumper</span><span class="p">)</span>
+
+    <span class="c1"># Write fits config .yaml</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">fits_filename</span><span class="p">):</span>
+        <span class="n">fits_filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outputdir</span><span class="p">,</span> <span class="n">fits_filename</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">fits_filename</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Writing to </span><span class="si">{</span><span class="n">fits_filename</span><span class="si">}</span><span class="s1">'</span><span class="p">)</span>
+        <span class="n">fits_config</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'fits'</span><span class="p">:</span> <span class="p">[]}</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">fits_filename</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fits_filename</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">outf</span><span class="p">:</span>
+            <span class="n">yaml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">fits_config</span><span class="p">,</span> <span class="n">outf</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                      <span class="n">Dumper</span><span class="o">=</span><span class="n">VerboseSafeDumper</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="n">fits_filename</span><span class="si">}</span><span class="s1"> already exists, will not overwrite.'</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">'__main__'</span><span class="p">:</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">'-m'</span><span class="p">,</span> <span class="s1">'--map_config_file'</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s1">'map.yaml'</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">'''Map configuration .yaml file to use for constructing</span>
+<span class="s1">        the workflow.'''</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">'-t'</span><span class="p">,</span> <span class="s1">'--tool_config_files'</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">'extend'</span><span class="p">,</span>
+        <span class="n">nargs</span><span class="o">=</span><span class="s1">'+'</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s1">'tool.yaml'</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'''List of .yaml files</span>
+<span class="s1">        containing tool configurations to apply to the map</span>
+<span class="s1">        configuration provided.'''</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">'-f'</span><span class="p">,</span> <span class="s1">'--force_overwrite'</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">'store_true'</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'''Use</span>
+<span class="s1">        this flag to overwrite the output file if it already</span>
+<span class="s1">        exists.'''</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">'-i'</span><span class="p">,</span> <span class="s1">'--inputdir'</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">'.'</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'''Directory containing</span>
+<span class="s1">        all input files'''</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">'-o'</span><span class="p">,</span> <span class="s1">'--outputdir'</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">'.'</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'''Directory in which</span>
+<span class="s1">        to place output file.'''</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">'-l'</span><span class="p">,</span> <span class="s1">'--log'</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">_nameToLevel</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span>
+        <span class="n">default</span><span class="o">=</span><span class="s1">'INFO'</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">'''Specify a preferred logging level.'''</span>
+    <span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+
+    <span class="n">map_config_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">inputdir</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">map_config_file</span><span class="p">)</span>
+    <span class="n">tool_config_files</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">inputdir</span><span class="p">,</span> <span class="n">tool_config_file</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">tool_config_file</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">tool_config_files</span>
+    <span class="p">]</span>
+    <span class="n">saxswaxs_to_chap</span><span class="p">(</span><span class="n">map_config_file</span><span class="p">,</span> <span class="n">tool_config_files</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">outputdir</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
