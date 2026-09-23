@@ -3476,15 +3476,16 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         )
 
         def _get_component_strains(
-                centers, nominal_centers, material_names):
+                centers, nominal_centers, amplitudes_vary, material_names):
             strains = np.log(nominal_centers / centers)
             component_strains = {}
+            masked_strains = np.where(amplitudes_vary, strains, np.nan)
             if isinstance(material_names, (tuple, list, np.ndarray)):
                 for m in set(material_names):
-                    component_strain = strains[(material_names == m)]
+                    component_strain = masked_strains[(material_names == m)]
                     component_strains[m] = {
-                        'mean': np.mean(component_strain, axis=0),
-                        'stdev': np.std(component_strain, axis=0),
+                        'mean': np.nanmean(component_strain, axis=0),
+                        'stdev': np.nanstd(component_strain, axis=0),
 #                        'values': component_strain,
                     }
                 return strains, component_strains
@@ -3665,8 +3666,10 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
 
             # Get the strains
             centers = np.asarray(fit_results['centers'])
+            amplitudes_vary = np.asarray(fit_results['amplitudes_vary'])
             strains, component_strains = _get_component_strains(
-                centers, peak_locations_used[:,None], material_names_used)
+                centers, peak_locations_used[:,None], amplitudes_vary,
+                material_names_used)
 
             # Perform a component-wise uniform fit
             fit_results_uniform = {}
@@ -3699,11 +3702,10 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
 
             # FIX for multiple materials
             if len(component_strains) == 1 and 'eta' in detector.attrs:
-                normal_strains.append(strain)
+                normal_strains.append(strains)
                 det_angles.append(detector.attrs['eta'])
 
             # Insert the peaks omitted from the fit due to find_peak_cutoff
-            amplitudes_vary = np.asarray(fit_results['amplitudes_vary'])
             if num_points > 1:
                 amplitudes_vary = np.moveaxis(amplitudes_vary, -1, 0)
             insert_peak_indices = [
