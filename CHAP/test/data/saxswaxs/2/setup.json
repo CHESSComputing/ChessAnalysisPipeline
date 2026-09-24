@@ -1,0 +1,17 @@
+{
+  "spec_file": "/experiment/spec/run2.spec",
+  "scan_number": 5,
+  "detectors_yaml": "/experiment/config/det.yaml",
+  "map_yaml": "/experiment/config/mapping.yaml",
+  "pyfai_yaml": "/experiment/config/azimuthal.yaml",
+  "corrections_yaml": "/experiment/config/corr.yaml",
+  "fits_yaml": "/experiment/config/fit_params.yaml",
+  "tool_yamls": [
+    "/experiment/tools/a.yaml",
+    "/experiment/tools/b.yaml",
+    "/experiment/tools/c.yaml"
+  ],
+  "dwell_time_actual_counter_name": "timer",
+  "presample_intensity_counter_name": "mon",
+  "dataset_chunks": [50, 50]
+}

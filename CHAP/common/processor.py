@@ -1050,18 +1050,11 @@ class MapProcessor(Processor):
                             det_shapes[detector.get_id()] = data_init.shape
             all_scalar_data = np.empty(
                 (len(self.config.all_scalar_data), map_len))
-            if len(self.detector_config.detectors) > 0:
-                if det_shapes is False:
-                    det_shapes = {}
-                    for det in self.detector_config.detectors:
-                        if det.shape is not None:
-                            det_shapes[det.get_id()] = det.shape
-                data = np.empty(
-                    (len(self.detector_config.detectors),
-                     map_len,
-                     *det_shapes[self.detector_config.detectors[0].get_id()]))
-            else:
-                data = None
+            data = {}
+            for det in self.detector_config.detectors:
+                data[det.get_id()] = np.empty(
+                    (map_len, *det.shape)
+                )
             independent_dimensions = np.asarray(
                 [_independent_dimensions[dim.label]
                  for dim in self.config.independent_dimensions])

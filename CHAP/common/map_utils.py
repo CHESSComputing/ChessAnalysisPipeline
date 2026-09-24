@@ -335,44 +335,48 @@ class SpecScanToMapConfigProcessor(Processor):
     """Processor to get the
     :class:`~CHAP.common.models.map.MapConfig` dictionary
     configuration representation of a single CHESS SPEC scan.
+
+    :ivar spec_file: Path to the SPEC file.
+    :vartype spec_file: pydantic.FilePath
+    :ivar scan_number: Scan number within the SPEC file.
+    :vartype scan_number: int
+    :ivar station: Name of the station at which the data was collected.
+    :vartype station: Literal["id1a3", "id3a", "id3b", "id4b"]
+    :ivar experiment: Experiment type.
+    :vartype experiment: Literal[
+        'EDD', 'GIWAXS', 'HDRM', 'SAXSWAXS', 'TOMO', 'XRF']
+    :ivar dwell_time_actual_counter_name: Name of the counter used to
+        record the actual dwell time at time of data collection.
+    :vartype dwell_time_actual_counter_name: str
+    :ivar presample_intensity_counter_name: Name of the counter used to
+        record the incident beam intensity at time of data collection.
+    :vartype presample_intensity_counter_name: str
+    :ivar postsample_intensity_counter_name: Name of the counter used to
+        record the post-sample beam intensity at time of data collection.
+        Defaults to ``None``.
+    :vartype postsample_intensity_counter_name: str, optional
+    :ivar validate_data_present: Whether to include a
+        ``validate_data_present`` key in the output map configuration.
+        Defaults to ``True``.
+    :vartype validate_data_present: bool
     """
 
-    def process(self, data,
-                spec_file, scan_number, station, experiment,
-                dwell_time_actual_counter_name,
-                presample_intensity_counter_name,
-                postsample_intensity_counter_name=None,
-                validate_data_present=True):
+    spec_file: FilePath
+    scan_number: int
+    station: str
+    experiment: str
+    dwell_time_actual_counter_name: str
+    presample_intensity_counter_name: str
+    postsample_intensity_counter_name: Optional[str] = None
+    validate_data_present: bool = True
+
+    def process(self, data):
         """Return a dictionary representing a valid
         :class:`~CHAP.common.models.map.MapConfig` object that
         contains only the single given scan.
 
-        :param spec_file: Spec file name
-        :type spec_file: str
-        :param scan_number: Scan number
-        :type scan_number: int
-        :param station: Name of the station at which the data was
-            collected.
-        :type station: Literal["id1a3", "id3a", "id3b", "id4b"]
-        :param experiment: Experiment type
-        :type experiment_type: Literal[
-            'EDD', 'GIWAXS', 'HDRM', 'SAXSWAXS', 'TOMO', 'XRF']
-        :param dwell_time_actual_counter_name: Name of the counter used
-            to record the actual dwell time at time of data collection.
-        :type dwell_time_actual_counter_name: str
-        :param presample_intensity_counter_name: Name of the counter
-            used to record the incident beam intensity at time of data
-            collection.
-        :type presample_intensity_counter_name: str
-        :param postsample_intensity_counter_name: Name of the counter
-            used to record the post sample beam intensity at time of
-            data collection.
-        :type postsample_intensity_counter_name: str, optional
-        :param validate_data_present: Optional `validate_data_present`
-            key-value pair to the output map configuration, defaults
-            to `True`.
-        :type validate_data_present:
-        :returns: Single-scan map configuration
+        :param data: Unused; present for pipeline interface compatibility.
+        :returns: Single-scan map configuration.
         :rtype: dict
         """
         # System modules
@@ -381,8 +385,8 @@ class SpecScanToMapConfigProcessor(Processor):
         # Local modules
         from chess_scanparsers import choose_scanparser
 
-        SP = choose_scanparser(station, experiment)
-        sp = SP(spec_file, scan_number)
+        SP = choose_scanparser(self.station, self.experiment)
+        sp = SP(str(self.spec_file), self.scan_number)
 
         def get_independent_dimensions(_scanparser):
             """Return a value for the `independent_dimensions` field of
@@ -470,35 +474,35 @@ class SpecScanToMapConfigProcessor(Processor):
                  for mne in _scanparser.spec_scan_motor_mnes],
                 [])
 
-        normalized_spec_file = os.path.realpath(spec_file).replace(
+        normalized_spec_file = os.path.realpath(self.spec_file).replace(
             '/daq/', '/raw/')
         independent_dimensions, scalar_data = get_independent_dimensions(sp)
         mapconfig_dict = {
-            'validate_data_present': validate_data_present,
+            'validate_data_present': self.validate_data_present,
             'title': sp.scan_title,
-            'station': station,
-            'experiment_type': experiment.upper(),
+            'station': self.station,
+            'experiment_type': self.experiment.upper(),
             'sample': {
                 'name': sp.scan_name
             },
             'spec_scans': [
                 {
                     'spec_file': normalized_spec_file,
-                    'scan_numbers': [scan_number]
+                    'scan_numbers': [self.scan_number]
                 }
             ],
             'independent_dimensions': independent_dimensions,
             'dwell_time_actual': {
                 'data_type': 'scan_column',
-                'name': dwell_time_actual_counter_name},
+                'name': self.dwell_time_actual_counter_name},
             'presample_intensity': {
                 'data_type': 'scan_column',
-                'name': presample_intensity_counter_name},
+                'name': self.presample_intensity_counter_name},
             'scalar_data': scalar_data,
         }
-        if postsample_intensity_counter_name:
+        if self.postsample_intensity_counter_name:
             mapconfig_dict['postsample_intensity'] = {
                 'data_type': 'scan_column',
-                'name': postsample_intensity_counter_name,
+                'name': self.postsample_intensity_counter_name,
             }
         return mapconfig_dict

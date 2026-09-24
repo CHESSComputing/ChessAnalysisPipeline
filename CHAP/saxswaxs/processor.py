@@ -510,6 +510,267 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         )
 
 
+class NewZarrToOldNexusProcessor(Processor):
+    """Processor to convert a .zarr structure created by
+    `:class:CHAP.saxswaxs.processor.SetupProcessor` into a nexus
+    structure that mimics the results of old-style saxswaxsworkflow
+    code.
+
+    :ivar zarr_filename: Name of .zarr file containing `CHAP.saxswaxs`
+        data.
+    :vartype zarr_filename: str
+    """
+    zarr_filename: str
+
+    def process(self, data):
+        """Return an `NXroot` object in the style of the old
+        [`saxswaxsworkflow`](https://gitlab01.classe.cornell.edu/msn-c/saxswaxsworkflow)
+        code.
+
+        :param data: Input data (unused; data is read from
+            :attr:`zarr_filename`).
+        :type data: list[PipelineData]
+        :returns: NeXus root object compatible with old
+            `saxswaxsworkflow` tools.
+        :rtype: nexusformat.nexus.NXroot
+        """
+        # Third party modules
+        # pylint: disable=import-error
+        import zarr
+        # pylint: enable=import-error
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXentry,
+            NXfield,
+            NXlink,
+            NXprocess,
+            NXroot,
+            NXsample,
+        )
+
+        zarr_root = zarr.open(self.zarr_filename, mode='r')
+
+        # Find the map entry: the top-level group that carries a
+        # 'station' attribute.
+        map_key = None
+        for key in zarr_root.keys():
+            grp = zarr_root[key]
+            if hasattr(grp, 'attrs') and 'station' in grp.attrs:
+                map_key = key
+                break
+        if map_key is None:
+            raise ValueError(
+                f'No map entry with a "station" attribute found in '
+                f'{self.zarr_filename}')
+
+        zarr_map = zarr_root[map_key]
+
+        # Independent dimension coordinate arrays.
+        # Each array holds the raw (per-scan-step) coordinate value, so
+        # shape = (N_scan_pts,).  Unique sorted values define the grid.
+        indep_group = zarr_map['independent_dimensions']
+        dim_names = list(indep_group.keys())
+        dim_raw = {d: np.array(indep_group[d]) for d in dim_names}
+        dim_unique = {d: np.unique(dim_raw[d]) for d in dim_names}
+        map_shape = tuple(len(dim_unique[d]) for d in dim_names)
+        n_pts = len(dim_raw[dim_names[0]])
+
+        def _structured_index(i):
+            """Return the grid index tuple for flat scan point i."""
+            return tuple(
+                int(np.searchsorted(dim_unique[d], dim_raw[d][i]))
+                for d in dim_names
+            )
+
+        # Pre-compute structured indices for all scan points.
+        structured_indices = [_structured_index(i) for i in range(n_pts)]
+
+        def _restructure(flat_arr):
+            """Reshape a flat (N, *signal_shape) array to a structured
+            (*map_shape, *signal_shape) array."""
+            signal_shape = flat_arr.shape[1:]
+            out = np.full((*map_shape, *signal_shape), np.nan,
+                          dtype=flat_arr.dtype)
+            for i, idx in enumerate(structured_indices):
+                out[idx] = flat_arr[i]
+            return out
+
+        nxroot = NXroot()
+
+        # ----------------------------------------------------------------
+        # Map NXentry
+        # ----------------------------------------------------------------
+        nxroot[map_key] = NXentry()
+        nxentry = nxroot[map_key]
+        nxentry.attrs['station'] = zarr_map.attrs.get('station', '')
+
+        # independent_dimensions – stores unique, sorted axis values.
+        nxentry.independent_dimensions = NXdata()
+        nxentry.independent_dimensions.attrs['axes'] = dim_names
+        for i, dim in enumerate(dim_names):
+            dim_attrs = {k: v for k, v in indep_group[dim].attrs.items()}
+            nxentry.independent_dimensions[dim] = NXfield(
+                value=dim_unique[dim], attrs=dim_attrs)
+            nxentry.independent_dimensions.attrs[f'{dim}_indices'] = i
+
+        # Scalar data channels (presample_intensity, postsample_intensity,
+        # dwell_time_actual) – restructured from flat to map grid.
+        if 'scalar_data' in zarr_map:
+            zarr_scalar = zarr_map['scalar_data']
+            for field_name in zarr_scalar.keys():
+                raw_arr = np.array(zarr_scalar[field_name])
+                field_attrs = {k: v
+                               for k, v in zarr_scalar[field_name].attrs.items()}
+                structured = np.full(map_shape, np.nan, dtype=raw_arr.dtype)
+                for i, idx in enumerate(structured_indices):
+                    structured[idx] = raw_arr[i]
+                nxentry[field_name] = NXdata()
+                nxentry[field_name].attrs['axes'] = dim_names
+                nxentry[field_name].attrs['signal'] = field_name
+                for j, d in enumerate(dim_names):
+                    nxentry[field_name].attrs[f'{d}_indices'] = j
+                nxentry[field_name][field_name] = NXfield(
+                    value=structured, attrs=field_attrs)
+                # Soft-link each dimension axis from independent_dimensions.
+                for d in dim_names:
+                    nxentry[field_name].makelink(
+                        nxentry.independent_dimensions[d])
+
+        nxentry.sample = NXsample()
+        nxentry.spec_scans = NXcollection()
+
+        # ----------------------------------------------------------------
+        # NXprocess groups – one per integration, one per correction.
+        # ----------------------------------------------------------------
+        sequence_index = 1
+        for proc_key in zarr_root.keys():
+            if proc_key == map_key:
+                continue
+            zarr_proc = zarr_root[proc_key]
+            if not hasattr(zarr_proc, 'keys') or 'data' not in zarr_proc:
+                continue
+
+            zarr_data_grp = zarr_proc['data']
+            data_attrs = dict(zarr_data_grp.attrs)
+            nxlinks_map = data_attrs.get('__nxlinks__', {})
+
+            # Signal coordinate axes are identified by integer-valued
+            # attributes in the data group (e.g. 'q_A^-1': 1, 'chi_deg': 2).
+            # Their value gives the 1-based ordering among signal axes.
+            signal_coord_names = sorted(
+                [k for k, v in data_attrs.items()
+                 if isinstance(v, int)],
+                key=lambda k: data_attrs[k],
+            )
+
+            # Identify the primary signal.
+            direct_keys = list(zarr_data_grp.keys())
+            if 'I_corrected' in direct_keys:
+                signal_name = 'I_corrected'
+                is_correction = True
+            elif 'I' in direct_keys:
+                signal_name = 'I'
+                is_correction = False
+            else:
+                self.logger.warning(
+                    f'No recognised signal in {proc_key}/data; skipping')
+                continue
+
+            signal_raw = np.array(zarr_data_grp[signal_name])
+            structured_signal = _restructure(signal_raw)
+
+            # For corrections, resolve the source integration key from the
+            # '__nxlinks__' entry that points to the uncorrected 'I'.
+            intg_proc_key = None
+            if is_correction and 'I' in nxlinks_map:
+                intg_proc_key = (
+                    nxlinks_map['I'].lstrip('/').split('/')[0])
+
+            # Correction data groups carry no integer coord-index attrs;
+            # fall back to the source integration's data attrs.
+            if not signal_coord_names and is_correction and intg_proc_key:
+                try:
+                    src_attrs = dict(
+                        zarr_root[intg_proc_key]['data'].attrs)
+                    signal_coord_names = sorted(
+                        [k for k, v in src_attrs.items()
+                         if isinstance(v, int)],
+                        key=lambda k: src_attrs[k],
+                    )
+                except (KeyError, AttributeError):
+                    pass
+
+            # ---- NXprocess ----
+            nxroot[proc_key] = NXprocess()
+            nxprocess = nxroot[proc_key]
+            nxprocess.sequence_index = sequence_index
+            sequence_index += 1
+            nxprocess.attrs['default'] = 'data'
+            for attr_key, attr_val in zarr_proc.attrs.items():
+                if attr_key != 'default':
+                    nxprocess.attrs[attr_key] = attr_val
+            nxprocess.attrs['tool_type'] = (
+                'correction' if is_correction else 'integration')
+            if is_correction and intg_proc_key:
+                nxprocess.attrs['uncorrected_data_title'] = intg_proc_key
+
+            # ---- NXdata inside the NXprocess ----
+            nxprocess.data = NXdata()
+            nxprocess.data.attrs['signal'] = signal_name
+            axes = list(dim_names) + signal_coord_names
+            nxprocess.data.attrs['axes'] = axes
+            for j, d in enumerate(dim_names):
+                nxprocess.data.attrs[f'{d}_indices'] = j
+            for j, coord in enumerate(signal_coord_names):
+                nxprocess.data.attrs[
+                    f'{coord}_indices'] = len(dim_names) + j
+
+            # Primary signal field (restructured).
+            signal_field_attrs = {
+                k: v for k, v in zarr_data_grp[signal_name].attrs.items()}
+            nxprocess.data[signal_name] = NXfield(
+                value=structured_signal, attrs=signal_field_attrs)
+
+            # Signal coordinate arrays (q_A^-1, chi_deg, …).
+            for coord in signal_coord_names:
+                if coord in zarr_data_grp:
+                    # Present as a direct array in this group.
+                    coord_attrs = {
+                        k: v
+                        for k, v in zarr_data_grp[coord].attrs.items()}
+                    nxprocess.data[coord] = NXfield(
+                        value=np.array(zarr_data_grp[coord]),
+                        attrs=coord_attrs)
+                elif coord in nxlinks_map and intg_proc_key:
+                    # Linked from the source integration group.
+                    nxprocess.data[coord] = NXlink(
+                        f'/{intg_proc_key}/data/{coord}')
+                elif coord in nxlinks_map:
+                    link_parts = nxlinks_map[coord].lstrip('/').split('/')
+                    src = zarr_root
+                    for p in link_parts:
+                        src = src[p]
+                    nxprocess.data[coord] = NXfield(
+                        value=np.array(src),
+                        attrs={k: v for k, v in src.attrs.items()})
+
+            # Map-dimension axes → soft links to independent_dimensions.
+            # The 'target' attribute written by these links contains
+            # 'independent_dimensions', which is what
+            # xrdataarray_to_hssignal uses to identify navigation axes.
+            for d in dim_names:
+                nxprocess.data[d] = NXlink(
+                    f'/{map_key}/independent_dimensions/{d}')
+
+            # For corrections: soft-link the uncorrected signal.
+            if is_correction and intg_proc_key:
+                nxprocess.data['I_uncorrected'] = NXlink(
+                    f'/{intg_proc_key}/data/I')
+
+        return nxroot
+
+
 class PyfaiIntegrationProcessor(Processor):
     """A processor for azimuthally integrating images.
 
