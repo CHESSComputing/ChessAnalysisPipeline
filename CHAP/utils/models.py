@@ -1105,6 +1105,9 @@ class FitConfig(CHAPBaseModel):
     :ivar code: Specifies is lmfit is used to perform the fit or if
         the scipy fit method is called directly, default to `'lmfit'`.
     :vartype code: Literal['lmfit', 'scipy'], optional
+    :ivar force_fitmap: Force use of :class:`~CHAP.utils.models.FitMap`
+        instead of :class:`~CHAP.utils.models.Fit` for one fit point.
+    :vartype force_fitmap: bool, optional
     :ivar max_nfev: Maximum number of function evaluations in the
         the strain analysis peak fitting routine.
     :vartype max_nfev: int, optional
@@ -1140,6 +1143,7 @@ class FitConfig(CHAPBaseModel):
 
     abs_height_cutoff: Optional[conint(gt=0)] = None
     code: Literal['lmfit', 'scipy'] = 'scipy'
+    force_fitmap: Optional[bool] = False
     max_nfev: Optional[conint(gt=0)] = None
     memfolder: str = 'joblib_memmap'
     method: Literal[

@@ -4,6 +4,7 @@
 
 Add discription of EDD
 """
+
 # System modules
 from copy import deepcopy
 import os
@@ -254,6 +255,8 @@ class _BaseEddProcessor(Processor):
                 basename = 'strainanalysis_baseline'
             else:
                 basename = f'{self.__name__}_baseline'
+        else:
+            basename = None
 
         for i, (energies, mean_data, (low, _), nxdata, detector) in enumerate(
                 zip(self._energies, self._mean_data, self._mask_index_ranges,
@@ -3653,15 +3656,6 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 np.squeeze(intensities_masked), energies_masked,
                 peak_locations_used, detector, max_nfev=self.config.max_nfev,
                 num_proc=self.config.num_proc, **self.run_config)
-            if num_points == 1:
-                fit_results = {k: [v] for k, v in fit_results.items()}
-                fields = ['centers', 'amplitudes', 'sigmas']
-                if detector.peak_models == 'pvoigt':
-                    fields += ['fractions']
-                for field in fields:
-                    fit_results[field] = np.asarray(fit_results[field]).T
-                    fit_results[f'{field}_errors'] = np.asarray(
-                        fit_results[f'{field}_errors']).T
             self.logger.info('... done')
 
             # Get the strains
@@ -3706,13 +3700,12 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 det_angles.append(detector.attrs['eta'])
 
             # Insert the peaks omitted from the fit due to find_peak_cutoff
-            if num_points > 1:
-                amplitudes_vary = np.moveaxis(amplitudes_vary, -1, 0)
             insert_peak_indices = [
                 vv-ii for ii, vv in enumerate(
                     i for i, v in enumerate(use_peaks) if not v)]
             amplitudes_vary = np.insert(
-                amplitudes_vary, insert_peak_indices, [False], axis=-1)
+                np.moveaxis(amplitudes_vary, -1, 0), insert_peak_indices,
+                [False], axis=-1)
 
             # Remap the results if peaks where masked
             best_fits_masked = np.asarray(fit_results['best_fits'])

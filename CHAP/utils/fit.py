@@ -199,7 +199,7 @@ class FitProcessor(Processor):
                     multipeak_info = model.model_dump()
 
             # Instantiate the Fit or FitMap object and fit the data
-            if np.squeeze(data[1]).ndim == 1:
+            if not self.config.force_fitmap and np.squeeze(data[1]).ndim == 1:
                 fit = Fit(
                     data[1], self.config, self.logger, x=data[0], mask=data[2])
                 fit.fit(max_nfev=self.config.max_nfev)
@@ -208,8 +208,10 @@ class FitProcessor(Processor):
                 if self.config.plot:
                     fit.plot(skip_init=True)
             else:
+                y = np.squeeze(data[1])[None,:] \
+                    if np.squeeze(data[1]).ndim == 1 else data[1]
                 fit = FitMap(
-                    data[1], self.config, self.logger, x=data[0], mask=data[2])
+                    y, self.config, self.logger, x=data[0], mask=data[2])
                 fit.fit(
                     abs_height_cutoff=self.config.abs_height_cutoff,
                     max_nfev=self.config.max_nfev,
