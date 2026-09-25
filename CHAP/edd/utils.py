@@ -1352,7 +1352,7 @@ def get_spectra_fits(
     if spectra.ndim == 1:
         if success:
             if fit_type == 'uniform':
-                fit_strain = 1 - fit.best_values['scale_factor']
+                fit_strain = [1 - fit.best_values['scale_factor']]
             if num_peak == 1:
                 fit_centers = [fit.best_values['center']]
                 fit_centers_errors = [fit.best_errors['center']]
@@ -1395,7 +1395,7 @@ def get_spectra_fits(
                             f'peak{i+1}_fraction'] for i in range(num_peak)]
         else:
             if fit_type == 'uniform':
-                fit_strain = 0
+                fit_strain = [0]
             fit_centers = list(peak_locations)
             fit_centers_errors = [0]
             fit_amplitudes = [0]
