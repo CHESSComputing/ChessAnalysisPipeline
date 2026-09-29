@@ -810,13 +810,10 @@ class Fit:
     def best_errors(self):
         """Return errors in the best fit parameters.
 
-        :type: dict
+        :type: dict[str, numpy.ndarray]
         """
-        if self._result is None:
-            return {}
-        return {name:self._result.params[name].stderr
-                for name in sorted(self._result.params)
-                if name != 'tmp_normalization_offset_c'}
+        return {name:par['errors']
+                for name, par in self.best_parameters.items()}
 
     @property
     def best_fit(self):
@@ -826,27 +823,29 @@ class Fit:
         """
         if self._result is None:
             return None
-        return self._result.best_fit
+        return self._result.best_fit[None,:]
 
     @property
+    # FIXME make cached?
     def best_parameters(self):
         """Return the best fit parameters.
 
-        :type: dict
+        :type: dict[str, dict]
         """
         if self._result is None:
-            return {}
+            raise NotImplementedError('Fix best_parameters property')
         parameters = {}
         for name in sorted(self._result.params):
             if name != 'tmp_normalization_offset_c':
                 par = self._result.params[name]
                 parameters[name] = {
-                    'value': par.value,
-                    'error': par.stderr,
-                    'init_value': par.init_value,
+                    'errors': np.asarray([par.stderr]),
+                    'expr': self.parameters[name]['expr'],
+                    'init_values': par.value,
                     'min': par.min,
                     'max': par.max,
-                    'vary': par.vary, 'expr': par.expr
+                    'values': np.asarray([par.value]),
+                    'vary': np.asarray([par.vary], dtype=bool),
                 }
         return parameters
 
@@ -854,35 +853,29 @@ class Fit:
     def best_values(self):
         """Return values for the best fit parameters.
 
-        :type: dict
+        :type: dict[str, numpy.ndarray]
         """
-        if self._result is None:
-            return {}
-        return {name:self._result.params[name].value
-                for name in sorted(self._result.params)
-                if name != 'tmp_normalization_offset_c'}
+        return {name:par['values']
+                for name, par in self.best_parameters.items()}
 
     @property
     def best_vary(self):
         """Return vary parameters for the best fit parameters.
 
-        :type: dict
+        :type: dict[str, numpy.ndarray]
         """
-        if self._result is None:
-            return {}
-        return {name:self._result.params[name].vary
-                for name in sorted(self._result.params)
-                if name != 'tmp_normalization_offset_c'}
+        return {name:par['vary']
+                for name, par in self.best_parameters.items()}
 
     @property
     def chisqr(self):
-        """Return chisqr values for the best fit parameters.
+        """Return chisqr value for the best fit.
 
         :type: numpy.ndarray
         """
         if self._result is None:
             return None
-        return self._result.chisqr
+        return np.asarray([self._result.chisqr])
 
     @property
     def components(self):
@@ -903,32 +896,21 @@ class Fit:
                 continue
             parameters = {}
             for name in component.param_names:
-                par = self._parameters[name]
                 parameters[name] = {
-                    'free': par.vary,
-                    'value': self._result.params[name].value,
+                    'expr': self.parameters[name]['expr'],
+                    'free': self.best_vary[name],
+                    'value': self.best_values[name],
                 }
-                if par.expr is not None:
-                    parameters[name]['expr'] = par.expr
             expr = None
             if isinstance(component, ExpressionModel):
-                name = component._name
-                if name[-1] == '_':
-                    name = name[:-1]
+                name = component._name.rstrip('_')
                 expr = component.expr
             else:
-                prefix = prefix.rstrip('_')
-                name = prefix + ' ({component._name})' if prefix \
-                    else component._name
-            if expr is None:
-                components[name] = {
-                    'parameters': parameters,
-                }
-            else:
-                components[name] = {
-                    'expr': expr,
-                    'parameters': parameters,
-                }
+                name = f'{component.prefix} ({component._name})' \
+                    if component.prefix else component._name
+            components[name] = {'parameters': parameters}
+            if expr is not None:
+                components[name]['expr'] = expr
         return components
 
     @property
@@ -942,13 +924,14 @@ class Fit:
         return self._result.covar
 
     @property
+    # FIXME make cached?
     def init_parameters(self):
         """Return the initial parameters for the fit model.
 
-        :type: dict
+        :type: dict[str, dict]
         """
         if self._result is None or self._result.init_params is None:
-            return {}
+            raise NotImplementedError('Fix init_parameters property')
         parameters = {}
         for name in sorted(self._result.init_params):
             if name != 'tmp_normalization_offset_c':
@@ -957,8 +940,8 @@ class Fit:
                     'expr': par.expr,
                     'min': par.min,
                     'max': par.max,
-                    'value': par.value,
-                    'vary': par.vary,
+                    'values': np.asarray([par.value]),
+                    'vary': np.asarray([par.vary], dtype=bool),
                 }
         return parameters
 
@@ -966,13 +949,10 @@ class Fit:
     def init_values(self):
         """Return the initial values for the fit parameters.
 
-        :type: dict
+        :type: dict[str, numpy.ndarray]
         """
-        if self._result is None or self._result.init_params is None:
-            return {}
-        return {name:self._result.init_params[name].value
-                for name in sorted(self._result.init_params)
-                if name != 'tmp_normalization_offset_c'}
+        return {name:par['values']
+                for name, par in self.init_parameters.items()}
 
     @property
     def normalization_offset(self):
@@ -996,11 +976,11 @@ class Fit:
     def num_func_eval(self):
         """Return the number of function evaluations for the best fit.
 
-        :type: int
+        :type: numpy.ndarray
         """
         if self._result is None:
             return None
-        return self._result.nfev
+        return np.asarray([self._result.nfev], dtype=int)
 
     @property
     def parameters(self):
@@ -1016,11 +996,11 @@ class Fit:
     def redchi(self):
         """Return redchi for the best fit.
 
-        :type: dict
+        :type: numpy.ndarray
         """
         if self._result is None:
             return None
-        return self._result.redchi
+        return np.asarray([self._result.redchi])
 
     @property
     def residual(self):
@@ -1032,13 +1012,13 @@ class Fit:
             return None
         # lmfit return the negative of the residual in its common
         # definition as (data - fit)
-        return -self._result.residual
+        return -self._result.residual[None,:]
 
     @property
     def success(self):
         """Return the success value for the fit.
 
-        :type: bool
+        :type: numpy.ndarray
         """
         if self._result is None:
             return None
@@ -1047,8 +1027,8 @@ class Fit:
                 f'ier = {self._result.ier}: {self._result.message}')
             if (self._code == 'lmfit' and self._result.ier
                     and self._result.ier != 5):
-                return True
-        return self._result.success
+                return np.asarray([True])
+        return np.asarray([self._result.success])
 
     @property
     def var_names(self):
@@ -2096,6 +2076,8 @@ class Fit:
                         _max *= self._norm[1]
                     par.set(value=value, min=_min, max=_max)
                 par.init_value = par.value
+                if init_values and name in init_values:
+                    assert init_values[name] == par.init_value
         for name, par in self._result.params.items():
             par.init_value = init_values.get(name)
             if name in self._linear_parameters:
@@ -2121,8 +2103,20 @@ class Fit:
                         _max *= self._norm[1]
                     par.set(
                         value=value, min=_min, max=_max, is_init_value=False)
+            if (hasattr(self._result, 'init_params')
+                    and self._result.init_params is not None):
+                assert par.min == self._result.init_params[name].min
+                assert par.max == self._result.init_params[name].max
+                assert par.vary == self._result.init_params[name].vary
+        for name, par in self._parameters.items():
+            if (hasattr(self._result, 'init_params')
+                    and self._result.init_params is not None):
+                assert par.min == self._result.init_params[name].min
+                assert par.max == self._result.init_params[name].max
+                assert par.vary == self._result.init_params[name].vary
+                assert par.expr == self._result.init_params[name].expr
         # Don't renormalize chisqr, it has no useful meaning in
-        #     physical units
+        # physical units
 #        self._result.chisqr *= self._norm[1]*self._norm[1]
         if self._result.covar is not None:
             for i, name in enumerate(self._result.var_names):
@@ -2134,7 +2128,7 @@ class Fit:
                         if self._result.covar[j,i] is not None:
                             self._result.covar[j,i] *= norm_sq
         # Don't renormalize redchi, it has no useful meaning in
-        #     physical units
+        # physical units
 #        self._result.redchi *= self._norm[1]*self._norm[1]
         if self._result.residual is not None:
             self._result.residual *= self._norm[1]
@@ -2234,28 +2228,17 @@ class UpdateValuesProcessor(Processor):
         fit = self.get_data(data, name='FitProcessor')
         is_map = isinstance(fit, FitMap)
 
-        if is_map:
-            raise TypeError('Updates from FitMap not implemented yet')
-            # FitMap: results are already full map-shaped arrays.
-            values = [
-                {'path': 'data/best_fit', 'data': fit.best_fit},
-                {'path': 'data/num_func_eval', 'data': fit.num_func_eval},
-                {'path': 'data/redchi', 'data': fit.redchi},
-                {'path': 'data/residual', 'data': fit.residual},
-                {'path': 'data/success', 'data': fit.success},
-            ]
-        else:
-            # Fit: wrap each result in a list for idx-based writing.
-            values = [
-                {'path': 'data/best_fit', 'data': [fit.best_fit]},
-                {'path': 'data/num_func_eval', 'data': [fit.num_func_eval]},
-                {'path': 'data/redchi', 'data': [fit.redchi]},
-                {'path': 'data/residual', 'data': [fit.residual]},
-                {'path': 'data/success', 'data': [fit.success]},
-            ]
+        values = [
+            {'path': 'data/best_fit', 'data': fit.best_fit},
+            {'path': 'data/num_func_eval', 'data': fit.num_func_eval},
+            {'path': 'data/redchi', 'data': fit.redchi},
+            {'path': 'data/residual', 'data': fit.residual},
+            {'path': 'data/success', 'data': fit.success},
+        ]
 
         map_params_names = fit.best_parameters() if is_map else None
 
+        FIXME
         for component_name, component_model in fit.components.items():
             comp_prefix = f'components/{component_name}'
 
@@ -2448,14 +2431,6 @@ class FitMap(Fit):
         self._setup_fit_model(config.models, config.parameters)
 
     @property
-    def best_errors(self):
-        """Return errors in the best fit parameters.
-
-        :type: numpy.ndarray
-        """
-        return self._best_errors
-
-    @property
     def best_fit(self):
         """Return the best fits.
 
@@ -2464,20 +2439,25 @@ class FitMap(Fit):
         return self._best_fit
 
     @property
-    def best_values(self):
-        """Return values for the best fit parameters.
+    # FIXME make cached?
+    def best_parameters(self):
+        """Return the best fit parameters.
 
-        :type: numpy.ndarray
+        :type: dict[str, dict]
         """
-        return self._best_values
-
-    @property
-    def best_vary(self):
-        """Return vary parameters for the best fit parameters.
-
-        :type: numpy.ndarray
-        """
-        return self._best_vary
+        parameters_dict = {}
+        for i, name in enumerate(self._best_parameters):
+            parameters_dict[name] = {
+                'errors': self._best_errors[i],
+                'init_values': self._init_values[i],
+                'values': self._best_values[i],
+                'vary': self._best_vary[i],
+            }
+        return parameters_dict
+#                    'expr': par.expr,
+#                    'min': par.min,
+#                    'max': par.max,
+#                }
 
     @property
     def chisqr(self):
@@ -2516,7 +2496,7 @@ class FitMap(Fit):
                 else:
                     parameters[name] = {
                         'free': False,
-                        'value': self.init_parameters[name]['value'],
+                        'value': self.init_values[name],
                     }
             expr = None
             if isinstance(component, ExpressionModel):
@@ -2541,6 +2521,27 @@ class FitMap(Fit):
         :type: numpy.ndarray
         """
         self._logger.warning('Undefined property covar')
+
+    @property
+    def init_parameters(self):
+        """Return the initial parameters for the fit model.
+
+        :type: dict[str, dict]
+        """
+        if self._result.init_params is None:
+            return {}
+        parameters = {}
+        for name in sorted(self._result.init_params):
+            if name != 'tmp_normalization_offset_c':
+                par = self._result.init_params[name]
+                parameters[name] = {
+                    'expr': par.expr,
+                    'min': par.min,
+                    'max': par.max,
+                    'values': self._init_values,
+                    'vary': self._best_vary,
+                }
+        return parameters
 
     @property
     def init_values(self):
@@ -2636,81 +2637,6 @@ class FitMap(Fit):
         """
         return self._ymap
 
-    def best_parameters(self, dims=None):
-        """Return the best fit parameters.
-
-        :param dims: Map indices of the best fit parameters to return,
-            defaults to `None` which will return the list of the best
-            parameter names in the correct order for the results.
-        :type dims: int or list or tuple, optional
-        :return: Best fit parameters.
-        :rtype: list[str] or dict
-        """
-        if dims is None:
-            return self._best_parameters
-# FIX use something else, self._best_parameters is "reserved" to get the
-# parameters in the EDD strain analysis and must return the order of the
-# parameters in self.best_values, self.best_errors, and self_init_values
-#            parameters_dict = {}
-#            for i, name in enumerate(self._best_parameters):
-#                parameters_dict[name] = {
-#                    'errors': self._best_errors[i],
-#                    'init_values': self._init_values[i],
-#                    'values': self._best_values[i],
-#                }
-#            return parameters_dict
-        if (self.best_errors is None or self.best_values is None
-                or self.init_values is None):
-            self._logger.warning('No data for best parameter values')
-            return {}
-        if isinstance(dims, int):
-            dims = (dims,)
-        elif isinstance(dims, (list, tuple)):
-            dims = tuple(dims)
-        else:
-            raise ValueError(f'Invalid parameter dims ({dims})')
-        # Create current parameters
-        parameters = deepcopy(self._parameters)
-        for n, name in enumerate(self._best_parameters):
-            if self._parameters[name].vary:
-                parameters[name].set(
-                    value=self.best_values[n][dims], is_init_value=False)
-            parameters[name].init_value = self.init_values[n][dims]
-            parameters[name].stderr = self.best_errors[n][dims]
-        parameters_dict = {}
-        for name in sorted(parameters):
-            if name != 'tmp_normalization_offset_c':
-                par = parameters[name]
-                parameters_dict[name] = {
-                    'error': par.stderr,
-                    'expr': par.expr,
-                    'init_value': par.init_value,
-                    'min': par.min,
-                    'max': par.max,
-                    'value': par.value,
-                    'vary': par.vary,
-                }
-        return parameters_dict
-
-    def init_parameters(self, dims=None):
-        """Return the initial fit parameters.
-
-        :param dims: Map indices of the initial fit parameters to
-            return, defaults to `None` which will return the list of
-            the best parameter names in the correct order for the
-            results.
-        :type dims: int or list or tuple, optional
-        :return: Initial fit parameters.
-        :rtype: list[str] or dict
-        """
-        parameters_dict = self.best_parameters(dims)
-        if dims is None:
-            return parameters_dict
-        for name, par in parameters_dict.items():
-            par.pop('error')
-            par['value'] = par.pop('init_value')
-        return parameters_dict
-
     def freemem(self):
         """Free memory allocated for parallel processing."""
         if self._memfolder is None:
@@ -2791,9 +2717,7 @@ class FitMap(Fit):
         parameters = deepcopy(self._parameters)
         for name in self._best_parameters:
             if self._parameters[name].vary:
-                parameters[name].set(
-                    value=self.best_values[self._best_parameters.index(name)]
-                    [dims])
+                parameters[name].set(value=self.best_values[name][dims])
         for component in self._result.components:
             if 'tmp_normalization_offset_c' in component.param_names:
                 continue
@@ -2850,7 +2774,7 @@ class FitMap(Fit):
                 'Missing joblib in the conda environment, running serially')
             num_proc = 1
         if num_proc > num_proc_max:
-            self._logger.warning(
+            self._logger.info(
                 f'The requested number of processors ({num_proc}) exceeds the '
                 'maximum allowed number of processors, num_proc reduced to '
                 f'{num_proc_max}')
@@ -3058,7 +2982,7 @@ class FitMap(Fit):
                 # Perform the remaining fits in parallel
                 num_fit = self._map_dim-1
                 if num_proc > num_fit:
-                    self._logger.warning(
+                    self._logger.info(
                         f'The requested number of processors ({num_proc}) '
                         'exceeds the number of fits, num_proc reduced to '
                         f'{num_fit}')
