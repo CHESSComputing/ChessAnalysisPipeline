@@ -282,12 +282,16 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     # Save the figures if requested and close
     if return_buf:
         if interactive:
+            # Third party modules
+            from matplotlib import layout_engine
+
+            fig.set_layout_engine(layout_engine.ConstrainedLayoutEngine())
+            fig.get_layout_engine().set(rect=(0, 0, 1, 0.95))
             title = r'Initial guess for 2$\theta$='f'{tth_input.text}'
             if detector_id is not None:
                 title = f'Detector {detector_id}: {title}'
             fig_title[0]._text = title
         fig_title[0].set_in_layout(True)
-        fig.tight_layout(rect=(0, 0, 1, 0.95))
         buf = fig_to_iobuf(fig)
     else:
         buf = None
@@ -559,7 +563,6 @@ def select_material_params(
             if mat_text.get_text() == 'Currently selected materials:':
                 mat_text.set_text('Selected materials:')
             mat_text.set_in_layout(True)
-        fig.tight_layout(rect=(0, 0.05 + 0.05*len(materials), 1, 1))
         buf = fig_to_iobuf(fig)
     else:
         buf = None
@@ -1139,6 +1142,11 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
 
     if return_buf:
         if interactive:
+            # Third party modules
+            from matplotlib import layout_engine
+
+            fig.set_layout_engine(layout_engine.ConstrainedLayoutEngine())
+            fig.get_layout_engine().set(rect=(0, 0, 0.9, 0.9))
             if error_texts:
                 error_texts[0].remove()
                 error_texts.pop()
@@ -1147,7 +1155,6 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
                 title += f' detector {detector_id}'
             fig_title[0]._text = title
         fig_title[0].set_in_layout(True)
-        fig.tight_layout(rect=(0, 0, 0.9, 0.9))
         if ref_map is not None:
             position_cax()
         buf = fig_to_iobuf(fig)
