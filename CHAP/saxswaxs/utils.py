@@ -37,11 +37,23 @@ def dict_to_zarr(tree, logger=None):
         # Create children (groups or datasets)
         if 'children' in node:
             for name, child in node['children'].items():
-                if 'shape' in child or 'data' in child:
-                    # It's a dataset
+                if 'data' in child:
+                    # It's a dataset with values specified
                     if logger is not None:
                         logger.debug(f'Adding dset: {name}')
-                    zarr_parent.create_dataset(
+                    zarr_parent.create_array(
+                        name,
+                        data=child['data'],
+                    )
+                    # Set dataset attributes
+                    if 'attributes' in child:
+                        for key, value in child['attributes'].items():
+                            zarr_parent[name].attrs[key] = value
+                elif 'shape' in child or 'dtype' in child:
+                    # It's a dataset, but no values specified
+                    if logger is not None:
+                        logger.debug(f'Adding dset: {name}')
+                    zarr_parent.create_array(
                         name,
                         **child,
                     )

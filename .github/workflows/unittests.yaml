@@ -30,4 +30,4 @@ jobs:
       run: python -m unittest CHAP.test
 
     - name: Run CHAP pytests
-      run: pytest CHAP/test/utils/
+      run: pytest CHAP/test/ --ignore=CHAP/test/saxswaxs/server/
