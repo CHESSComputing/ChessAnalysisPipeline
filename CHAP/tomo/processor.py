@@ -1540,11 +1540,15 @@ class TomoReduceProcessor(Processor):
                     config={'models': [model], 'method': 'trf'},
                     **self.run_config)
                 parameters = bounds_fit.best_values
-                row_low_fit = parameters.get('center1', None)
-                row_upp_fit = parameters.get('center2', None)
-                sig_low = parameters.get('sigma1', None)
-                sig_upp = parameters.get('sigma2', None)
-                have_fit = (bounds_fit.success and row_low_fit is not None
+                row_low_fit = parameters['center1'][0] \
+                    if 'center1' in parameters else None
+                row_upp_fit = parameters['center2'][0] \
+                    if 'center2' in parameters else None
+                sig_low = parameters['sigma1'][0] \
+                    if 'sigma1' in parameters else None
+                sig_upp = parameters['sigma2'][0] \
+                    if 'sigma2' in parameters else None
+                have_fit = (bounds_fit.success[0] and row_low_fit is not None
                     and row_upp_fit is not None and sig_low is not None
                     and sig_upp is not None
                     and 0 <= row_low_fit < row_upp_fit <= row_sum.size
