@@ -10,7 +10,7 @@ import os
 import unittest
 
 # Local modules
-from CHAP.common import (
+from CHAP.common.processor import (
 #    AsyncProcessor,
 #    IntegrationProcessor,
 #    IntegrateMapProcessor,
@@ -23,8 +23,11 @@ from CHAP.common import (
 )
 from CHAP.pipeline import PipelineData
 
-test_data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                             'data')
+test_data_dir = os.path.join(
+    os.path.dirname(
+        os.path.dirname(__file__)),
+    'data'
+)
 
 
 #class AsyncProcessorTest(unittest.TestCase):
