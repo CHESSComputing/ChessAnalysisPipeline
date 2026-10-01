@@ -4,6 +4,7 @@
 
 Add discription of EDD
 """
+
 # System modules
 from copy import deepcopy
 import os
@@ -254,6 +255,8 @@ class _BaseEddProcessor(Processor):
                 basename = 'strainanalysis_baseline'
             else:
                 basename = f'{self.__name__}_baseline'
+        else:
+            basename = None
 
         for i, (energies, mean_data, (low, _), nxdata, detector) in enumerate(
                 zip(self._energies, self._mean_data, self._mask_index_ranges,
@@ -768,12 +771,12 @@ class DiffractionVolumeLengthProcessor(_BaseEddProcessor):
 
             # Calculate / manually select diffraction volume length
             detector.dvl = float(
-               result.best_values['sigma'] * self.config.sigma_to_dvl_factor -
+               result.best_values['sigma'][0]*self.config.sigma_to_dvl_factor -
                self.config.sample_thickness)
-            detector.fit_amplitude = float(result.best_values['amplitude'])
+            detector.fit_amplitude = float(result.best_values['amplitude'][0])
             detector.fit_center = float(
-                scan_center + result.best_values['center'])
-            detector.fit_sigma = float(result.best_values['sigma'])
+                scan_center + result.best_values['center'][0])
+            detector.fit_sigma = float(result.best_values['sigma'][0])
             if self.config.measurement_mode == 'manual':
                 if self.interactive:
                     _, _, dvl_bounds = select_mask_1d(
@@ -804,10 +807,10 @@ class DiffractionVolumeLengthProcessor(_BaseEddProcessor):
                 ax.set_ylabel('Normalized intensity (-)')
                 ax.plot(x, masked_sum, label='Sum of masked data')
                 ax.plot(x, masked_max, label='Maximum of masked data')
-                ax.plot(x, result.best_fit, label='Gaussian fit (to sum)')
+                ax.plot(x, result.best_fit[0], label='Gaussian fit (to sum)')
                 ax.axvspan(
-                    result.best_values['center']- 0.5*detector.dvl,
-                    result.best_values['center'] + 0.5*detector.dvl,
+                    result.best_values['center'][0]- 0.5*detector.dvl,
+                    result.best_values['center'][0] + 0.5*detector.dvl,
                     color='gray', alpha=0.5,
                     label=
                         f'diffraction volume ({self.config.measurement_mode})')
@@ -1447,15 +1450,15 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
 
             # Extract the fit results for the peaks
             fit_peak_amplitudes = np.asarray([
-                mean_data_fit.best_values[f'peak{i+1}_amplitude']
+                mean_data_fit.best_values[f'peak{i+1}_amplitude'][0]
                 for i in range(len(initial_peak_indices))])
             self.logger.debug(f'Fit peak amplitudes: {fit_peak_amplitudes}')
             fit_peak_indices = np.asarray([
-                mean_data_fit.best_values[f'peak{i+1}_center']
+                mean_data_fit.best_values[f'peak{i+1}_center'][0]
                 for i in range(len(initial_peak_indices))])
             self.logger.debug(f'Fit peak center indices: {fit_peak_indices}')
             fit_peak_sigmas = np.asarray([
-                mean_data_fit.best_values[f'peak{i+1}_sigma']
+                mean_data_fit.best_values[f'peak{i+1}_sigma'][0]
                 for i in range(len(initial_peak_indices))])
             self.logger.debug(f'Fit peak sigmas: {fit_peak_sigmas}')
 
@@ -1466,8 +1469,8 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
                 config={'models': [{'model_type': 'linear'}]},
                 **self.run_config)
             a = 0.0
-            b = float(energy_fit.best_values['slope'])
-            c = float(energy_fit.best_values['intercept'])
+            b = float(energy_fit.best_values['slope'][0])
+            c = float(energy_fit.best_values['intercept'][0])
             detector.energy_calibration_coeffs = [a, b, c]
             delta_energy = self.config.max_energy_kev/detector.num_bins
             if not 0.95*delta_energy*0.95 < b < 1.05*delta_energy:
@@ -1491,9 +1494,11 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
                 axs[0].plot(
                     bins_masked, mean_data[mask], 'b.', label='MCA data')
                 axs[0].plot(
-                    bins_masked, mean_data_fit.best_fit, 'r', label='Best fit')
+                    bins_masked, mean_data_fit.best_fit[0], 'r',
+                    label='Best fit')
                 axs[0].plot(
-                    bins_masked, mean_data_fit.residual, 'g', label='Residual')
+                    bins_masked, mean_data_fit.residual[0], 'g',
+                    label='Residual')
                 axs[0].legend()
                 # Right plot: linear fit of theoretical peak energies vs
                 # fit peak locations
@@ -1516,7 +1521,7 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
                 ax2.tick_params(axis='y', labelcolor='g')
                 ax2.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
                 ax2.plot(
-                    fit_peak_indices, peak_energies-energy_fit.best_fit,
+                    fit_peak_indices, peak_energies-energy_fit.best_fit[0],
                     c='g', marker='o', ms=6, ls='', label='Residual')
                 ax2.set_ylim((None, 2*ax2.get_ylim()[1]-ax2.get_ylim()[0]))
                 ax2.legend()
@@ -2158,20 +2163,20 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
                   PipelineData(name='coordinates', data=bins[mask])],
             config={'models': models, 'method': 'trf'},
             **self.run_config)
-        best_fit = result.best_fit
-        residual = result.residual
+        best_fit = result.best_fit[0]
+        residual = result.residual[0]
 
         # Extract the Bragg peak indices from the fit
         fit_peak_amplitudes = np.asarray([
-            result.best_values[f'peak{i+1}_amplitude']
+            result.best_values[f'peak{i+1}_amplitude'][0]
             for i in range(len(e_bragg))])
         self.logger.debug(f'Fit peak amplitudes: {fit_peak_amplitudes}')
         fit_peak_indices = np.asarray([
-            result.best_values[f'peak{i+1}_center']
+            result.best_values[f'peak{i+1}_center'][0]
             for i in range(len(e_bragg))])
         self.logger.debug(f'Fit peak center indices: {fit_peak_indices}')
         fit_peak_sigmas = np.asarray([
-            result.best_values[f'peak{i+1}_sigma']
+            result.best_values[f'peak{i+1}_sigma'][0]
             for i in range(len(e_bragg))])
         self.logger.debug(f'Fit peak sigmas: {fit_peak_sigmas}')
 
@@ -2187,13 +2192,13 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             config={'models': [{'model_type': model}]},
             **self.run_config)
         if quadratic_energy_calibration:
-            a_fit = result.best_values['a']
-            b_fit = result.best_values['b']
-            c_fit = result.best_values['c']
+            a_fit = result.best_values['a'][0]
+            b_fit = result.best_values['b'][0]
+            c_fit = result.best_values['c'][0]
         else:
             a_fit = 0.0
-            b_fit = result.best_values['slope']
-            c_fit = result.best_values['intercept']
+            b_fit = result.best_values['slope'][0]
+            c_fit = result.best_values['intercept'][0]
         e_bragg_fit = (
             (a_fit*fit_peak_indices + b_fit) * fit_peak_indices + c_fit)
 
@@ -2320,16 +2325,16 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             **self.run_config)
 
         # Extract values of interest from the best values
-        tth_fit = np.degrees(result.best_values['tth'])
+        tth_fit = np.degrees(result.best_values['tth'][0])
         if quadratic_energy_calibration:
-            a_fit = result.best_values['a']
+            a_fit = result.best_values['a'][0]
         else:
             a_fit = 0.0
-        b_fit = result.best_values['b']
-        c_fit = result.best_values['c']
+        b_fit = result.best_values['b'][0]
+        c_fit = result.best_values['c'][0]
         i_peak_fit = np.asarray(
-            [result.best_values[f'xrf{i+1}_center'] for i in range(num_xrf)]
-            + [result.best_values[f'peak{i+1}_center']
+            [result.best_values[f'xrf{i+1}_center'][0] for i in range(num_xrf)]
+            + [result.best_values[f'peak{i+1}_center'][0]
                for i in range(num_bragg)])
         e_peak_fit = (a_fit*i_peak_fit + b_fit) * i_peak_fit+ c_fit
 
@@ -2355,17 +2360,18 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             config={'models': models, 'method': 'trf'},
             **self.run_config)
         e_xrf_fit = np.sort(
-            [result.best_values[f'peak{i+1}_center'] for i in range(num_xrf)])
+            [result.best_values[f'peak{i+1}_center'][0]
+             for i in range(num_xrf)])
         e_bragg_fit= np.sort(
-            [result.best_values[f'peak{i+1}_center']
+            [result.best_values[f'peak{i+1}_center'][0]
              for i in range(num_xrf, num_xrf+num_bragg)])
 
         # Update the peak energies with the newly calibrated tth
         e_bragg = get_peak_locations(ds, tth_fit)
 
         return {
-            'best_fit': result.best_fit,
-            'residual': result.residual,
+            'best_fit': result.best_fit[0],
+            'residual': result.residual[0],
             'e_xrf': e_xrf_fit,
             'e_bragg': e_bragg_fit,
             'strains': np.log(e_bragg / e_bragg_fit),
@@ -3484,8 +3490,14 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 for m in set(material_names):
                     component_strain = masked_strains[(material_names == m)]
                     component_strains[m] = {
-                        'mean': np.nanmean(component_strain, axis=0),
-                        'stdev': np.nanstd(component_strain, axis=0),
+                        'mean': np.asarray([
+                            np.nan if all(np.isnan(component_strain[:,i]))
+                                else np.nanmean(component_strain[:,i])
+                            for i in range(component_strain.shape[1])]),
+                        'stdev': np.asarray([
+                            np.nan if all(np.isnan(component_strain[:,i]))
+                                else np.nanstd(component_strain[:,i])
+                            for i in range(component_strain.shape[1])]),
 #                        'values': component_strain,
                     }
                 return strains, component_strains
@@ -3653,52 +3665,50 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 np.squeeze(intensities_masked), energies_masked,
                 peak_locations_used, detector, max_nfev=self.config.max_nfev,
                 num_proc=self.config.num_proc, **self.run_config)
-            if num_points == 1:
-                fit_results = {k: [v] for k, v in fit_results.items()}
-                fields = ['centers', 'amplitudes', 'sigmas']
-                if detector.peak_models == 'pvoigt':
-                    fields += ['fractions']
-                for field in fields:
-                    fit_results[field] = np.asarray(fit_results[field]).T
-                    fit_results[f'{field}_errors'] = np.asarray(
-                        fit_results[f'{field}_errors']).T
             self.logger.info('... done')
 
             # Get the strains
-            centers = np.asarray(fit_results['centers'])
-            amplitudes_vary = np.asarray(fit_results['amplitudes_vary'])
+            num_peak = peak_locations_used.size
+            centers = np.asarray([
+                fit_results['best_values'][f'peak{i+1}_center']
+                for i in range(num_peak)])
+            amplitudes_vary = np.asarray([
+                fit_results['best_vary'][f'peak{i+1}_amplitude']
+                for i in range(num_peak)])
             strains, component_strains = _get_component_strains(
                 centers, peak_locations_used[:,None], amplitudes_vary,
                 material_names_used)
 
             # Perform a component-wise uniform fit
             fit_results_uniform = {}
-            for material_name in set(material_names):
-                component_mask_ranges, component_hkl_indices, _ = \
-                    select_mask_and_hkls(
-                        energies_masked, mean_data_masked, hkls_used, ds_used,
-                        detector.tth_calibrated,
-                        preselected_hkl_indices=[
-                            i for i, j in enumerate(
-                                material_names_used == material_name) if j],
-                        detector_id=detector.get_id(),
-                        label='Sum of spectra in the map ({material_name})',
-                        interactive=False)
-                component_mask = np.zeros((energies_masked.size)).astype(bool)
-                indices = np.arange(energies_masked.size, dtype=np.int32)
-                for min_, max_ in component_mask_ranges:
-                    component_mask = np.logical_or(
-                        component_mask,
-                        np.logical_and(indices >= min_, indices < max_))
-                self.logger.info(f'Fitting detector {detector.get_id()} for '
-                                 f'the {material_name} component...')
-                fit_results_uniform[material_name] = get_spectra_fits(
-                    np.squeeze(intensities_masked), energies_masked,
-                    peak_locations_used[component_hkl_indices], detector,
-                    fit_type='uniform', mask=~component_mask,
-                    max_nfev=self.config.max_nfev,
-                    num_proc=self.config.num_proc, **self.run_config)
-                self.logger.info('... done')
+            if num_peak > 1:
+                for material_name in set(material_names):
+                    component_mask_ranges, component_hkl_indices, _ = \
+                        select_mask_and_hkls(
+                            energies_masked, mean_data_masked, hkls_used,
+                            ds_used, detector.tth_calibrated,
+                            preselected_hkl_indices=[
+                                i for i, j in enumerate(
+                                    material_names_used == material_name) if j],
+                            detector_id=detector.get_id(),
+                            label='Sum of spectra in the map ({material_name})',
+                            interactive=False)
+                    component_mask = np.zeros(
+                        (energies_masked.size)).astype(bool)
+                    indices = np.arange(energies_masked.size, dtype=np.int32)
+                    for min_, max_ in component_mask_ranges:
+                        component_mask = np.logical_or(
+                            component_mask,
+                            np.logical_and(indices >= min_, indices < max_))
+                    self.logger.info(f'Fitting detector {detector.get_id()} '
+                                     f'for the {material_name} component...')
+                    fit_results_uniform[material_name] = get_spectra_fits(
+                        np.squeeze(intensities_masked), energies_masked,
+                        peak_locations_used[component_hkl_indices], detector,
+                        fit_type='uniform', mask=~component_mask,
+                        max_nfev=self.config.max_nfev,
+                        num_proc=self.config.num_proc, **self.run_config)
+                    self.logger.info('... done')
 
             # FIX for multiple materials
             if len(component_strains) == 1 and 'eta' in detector.attrs:
@@ -3706,17 +3716,16 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 det_angles.append(detector.attrs['eta'])
 
             # Insert the peaks omitted from the fit due to find_peak_cutoff
-            if num_points > 1:
-                amplitudes_vary = np.moveaxis(amplitudes_vary, -1, 0)
             insert_peak_indices = [
                 vv-ii for ii, vv in enumerate(
                     i for i, v in enumerate(use_peaks) if not v)]
             amplitudes_vary = np.insert(
-                amplitudes_vary, insert_peak_indices, [False], axis=-1)
+                np.moveaxis(amplitudes_vary, -1, 0), insert_peak_indices,
+                [False], axis=-1)
 
             # Remap the results if peaks where masked
-            best_fits_masked = np.asarray(fit_results['best_fits'])
-            residuals_masked = np.asarray(fit_results['residuals'])
+            best_fits_masked = fit_results['best_fits']
+            residuals_masked = fit_results['residuals']
             if all(use_peaks):
                 best_fits = best_fits_masked
                 residuals = residuals_masked
@@ -3735,14 +3744,16 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 f'{path}/best_fit': best_fits,
                 f'{path}/included_peaks': amplitudes_vary,
                 f'{path}/residual': residuals,
-                f'{path}/redchi': np.asarray(fit_results['redchis']),
-                f'{path}/success': np.asarray(fit_results['success']),
+                f'{path}/redchi': fit_results['redchis'],
+                f'{path}/success': fit_results['success'],
             })
-            for material_name, result_uniform in fit_results_uniform.items():
-                path = f'{det_id}/{material_name}/uniform'
-                results.update({
-                    f'{path}/strain': result_uniform['fit_strain'],
-                })
+            if num_peak > 1:
+                for material_name, result_uniform \
+                        in fit_results_uniform.items():
+                    path = f'{det_id}/{material_name}/uniform'
+                    results.update({
+                        f'{path}/strain': result_uniform['strain'],
+                    })
             for material_name, component_strain in component_strains.items():
                 path = f'{det_id}/{material_name}/unconstrained'
                 results.update({
@@ -3753,29 +3764,31 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     hkls[use_peaks], material_names[use_peaks])):
                 hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
                 path = f'{det_id}/{material_name}/unconstrained/{hkl_name}'
+                prefix = f'peak{j+1}_'
                 results.update({
                     f'{path}/amplitudes/values':
-                        np.asarray(fit_results['amplitudes'][j]),
+                        fit_results['best_values'][f'{prefix}amplitude'],
                     f'{path}/amplitudes/errors':
-                        np.asarray(fit_results['amplitudes_errors'][j]),
+                        fit_results['best_errors'][f'{prefix}amplitude'],
                     f'{path}/centers/values': centers[j],
                     f'{path}/centers/errors':
-                        np.asarray(fit_results['centers_errors'][j]),
+                        fit_results['best_errors'][f'{prefix}center'],
                     f'{path}/sigmas/values':
-                        np.asarray(fit_results['sigmas'][j]),
+                        fit_results['best_values'][f'{prefix}sigma'],
                     f'{path}/sigmas/errors':
-                        np.asarray(fit_results['sigmas_errors'][j]),
+                        fit_results['best_errors'][f'{prefix}sigma'],
                 })
                 if detector.peak_models == 'pvoigt':
                     results.update({
                         f'{path}/fractions/values':
-                            np.asarray(fit_results['fractions'][j]),
+                            fit_results['best_values'][f'{prefix}fraction'],
                         f'{path}/fractions/errors':
-                            np.asarray(fit_results['fractions_errors'][j]),
+                            fit_results['best_errors'][f'{prefix}fraction'],
                     })
                 # Strain values: NaN where unconstrained center is zero
                 has_center = centers[j].astype(bool)
-                centers_errors_j = fit_results['centers_errors'][j]
+                centers_errors_j = \
+                    fit_results['best_errors'][f'{prefix}center']
                 strain_errors_raw = np.asarray([
                     (e / c if e is not None else np.nan)
                     for e, c in zip(centers_errors_j, centers[j])
