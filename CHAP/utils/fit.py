@@ -171,7 +171,8 @@ class FitProcessor(Processor):
 
         if isinstance(data, Fit):
             # Refit/continue the fit with possibly updated parameters
-            return data.fit(config=self.config, max_nfev=self.config.max_nfev)
+            data.fit(config=self.config, max_nfev=self.config.max_nfev)
+            return data
 
         # Expand multipeak model if present
         found_multipeak = False
@@ -407,6 +408,15 @@ class Component():
         self.param_names = [model.prefix + name for name in names]
         self.prefix = model.prefix
         self._name = model.model_type
+
+    def eval(self, params=None, x=None):
+        if x is None:
+            return None
+        if params is None:
+            return self.func(x, **self.model_identifiers)
+        par_values = tuple(params[par].value for par in self.param_names)
+        ppar_values = tuple(par_values[i] for i in self.func_args_indices)
+        return self.func(x, *ppar_values, **self.model_identifiers)
 
 
 class Components(dict):
@@ -996,19 +1006,13 @@ class Fit:
 
         :type: dict[str, dict]
         """
-        parameters_dict = {}
-        for i, name in enumerate(self._best_parameters):
-            parameters_dict[name] = {
-                'errors': self._best_errors[i],
+        return {
+            name:{'errors': self._best_errors[i],
                 'init_values': self._init_values[i],
                 'values': self._best_values[i],
                 'vary': self._best_vary[i],
-            }
-        return parameters_dict
-#                    'expr': par.expr,
-#                    'min': par.min,
-#                    'max': par.max,
-#                }
+            } for i, name in enumerate(self._best_parameters)
+        }
 
     @property
     def best_values(self):
@@ -1038,10 +1042,6 @@ class Fit:
         from lmfit.models import ExpressionModel
 
         components = {}
-        if self._result is None:
-            self._logger.warning(
-                'Unable to collect components in Fit.components')
-            return components
         for component in self._result.components:
             if 'tmp_normalization_offset_c' in component.param_names:
                 continue
@@ -1082,8 +1082,6 @@ class Fit:
 
         :type: dict[str, dict]
         """
-        if self._result.init_params is None:
-            return {}
         parameters = {}
         for name in sorted(self._result.init_params):
             if name != 'tmp_normalization_offset_c':
@@ -1120,14 +1118,10 @@ class Fit:
 
         :type: float
         """
-        if self._result is None:
-            return None
         if self._norm is None:
             return 0.0
-        if self._result.init_params is not None:
-            return float(
-                self._result.init_params['tmp_normalization_offset_c'].value)
-        return float(self._result.params['tmp_normalization_offset_c'].value)
+        return float(
+            self._result.init_params['tmp_normalization_offset_c'].value)
 
     @property
     def num_func_eval(self):
@@ -1664,36 +1658,6 @@ class Fit:
                              **kwargs)
                         for n_start in range(1, self._map_dim, num_fit_batch))
 
-        # Renormalize the initial parameters for external use
-        if self._norm is not None and self._normalized:
-            if hasattr(self._result, 'init_values'):
-                init_values = {}
-                for name, value in self._result.init_values.items():
-                    if (name in self._nonlinear_parameters
-                            or self._parameters[name].expr is not None):
-                        init_values[name] = value
-                    elif 'fraction' not in name:
-                        init_values[name] = value*self._norm[1]
-                    else:
-                        raise RuntimeError('must check, should not be here')
-                self._result.init_values = init_values
-            if (hasattr(self._result, 'init_params')
-                    and self._result.init_params is not None):
-                for name, par in self._result.init_params.items():
-                    if par.expr is None and name in self._linear_parameters:
-                        value = par.value*self._norm[1]
-                        _min = par.min
-                        _max = par.max
-                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                            _min *= self._norm[1]
-                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                            _max *= self._norm[1]
-                        par.set(value=value, min=_min, max=_max)
-                    if self._code == 'scipy':
-                        setattr(par, '_init_value', par.value)
-                    else:
-                        par.init_value = par.value
-
         # Remap the best results
         self._out_of_bounds = np.copy(np.reshape(
             self._out_of_bounds_flat, self._map_shape))
@@ -1764,6 +1728,23 @@ class Fit:
                 #if self._code == 'scipy':
                 #    setattr(par, '_init_value', par.init_value*self._norm[1])
 
+        # Renormalize the initial parameters
+        if self._norm is not None and self._normalized:
+            for name, par in self._result.init_params.items():
+                if par.expr is None and name in self._linear_parameters:
+                    value = par.value*self._norm[1]
+                    _min = par.min
+                    _max = par.max
+                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                        _min *= self._norm[1]
+                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                        _max *= self._norm[1]
+                    par.set(value=value, min=_min, max=_max)
+                if self._code == 'scipy':
+                    setattr(par, '_init_value', par.value)
+                else:
+                    par.init_value = par.value
+
         if num_proc > 1:
             # Free the shared memory
             self.freemem()
@@ -1810,10 +1791,9 @@ class Fit:
                 # Third party modules
                 from lmfit.model import ModelResult
 
-                result = ModelResult(self._model, deepcopy(self._parameters))
-            result.init_values = {}
-            for name, par in result.init_params.items():
-                result.init_values[name] = par.value
+                result = self._model.fit(
+                    self._ymap_norm[n], self._parameters, x=self._x,
+                    method=self._method, max_nfev=0)
             result.success = False
             # Renormalize the data and results
             self._renormalize(n, result)
@@ -1898,14 +1878,8 @@ class Fit:
         if self._print_report:
             print(result.fit_report(show_correl=False))
         if self._plot:
-            dims = np.unravel_index(n, self._map_shape)
-            if self._inv_transpose is not None:
-                dims = tuple(
-                    dims[self._inv_transpose[i]] for i in range(len(dims)))
             self._plot_result(
-                result=result, y=np.asarray(self._ymap[dims]),
-                plot_comp_legends=True, skip_init=self._skip_init,
-                title=str(dims))
+                n, result, plot_comp_legends=True, skip_init=self._skip_init)
 
         if return_result:
             return result
@@ -1971,9 +1945,6 @@ class Fit:
                 res_par_indices=res_par_indices,
                 res_par_names=self._res_par_names, result=result)
             model_result.init_params = init_params
-            model_result.init_values = {}
-            for name, par in init_params.items():
-                model_result.init_values[name] = par.value
             model_result.max_nfev = lskws.get('maxfev')
             return model_result
 
@@ -2108,78 +2079,59 @@ class Fit:
             self._normalized = True
 
     def _plot_result(
-            self, x=None, dims=None, *, y_title=None, plot_comp_legends=False,
-            plot_residual=False, plot_masked_data=True, **kwargs):
+            self, n, result, plot_comp_legends=False, plot_masked_data=True,
+            skip_init=False, **kwargs):
         """Plot the best fits.
 
-        :param x: x-coordinates.
-        :type x: array-like, optional
-        :param dims: Map indices of the data point to plot,
-            defaults to `None` which will plot the first data point.
-        :type dims: list or tuple, optional
-        :param y_title: y-axis label.
-        :type y_title: str, optional
+        :param n: Index of flattened map point to plot.
+        :type n: int
+        :param result: Fit result
+        :type result: class:`~CHAP.utils.fit.ModelResult` or
+            lmfit.model.ModelResult.
         :param plot_comp_legends: Add a legend for the individual
             model components, defaults to `False`.
         :type plot_comp_legends: bool, optional
-        :param plot_residual: Plot the residual, defaults to `False`.
-        :type plot_residual: bool, optional
         :param plot_masked_data: Visually distinguish the masked from
             the unmasked data, defaults to `True`.
         :type plot_masked_data: bool, optional
+        :param skip_init: Skip plotting the initial guess, defaults
+            to `False`.
+        :type skip_init: bool, optional
         :param **kwargs: Additional key, value pairs to pass on
             directly to the Matplotlib plot function.
         """
         # Third party modules
         from lmfit.models import ExpressionModel
 
-        if x is not None:
-            if not isinstance(x, (tuple, list, np.ndarray)):
-                self._logger.warning(
-                    'Ignoring invalid parameter x ({type(x)})')
-            if len(x) != len(self._x):
-                self._logger.warning(
-                    'Ignoring parameter x in plot (wrong dimension)')
-                x = None
-        if x is None:
-            x = self._x
-        if dims is None:
-            dims = [0]*len(self._map_shape)
-        if (not isinstance(dims, (list, tuple))
-                or len(dims) != len(self._map_shape)):
-            raise ValueError('Invalid parameter dims ({dims})')
-        dims = tuple(dims)
-        if (self._result is None or self.best_fit is None
-                or self.best_values is None):
-            self._logger.warning(
-                f'Unable to plot fit for dims = {dims}')
-            return
-        if y_title is None or not isinstance(y_title, str):
-            y_title = 'data'
         if self._mask is None:
-            mask = np.zeros(x.size).astype(bool)
+            mask = np.zeros(self._x.size).astype(bool)
             plot_masked_data = False
         else:
             mask = self._mask
+        x = self._x[~mask]
+        y = self._ymap[n][~mask]
+        x_masked = self._x[mask]
+        y_masked = self._ymap[n][mask]
         if plot_masked_data:
-            plots = [(x[~mask], np.asarray(self._ymap[dims])[~mask], 'b.')]
-            legend = [y_title]
-            plots += [(x[mask], np.asarray(self._ymap[dims])[mask], 'bx')]
+            plots = [(x, y, 'b.')]
+            legend = ['data']
+            plots += [(x_masked, y_masked, 'bx')]
             legend += ['masked data']
         else:
-            plots = [(x, np.asarray(self._ymap[dims]), 'b.')]
-            legend = [y_title]
-        plots += [(x[~mask], self.best_fit[dims], 'k-')]
+            plots = [(x, y, 'b.')]
+            legend = ['data']
+        plots += [(x, self._best_fit_flat[n], 'k-')]
         legend += ['best fit']
-        if plot_residual:
-            plots += [(x[~mask], self.residual[dims], 'r--')]
-            legend += ['residual']
+        if not skip_init and hasattr(result, 'init_fit'):
+            plots += [(x[~mask], result.init_fit, 'g-')]
+            legend += ['init']
         # Create current parameters
         parameters = deepcopy(self._parameters)
-        for name in self._best_parameters:
-            if self._parameters[name].vary:
-                parameters[name].set(value=self.best_values[name][dims])
-        for component in self._result.components:
+        for i, name in enumerate(self._best_parameters):
+            parameters[name].set(value=self._best_values_flat[i][n])
+            #if self._parameters[name].vary:
+            #    parameters[name].set(value=self._best_values_flat[i][n])
+        for component in result.components:
             if 'tmp_normalization_offset_c' in component.param_names:
                 continue
             if isinstance(component, ExpressionModel):
@@ -2190,22 +2142,25 @@ class Fit:
                     else component._name
             if len(modelname) > 20:
                 modelname = f'{modelname[0:16]} ...'
-            y = component.eval(params=parameters, x=x[~mask])
-            if isinstance(y, (int, float)):
-                y *= np.ones(x[~mask].size)
-            plots += [(x[~mask], y, '--')]
+            y = component.eval(params=parameters, x=x)
+            if y is not None:
+                if isinstance(y, (int, float)):
+                    y *= np.ones(x.size)
+                plots += [(x, y, '--')]
             if plot_comp_legends:
                 legend.append(modelname)
         quick_plot(
-            tuple(plots), legend=legend, title=str(dims), block=True, **kwargs)
+            tuple(plots), legend=legend, title=f'point {n}', block=True, **kwargs)
 
     def _renormalize(self, n, result):
         self._success_flat[n] = result.success
-        if (hasattr(result, 'init_params')
-                and result.init_params is not None):
-            have_init_params = True
-        else:
-            have_init_params = False
+        # FIX should it not always have this?
+        #if (hasattr(result, 'init_params')
+        #        and result.init_params is not None):
+        #    have_init_params = True
+        #else:
+        #    have_init_params = False
+        have_init_params = True
         if result.success:
             self._redchi_flat[n] = np.float64(result.redchi)
         if self._norm is None or not self._normalized:
