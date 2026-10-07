@@ -17,14 +17,16 @@ pytestmark = pytest.mark.parametrize('code', ['scipy', 'lmfit'])
 def setup_constants(request):
     request.cls.CENTERS = (5.0, 10.0, 15.0)
     request.cls.MASK_RANGE = [8.5, 11.5]
-    request.cls.NUM = 101
-    request.cls.NNUM = 201
-    request.cls.X = np.array(np.linspace(-1, 1, request.cls.NUM))
-    request.cls.XX = np.array(np.linspace(0, 20, request.cls.NNUM))
+    request.cls.NUM = 21
+    request.cls.NNUM = 101
+    request.cls.NNNUM = 201
+    request.cls.X = np.array(np.linspace(0, 1, request.cls.NUM))
+    request.cls.XX = np.array(np.linspace(-1, 1, request.cls.NNUM))
+    request.cls.XXX = np.array(np.linspace(0, 20, request.cls.NNNUM))
     request.cls.SIGMA_NOISE = 0.1
     np.random.seed(0)
     request.cls.SIGMA = np.random.normal(
-        size=request.cls.NNUM, scale=request.cls.SIGMA_NOISE)
+        size=request.cls.NNNUM, scale=request.cls.SIGMA_NOISE)
 
 
 def _create_pipelinedata(x, y, mask=None):
@@ -46,11 +48,43 @@ def _ran_uni():
 @pytest.mark.usefixtures("setup_constants")
 class TestBaseModels:
 
-    def test_exponential(self, code):
-        y = exponential(self.X, amplitude=2.0, decay=0.5)
-        y += self.SIGMA[:self.NUM]
+    @pytest.mark.parametrize(
+        'noise, expected', [(False, 0.0000000000e+00),
+                            (True,  5.1652597902e-02)])
+    def constant(self, code, noise, expected):
+        y = constant(self.X, c=5)
+        if noise:
+            y += self.SIGMA[:self.NUM]
         result = FitProcessor.run(
             data=_create_pipelinedata(self.X, y),
+            config={
+                'code': code,
+                'models': [ConstantModel(model_type='constant')],
+            },
+            log_level='WARNING')
+        assert pytest.approx(result.redchi[0]) == expected
+
+    @pytest.mark.parametrize(
+        'noise, expected', [(False, 0.0000000000e+00),
+                            (True,  3.9366800138e-02)])
+    def linear(self, code, noise, expected):
+        y = linear(self.X, slope=0, intercept=5)
+        if noise:
+            y += self.SIGMA[:self.NUM]
+        result = FitProcessor.run(
+            data=_create_pipelinedata(self.X, y),
+            config={
+                'code': code,
+                'models': [LineartModel(model_type='linear')],
+            },
+            log_level='WARNING')
+        assert pytest.approx(result.redchi[0]) == expected
+
+    def test_exponential(self, code):
+        y = exponential(self.XX, amplitude=2.0, decay=0.5)
+        y += self.SIGMA[:self.NNUM]
+        result = FitProcessor.run(
+            data=_create_pipelinedata(self.XX, y),
             config={
                 'code': code,
                 'models': [ExponentialModel(model_type='exponential')],
@@ -59,10 +93,10 @@ class TestBaseModels:
         assert pytest.approx(result.redchi[0]) == 4.4905486631e-05
 
     def test_gaussian1(self, code):
-        y = gaussian(self.X, amplitude=2.0, center=0.25, sigma=0.15)
-        y += self.SIGMA[:self.NUM]
+        y = gaussian(self.XX, amplitude=2.0, center=0.25, sigma=0.15)
+        y += self.SIGMA[:self.NNUM]
         result = FitProcessor.run(
-            data=_create_pipelinedata(self.X, y),
+            data=_create_pipelinedata(self.XX, y),
             config={
                 'code': code,
                 'models': [GaussianModel(model_type='gaussian')],
@@ -71,11 +105,11 @@ class TestBaseModels:
         assert pytest.approx(result.redchi[0]) == 3.4482179725e-04
 
     def test_gaussian2(self, code):
-        y = gaussian(self.X, amplitude=2.0, center=0.25, sigma=0.15)
-        y += linear(self.X, slope=0.2, intercept=-1.5)
-        y += self.SIGMA[:self.NUM]
+        y = gaussian(self.XX, amplitude=2.0, center=0.25, sigma=0.15)
+        y += linear(self.XX, slope=0.2, intercept=-1.5)
+        y += self.SIGMA[:self.NNUM]
         result = FitProcessor.run(
-            data=_create_pipelinedata(self.X, y),
+            data=_create_pipelinedata(self.XX, y),
             config={
                 'code': code,
                 'models': [
@@ -88,11 +122,11 @@ class TestBaseModels:
         assert pytest.approx(result.redchi[0]) == 3.1134959508e-04
 
     def test_gaussian3(self, code):
-        y = gaussian(self.X, amplitude=-2.0, center=0.25, sigma=0.15)
-        y += parabolic(self.X, a=0.6, b=0.2, c=-1.5)
-        y += self.SIGMA[:self.NUM]
+        y = gaussian(self.XX, amplitude=-2.0, center=0.25, sigma=0.15)
+        y += parabolic(self.XX, a=0.6, b=0.2, c=-1.5)
+        y += self.SIGMA[:self.NNUM]
         result = FitProcessor.run(
-            data=_create_pipelinedata(self.X, y),
+            data=_create_pipelinedata(self.XX, y),
             config={
                 'code': code,
                 'models': [
@@ -110,10 +144,10 @@ class TestBaseModels:
         assert pytest.approx(result.redchi[0]) == 2.2295871995e-04
 
     def test_lorentzian(self, code):
-        y = lorentzian(self.X, amplitude=2.0, center=0.25, sigma=0.15)
-        y += self.SIGMA[:self.NUM]
+        y = lorentzian(self.XX, amplitude=2.0, center=0.25, sigma=0.15)
+        y += self.SIGMA[:self.NNUM]
         result = FitProcessor.run(
-            data=_create_pipelinedata(self.X, y),
+            data=_create_pipelinedata(self.XX, y),
             config={
                 'code': code,
                 'models': [LorentzianModel(model_type='lorentzian')],
@@ -123,10 +157,10 @@ class TestBaseModels:
 
     def test_pvoigt(self, code):
         y = pvoigt(
-            self.X, amplitude=2.0, center=0.25, sigma=0.15, fraction=0.4)
-        y += self.SIGMA[:self.NUM]
+            self.XX, amplitude=2.0, center=0.25, sigma=0.15, fraction=0.4)
+        y += self.SIGMA[:self.NNUM]
         result = FitProcessor.run(
-            data=_create_pipelinedata(self.X, y),
+            data=_create_pipelinedata(self.XX, y),
             config={
                 'code': code,
                 'models': [PseudoVoigtModel(model_type='pvoigt')],
@@ -136,11 +170,11 @@ class TestBaseModels:
 
     def test_rectangle1(self, code):
         y = rectangle(
-            self.X, amplitude=2.0, center1=-0.5, sigma1=0.1, center2=0.5,
+            self.XX, amplitude=2.0, center1=-0.5, sigma1=0.1, center2=0.5,
             sigma2=0.05)
-        y += self.SIGMA[:self.NUM]
+        y += self.SIGMA[:self.NNUM]
         result = FitProcessor.run(
-            data=_create_pipelinedata(self.X, y),
+            data=_create_pipelinedata(self.XX, y),
             config={
                 'code': code,
                 'models': [
@@ -165,11 +199,11 @@ class TestBaseModels:
                            ('logistic', 2.0707278023e-03)])
     def test_rectangle2(self, code, form, expected):
         y = rectangle(
-            self.X, amplitude=2.0, center1=-0.5, sigma1=0.1, center2=0.5,
+            self.XX, amplitude=2.0, center1=-0.5, sigma1=0.1, center2=0.5,
             sigma2=0.05, form=form)
-        y += self.SIGMA[:self.NUM]
+        y += self.SIGMA[:self.NNUM]
         result = FitProcessor.run(
-            data=_create_pipelinedata(self.X, y),
+            data=_create_pipelinedata(self.XX, y),
             config={
                 'code': code,
                 'models': [
@@ -185,14 +219,14 @@ class TestBaseModels:
         random.seed(0)
         model = PEAK_LIKE_MODELS[peak_models](model_type=peak_models)
         kwargs = {'fraction': 0.4} if peak_models == 'pvoigt' else {}
-        y = parabolic(self.XX, a=0.002, b=-0.01, c=-0.5)
-        y += self.SIGMA[:self.NNUM]
+        y = parabolic(self.XXX, a=0.002, b=-0.01, c=-0.5)
+        y += self.SIGMA[:self.NNNUM]
         for center in self.CENTERS:
             y += model.eval(
-                self.XX, amplitude=2+3*_ran_uni(), center=center+2*_ran_uni(),
+                self.XXX, amplitude=2+3*_ran_uni(), center=center+2*_ran_uni(),
                 sigma=0.5+0.2*_ran_uni(), **kwargs)
         result = FitProcessor.run(
-            data=_create_pipelinedata(self.XX, y),
+            data=_create_pipelinedata(self.XXX, y),
             config={
                 'code': code,
                 'models': [
@@ -214,16 +248,16 @@ class TestBaseModels:
         model = PEAK_LIKE_MODELS[peak_models](model_type=peak_models)
         kwargs = {'fraction': 0.4} if peak_models == 'pvoigt' else {}
         mask = np.where(
-            (self.XX<self.MASK_RANGE[0]) | (self.XX>self.MASK_RANGE[1]),
+            (self.XXX<self.MASK_RANGE[0]) | (self.XXX>self.MASK_RANGE[1]),
             False, True)
-        y = parabolic(self.XX, a=0.002, b=-0.01, c=-0.5)
-        y += self.SIGMA[:self.NNUM]
+        y = parabolic(self.XXX, a=0.002, b=-0.01, c=-0.5)
+        y += self.SIGMA[:self.NNNUM]
         for n, center in enumerate(self.CENTERS):
             y += model.eval(
-                self.XX, amplitude=2+3*_ran_uni(), center=center+2*_ran_uni(),
+                self.XXX, amplitude=2+3*_ran_uni(), center=center+2*_ran_uni(),
                 sigma=0.5+0.2*_ran_uni(), **kwargs)
         result = FitProcessor.run(
-            data=_create_pipelinedata(self.XX, y, mask),
+            data=_create_pipelinedata(self.XXX, y, mask),
             config={
                 'code': code,
                 'models': [
@@ -243,18 +277,18 @@ class TestBaseModels:
     def test_expression1(self, code):
         random.seed(0)
         expr = ''
-        y = parabolic(self.XX, a=0.002, b=-0.01, c=-0.5)
-        y += self.SIGMA[:self.NNUM]
+        y = parabolic(self.XXX, a=0.002, b=-0.01, c=-0.5)
+        y += self.SIGMA[:self.NNNUM]
         for i, center in enumerate(self.CENTERS):
             y += gaussian(
-                self.XX, amplitude=2+3*_ran_uni(), center=center+2*_ran_uni(),
+                self.XXX, amplitude=2+3*_ran_uni(), center=center+2*_ran_uni(),
                 sigma=0.5+0.2*_ran_uni())
             if i:
                 expr += ' + '
             expr += f'amp{i+1}/(2.5066282746310002*sig{i+1}) * ' \
                     f'exp(-(x-cen{i+1})**2 / max(1e-15, (2*sig{i+1}**2)))' 
         result = FitProcessor.run(
-            data=_create_pipelinedata(self.XX, y),
+            data=_create_pipelinedata(self.XXX, y),
             config={
                 'code': code,
                 'models': [
@@ -278,12 +312,12 @@ class TestBaseModels:
         random.seed(0)
         b = 0.96
         c = -0.05
-        y = linear(self.XX, slope=0.02, intercept=0.5)
-        y += self.SIGMA[:self.NNUM]
+        y = linear(self.XXX, slope=0.02, intercept=0.5)
+        y += self.SIGMA[:self.NNNUM]
         models = [LinearModel(model_type='linear')]
         for i, center in enumerate(self.CENTERS):
             y += gaussian(
-                self.XX, amplitude=2+3*_ran_uni(),
+                self.XXX, amplitude=2+3*_ran_uni(),
                 center=(center-(c+0.02*_ran_uni()))/(b+0.02*_ran_uni()),
                 sigma=0.5+0.2*_ran_uni())
             models.append(
@@ -295,7 +329,7 @@ class TestBaseModels:
                         {'name': 'sigma', 'min': 0.05, 'max': 3.0}]),
             )
         result = FitProcessor.run(
-            data=_create_pipelinedata(self.XX, y),
+            data=_create_pipelinedata(self.XXX, y),
             config={
                 'code': code,
                 'models': models,
