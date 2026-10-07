@@ -1322,7 +1322,6 @@ def get_spectra_fits(
     config = {
         'abs_height_cutoff': detector.abs_height_cutoff,
 #        'code': 'lmfit',
-        'code': 'scipy',
         'force_fitmap': True,
         'models': models,
 #        'plot': True,

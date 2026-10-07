@@ -38,7 +38,7 @@ s2ln2 = np.sqrt(2*np.log(2))
 
 #def constant(x, c=0.5):
 def constant(x, c=0.0):
-    r"""Return a linear function.
+    r"""Return a constant function.
 
     :param c: Constant, defaults to `0`.
     :type c: float, optional

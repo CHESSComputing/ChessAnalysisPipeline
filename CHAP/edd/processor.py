@@ -2592,7 +2592,7 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
     :vartype detector_config: dict, optional
     :ivar setup: Setup the strain analysis NeXus style
         `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
-        object object, defaults to `True`.
+        object, defaults to `True`.
     :vartype setup: bool, optional
     :ivar update: Perform the strain analysis and return the
         results as a list of updated points or update the result
