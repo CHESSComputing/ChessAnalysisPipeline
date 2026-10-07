@@ -50,10 +50,9 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
-examples/tomo/data/
-examples/tomo/hollow_*
-examples/tomo/pipeline_id3a_pyramid_inparts.yaml
-tests/tomo/raw
+examples/tomo/raw/
+examples/tomo/reduced/
+CHAP/test/tomo/raw/
 
 # Translations
 *.mo
