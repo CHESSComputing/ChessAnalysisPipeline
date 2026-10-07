@@ -35,8 +35,7 @@ def dict_to_nexus(tree, logger=None):
             nxclass = getattr(nx, nxclass_string)
         except AttributeError:
             raise ValueError(f'Invalid NeXus class string ({nxclass_string})')
-        return nxclass(
-            attrs=attrs if attrs else None, *args, **kwargs)#.set_attrs(**attrs)
+        return nxclass(attrs=attrs if attrs else None, *args, **kwargs)
 
     def create_group_or_dataset(node, parent):
         """Create all 'children' objects of a node under its parent.
@@ -51,7 +50,6 @@ def dict_to_nexus(tree, logger=None):
 
         # Set attributes if present
         if 'attributes' in node:
-#            parent.attrs.update(node['attributes']) # Bombs downstream somehow
             for key, value in node['attributes'].items():
                 parent.attrs[key] = value
         # Create children (groups or datasets)
@@ -101,8 +99,6 @@ def dict_to_zarr(tree, logger=None):
         :param node: Child tree group or dataset.
         :type node: dict[str, Any]
         :param parent: Parent tree group.
-        :type parent: nexusformat.nexus.NXgroup
-        :param parent: Parent Zarr tree group.
         :type parent: zarr.Group
         :param indent: Indentation level, defaults to 0.
         :type indent: int, optional
@@ -112,23 +108,31 @@ def dict_to_zarr(tree, logger=None):
             for key, value in node['attributes'].items():
                 parent.attrs[key] = value
         # Create children (groups or datasets)
-        for name, child in node.get('children', {}).items():
-            if 'shape' in child or 'data' in child:
-                # It's a dataset
-                if logger is not None:
-                    logger.debug(f'Adding dataset {name}')
-                parent.create_dataset(name, **child)
-                # Set dataset attributes
-                if 'attributes' in child:
-                    for key, value in child['attributes'].items():
-                        parent[name].attrs[key] = value
-            else:
-                # It's a group
-                if logger is not None:
-                    logger.debug(f'Adding group {name}')
-                group = parent.create_group(name)
-                create_group_or_dataset(child, group, indent=indent+2)
-
+        if 'children' in node:
+            for name, child in node['children'].items():
+                if 'data' in child:
+                    # It's a dataset with values specified
+                    if logger is not None:
+                        logger.debug(f'Adding dset: {name}')
+                    #parent.create_array(name, data=child['data'])
+                    parent[name] = child['data']
+                    # Set dataset attributes
+                    if 'attributes' in child:
+                        for key, value in child['attributes'].items():
+                            parent[name].attrs[key] = value
+                elif 'shape' in child or 'dtype' in child:
+                    # It's a dataset, but no values specified
+                    if logger is not None:
+                        logger.debug(f'Adding dset: {name}')
+                    parent.create_array(name, **child)
+                    # Set dataset attributes
+                    if 'attributes' in child:
+                        for key, value in child['attributes'].items():
+                            parent[name].attrs[key] = value
+                else:
+                    # It's a group
+                    group = parent.create_group(name)
+                    create_group_or_dataset(child, group, indent=indent+2)
     results = zarr.create_group(store=MemoryStore({}))
     create_group_or_dataset(tree, results)
     return results

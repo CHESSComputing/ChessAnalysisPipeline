@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""Test functions for :class:`~HAP.utils.fit.FitProcessor`."""
+"""pytest-style unittests for :class:`~CHAP.utils.fit.FitProcessor`."""
 
 # Third party modules
 import numpy as np
