@@ -22,12 +22,16 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: 'CHAP/test/requirements-${{ matrix.python-version }}.txt'
+    - name: Set up Conda Environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          auto-activate-base: true
+          activate-environment: ""
+
+      - name: Install Conda-only package
+        run: |
+          conda install -y -c hexrd hexrd
 
     - name: Install dependencies
       run: |
