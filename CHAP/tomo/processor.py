@@ -20,7 +20,6 @@ from typing import (
     Annotated,
     Optional,
 )
-import tkinter as tk
 
 # Third party modules
 from json import loads
@@ -36,7 +35,10 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-import tkinter as tk
+try:
+    import tkinter as tk
+except
+    pass
 
 # Local modules
 from CHAP.common.models.map import (
