@@ -31,7 +31,8 @@ jobs:
 
     - name: Install Conda-only package
       run: |
-        conda install -y -c hexrd hexrd
+        conda install -c conda-forge -c hexrd hexrd==0.10.6
+        conda list
 
     - name: Install dependencies
       run: |
@@ -40,6 +41,7 @@ jobs:
         sed -i "s/PACKAGE_VERSION/0.0.0/" setup.py
         sed -i "s/PACKAGE_VERSION/0.0.0/" CHAP/__init__.py
         pip install -e .
+        conda list
 
     - name: Run CHAP unittests
       run: python -m unittest CHAP.test
