@@ -13,6 +13,10 @@ jobs:
     name: Run ${{ matrix.env-name }}
     runs-on: ubuntu-latest
     
+    defaults:
+      run:
+        shell: bash -l {0}
+
     strategy:
       fail-fast: false 
       matrix:
@@ -22,14 +26,21 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Calculate Cache Key
+      id: get-date
+      run: echo "today=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
     - name: Set up Conda Environment
-      uses: conda-incubator/setup-miniconda@v4
+      uses: conda-incubator/setup-miniconda@v3
       with:
         python-version: ${{ matrix.python-version }}
         auto-activate-base: true
         activate-environment: ""
+        use-mamba: true
+        cache-environment: true
+        cache-environment-key: conda-${{ runner.os }}-${{ matrix.python-version }}-${{ steps.get-date.outputs.today }}-${{ hashFiles('CHAP/test/requirements-*.txt') }}
 
-    - name: Install Conda-only package
+    - name: Install Conda-only packages
       run: |
         conda install -c conda-forge tomopy==1.15.3
         conda install -c conda-forge -c hexrd hexrd==0.10.6
@@ -44,8 +55,7 @@ jobs:
         pip install -e .
         conda list
 
-    - name: Run CHAP unittests
-      run: python -m unittest CHAP.test
-
-    - name: Run CHAP pytests
-      run: pytest CHAP/test/ --ignore=CHAP/test/saxswaxs/server/
+    - name: Run CHAP tests
+      run: |
+        python -m unittest CHAP.test
+        pytest CHAP/test/ --ignore=CHAP/test/saxswaxs/server/
