@@ -17,10 +17,10 @@ jobs:
       matrix:
         include:
           - python-version: "3.11"
-            env-file: "environment-3.11.yaml"
+            env-file: "CHAP/test/environment-3.11.yaml"
             env-name: "env-3.11"
           - python-version: "3.14.8"
-            env-file: "environment-3.14.8.yaml"
+            env-file: "CHAP/test/environment-3.14.8.yaml"
             env-name: "env-3.14.8"
 
     steps:

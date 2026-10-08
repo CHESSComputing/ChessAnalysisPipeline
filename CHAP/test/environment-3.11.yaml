@@ -25,4 +25,5 @@ dependencies:
   - zarr==3.1.6
   - xarray==2026.9.0
   - pip:
+    - certif-pyspec==1.5.3
     - chess-scanparsers
