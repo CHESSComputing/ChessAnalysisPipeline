@@ -37,7 +37,7 @@ from pydantic import (
 )
 try:
     import tkinter as tk
-except
+except:
     pass
 
 # Local modules
