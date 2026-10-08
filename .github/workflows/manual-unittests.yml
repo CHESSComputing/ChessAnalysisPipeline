@@ -1,8 +1,11 @@
-name: unittests
+name: Manually run tests with Pytest
 
 on:
-  - push
-  - pull_request
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash -l {0}
 
 jobs:
   unittests:
