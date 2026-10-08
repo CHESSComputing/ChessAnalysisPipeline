@@ -4,6 +4,10 @@ on:
   - push
   - pull_request
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   unittests:
     name: Run ${{ matrix.env-name }}
@@ -31,6 +35,7 @@ jobs:
         activate-environment: ${{ matrix.env-name }}
         show-channel-urls: true
         mamba-version: "*"
+        conda-remove-defaults: true
         use-mamba: true
 
     - name: Install dependencies
