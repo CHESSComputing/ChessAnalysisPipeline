@@ -35,10 +35,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-try:
-    import tkinter as tk
-except:
-    pass
+import tkinter as tk
 
 # Local modules
 from CHAP.common.models.map import (
