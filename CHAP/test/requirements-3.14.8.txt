@@ -17,5 +17,4 @@ lmfit>=1.3.4           # utils
 pyfai>=2026.9.0        # giwaxs, saxswaxs
 requests>=2.34.2       # foxden, saxswaxs/server
 sympy>=1.14.0          # utils
-tomopy>=1.15.3         # tomo
 zarr>=3.4.0            # saxswaxs, utils

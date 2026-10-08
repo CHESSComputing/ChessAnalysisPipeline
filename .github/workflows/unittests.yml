@@ -31,6 +31,7 @@ jobs:
 
     - name: Install Conda-only package
       run: |
+        conda install -c conda-forge tomopy==1.15.3
         conda install -c conda-forge -c hexrd hexrd==0.10.6
         conda list
 
