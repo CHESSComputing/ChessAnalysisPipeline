@@ -32,7 +32,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements-${{ matrix.python-version }}.txt
+        pip install -r CHAP/test/requirements-${{ matrix.python-version }}.txt
         sed -i "s/PACKAGE_VERSION/0.0.0/" setup.py
         sed -i "s/PACKAGE_VERSION/0.0.0/" CHAP/__init__.py
         pip install -e .
