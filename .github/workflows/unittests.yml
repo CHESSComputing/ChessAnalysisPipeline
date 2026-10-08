@@ -12,36 +12,29 @@ jobs:
   unittests:
     name: Run ${{ matrix.env-name }}
     runs-on: ubuntu-latest
-
+    
     strategy:
-      fail-fast: false
+      fail-fast: false 
       matrix:
-        include:
-          - python-version: "3.11"
-            env-file: "CHAP/test/environment-3.11.yaml"
-            env-name: "env-3.11"
-          - python-version: "3.14.8"
-            env-file: "CHAP/test/environment-3.14.8.yaml"
-            env-name: "env-3.14.8"
+        python-version: ["3.11", "3.14.8"]
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up Conda Environment
-      uses: conda-incubator/setup-miniconda@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
       with:
-        environment-file: ${{ matrix.env-file }}
-        activate-environment: ${{ matrix.env-name }}
-        show-channel-urls: true
-        mamba-version: "*"
-        conda-remove-defaults: true
-        use-mamba: true
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: 'CHAP/test/requirements-${{ matrix.python-version }}.txt'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        pip install -r requirements-${{ matrix.python-version }}.txt
         sed -i "s/PACKAGE_VERSION/0.0.0/" setup.py
+        sed -i "s/PACKAGE_VERSION/0.0.0/" CHAP/__init__.py
         pip install -e .
 
     - name: Run CHAP unittests
