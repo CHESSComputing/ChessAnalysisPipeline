@@ -5,6 +5,7 @@
 # System modules
 from collections import Counter
 from copy import deepcopy
+from functools import cached_property
 from os import (
     cpu_count,
     mkdir,
@@ -111,7 +112,7 @@ class FitProcessor(Processor):
         # Retrieve the data to (re)fit from the pipeline
         for i, d in reversed(list(enumerate(data))):
             ddata = d.get('data')
-            if isinstance(ddata, (Fit, FitMap)):
+            if isinstance(ddata, Fit):
                 if remove:
                     data.pop(i)
                 return ddata
@@ -148,76 +149,61 @@ class FitProcessor(Processor):
         return x, y, mask
 
     def process(self, data):
-        """Fit the data and return a :class:`~CHAP.utils.fit.Fit` or
-        :class:`~CHAP.utils.fit.FitMap` object depending on the
-        dimensionality of the input data. The input data should be a
-        list of PipelineData items containing either one with a `data`
-        field of type :class:`~CHAP.utils.fit.Fit` or
-        :class:`~CHAP.utils.fit.FitMap` (to refit or continue a
+        """Fit the data and return a :class:`~CHAP.utils.fit.Fitmap`
+        The input data should be a list of PipelineData items
+        containing either one with a `data` field of type
+        :class:`~CHAP.utils.fit.Fit` (to refit or continue a
         previous fit), or one with the `name` of `signal` and an
         array-like `data` field. In the latter case, optional
-        x-coordinates can be supplied by a second PipelineData item
-        with the `name` of `coordinates` and again an array-like
-        `data` field.
+        x-coordinates or a mask can be supplied by additional
+        PipelineData item with the `name` of `coordinates` or `mask`
+        and again an array-like `data` field.
 
         :param data: Input data.
         :type data: list[PipelineData]
         :return: The fitted data object.
-        :rtype: Fit or FitMap
+        :rtype: Fit
         """
+        # Local modules
+        from CHAP.utils.models import MultipeakModel
+
         # Unwrap the PipelineData
         data = self._get_pipelinedata_item(data)
 
-        if isinstance(data, (Fit, FitMap)):
+        if isinstance(data, Fit):
             # Refit/continue the fit with possibly updated parameters
-            fit = data
-            fit.fit(config=self.config, max_nfev=self.config.max_nfev)
-            if self.config is not None and not isinstance(data, FitMap):
-                if self.config.print_report:
-                    fit.print_fit_report()
-                if self.config.plot:
-                    fit.plot(skip_init=True)
-        else:
-            # Local modules
-            from CHAP.utils.models import MultipeakModel
+            data.fit(config=self.config, max_nfev=self.config.max_nfev)
+            return data
 
-            # Expand multipeak model if present
-            found_multipeak = False
-            multipeak_info = None
-            for i, model in enumerate(deepcopy(self.config.models)):
-                if isinstance(model, MultipeakModel):
-                    if found_multipeak:
-                        raise ValueError(
-                            f'Invalid parameter models ({self.config.models}) '
-                            '(multiple instances of multipeak not allowed)')
-                    parameters, models = self.create_multipeak_model(model)
-                    if parameters:
-                        self.config.parameters += parameters
-                    self.config.models += models
-                    self.config.models.pop(i)
-                    found_multipeak = True
-                    multipeak_info = model.model_dump()
+        # Expand multipeak model if present
+        found_multipeak = False
+        multipeak_info = None
+        for i, model in enumerate(deepcopy(self.config.models)):
+            if isinstance(model, MultipeakModel):
+                if found_multipeak:
+                    raise ValueError(
+                        f'Invalid parameter models ({self.config.models}) '
+                        '(multiple instances of multipeak not allowed)')
+                parameters, models = self.create_multipeak_model(model)
+                if parameters:
+                    self.config.parameters += parameters
+                self.config.models += models
+                self.config.models.pop(i)
+                found_multipeak = True
+                multipeak_info = model.model_dump()
 
-            # Instantiate the Fit or FitMap object and fit the data
-            if np.squeeze(data[1]).ndim == 1:
-                fit = Fit(
-                    data[1], self.config, self.logger, x=data[0], mask=data[2])
-                fit.fit(max_nfev=self.config.max_nfev)
-                if self.config.print_report:
-                    fit.print_fit_report()
-                if self.config.plot:
-                    fit.plot(skip_init=True)
-            else:
-                fit = FitMap(
-                    data[1], self.config, self.logger, x=data[0], mask=data[2])
-                fit.fit(
-                    abs_height_cutoff=self.config.abs_height_cutoff,
-                    max_nfev=self.config.max_nfev,
-                    multipeak_info=multipeak_info,
-                    num_proc=self.config.num_proc,
-                    plot=self.config.plot,
-                    print_report=self.config.print_report,
-                    rel_height_cutoff=self.config.rel_height_cutoff)
+        # Instantiate the Fit object and fit the data
+        y = np.squeeze(data[1])[None,:] \
+            if np.squeeze(data[1]).ndim == 1 else data[1]
+        fit = Fit(y, self.config, self.logger, x=data[0], mask=data[2])
+        fit.fit(
+            abs_height_cutoff=self.config.abs_height_cutoff,
+            max_nfev=self.config.max_nfev,
+            multipeak_info=multipeak_info,
+            num_proc=self.config.num_proc,
+            plot=self.config.plot,
+            print_report=self.config.print_report,
+            rel_height_cutoff=self.config.rel_height_cutoff)
 
         return fit
 
@@ -371,11 +357,15 @@ class SetupProcessor(Processor):
             results.
         :rtype: zarr.Group
         """
+        # System modules
         import asyncio
         import zarr
+
+        # Third party modules
         from zarr.core.buffer import default_buffer_prototype
         from zarr.storage import MemoryStore
 
+        # Local modules
         from CHAP.saxswaxs.utils import dict_to_zarr
 
         zarr_fit = dict_to_zarr(
@@ -423,6 +413,15 @@ class Component():
         self.param_names = [model.prefix + name for name in names]
         self.prefix = model.prefix
         self._name = model.model_type
+
+    def eval(self, params=None, x=None):
+        if x is None:
+            return None
+        if params is None:
+            return self.func(x, **self.model_identifiers)
+        par_values = tuple(params[par].value for par in self.param_names)
+        ppar_values = tuple(par_values[i] for i in self.func_args_indices)
+        return self.func(x, *ppar_values, **self.model_identifiers)
 
 
 class Components(dict):
@@ -501,9 +500,9 @@ class ModelResult():
     """
 
     def __init__(
-            self, model, parameters, *, x=None, y=None, method=None, ast=None,
+            self, model, y, parameters, *, x=None, method=None, ast=None,
             res_par_exprs=None, res_par_indices=None, res_par_names=None,
-            result=None):
+            result=None, best_pars=None):
         """Initialize ModelResult.
 
         :param model: Fit model.
@@ -530,11 +529,16 @@ class ModelResult():
         :type res_par_names: list[str], optional
         """
         self.components = model.components
+        self.init_params = deepcopy(parameters)
+        self.method = method
         self.params = deepcopy(parameters)
-        if x is None:
+        self.x = x
+        if result is None:
+            self.ier = -1
+            self.nfev = 0
+            self.residual = np.zeros(self.x.shape)
             self.success = False
-            return
-        if method == 'leastsq':
+        elif method == 'leastsq':
             best_pars = result[0]
             self.ier = result[4]
             self.message = result[3]
@@ -548,29 +552,26 @@ class ModelResult():
             self.nfev = result.nfev
             self.residual = result.fun
             self.success = result.success
-        self.best_fit = y + self.residual
-        self.method = method
-        self.ndata = len(self.residual)
-        self.nvarys = len(res_par_indices)
-        self.x = x
-        self._ast = ast
-        self._expr_pars = {}
 
         # Get the covarience matrix
+        self.ndata = len(self.residual)
+        self.nvarys = len(res_par_indices)
         self.chisqr = (self.residual**2).sum()
         self.redchi = self.chisqr / (self.ndata-self.nvarys)
         self.covar = None
-        if method == 'leastsq':
-            if result[1] is not None:
-                self.covar = result[1]*self.redchi
-        else:
-            try:
-                self.covar = self.redchi * np.linalg.inv(
-                    np.dot(result.jac.T, result.jac))
-            except Exception:
-                self.covar = None
-
+        if result is not None:
+            if method == 'leastsq':
+                if result[1] is not None:
+                    self.covar = result[1]*self.redchi
+            else:
+                try:
+                    self.covar = self.redchi * np.linalg.inv(
+                        np.dot(result.jac.T, result.jac))
+                except Exception:
+                    self.covar = None
         # Update the fit parameters with the fit result
+        self._ast = ast
+        self._expr_pars = {}
         par_names = list(self.params.keys())
         self.var_names = []
         if res_par_indices:
@@ -588,6 +589,7 @@ class ModelResult():
                 par.set(value=value)
                 setattr(par, '_stderr', _get_stderr(i))
                 self.var_names.append(par.name)
+        init_params = deepcopy(self.init_params)
         if res_par_exprs:
             # Third party modules
             from sympy import diff
@@ -612,42 +614,66 @@ class ModelResult():
             for par_expr in res_par_exprs:
                 name = par_names[par_expr['index']]
                 expr = par_expr['expr']
+                value = self._ast.eval(expr)
                 par = self.params[name]
-                par.set(value=self._ast.eval(expr))
+                par.set(value=value)
+                par_init = init_params[name]
+                par_init.set(value=value)
                 self._expr_pars[name] = expr
                 setattr(
                     par, '_stderr',
                     None if self.covar is None else _get_stderr_expr(expr))
 
-    def eval_components(self, x=None, parameters=None):
+        # Evaluate the initial fit and the residual if needed
+        if result is None:
+            self.residual = self.eval(self.params) - y
+        self.best_fit = y + self.residual
+        self.init_fit = self.eval(init_params)
+
+
+    def eval(self, params=None, x=None):
+        """Evaluate the model function.
+
+        :param params: Model parameters, defaults to
+            `None`, in which case the class variable params is used.
+        :type params: Parameters, optional
+        :param x: Independent variable, defaults to `None`, in which
+            case the class variable x is used.
+        :type x: array-like, optional
+        :return: Evaluated model function values.
+        :rtype: numpy.ndarray
+        """
+        component_results = self.eval_components(params, x)
+        result = None
+        for component_result in component_results.values():
+            if result is None:
+                result = component_result
+            else:
+                result += component_result
+        return result
+
+    def eval_components(self, params=None, x=None):
         """Evaluate each component of a composite model function.
 
+        :param params: Composite model parameters, defaults to
+            `None`, in which case the class variable params is used.
+        :type params: Parameters, optional
         :param x: Independent variable, defaults to `None`, in which 
             case the class variable x is used.
         :type x: array-like, optional
-        :param parameters: Composite model parameters, defaults to
-            `None`, in which case the class variable params is used.
-        :type parameters: Parameters or lmfit.parameter.Parameter,
-            optional
-        :return: A dictionary with component name and evaluated
-            function values key, value pairs.
-        :rtype: dict
+        :return: Component names and evaluated function values.
+        :rtype: dict[str, numpy.ndarray]
         """
         if x is None:
             x = self.x
-        if parameters is None:
-            parameters = self.params
+        if params is None:
+            params = self.params
         result = {}
         for component in self.components:
             if 'tmp_normalization_offset_c' in component.param_names:
                 continue
-            par_values = tuple(
-                parameters[par].value for par in component.param_names)
             name = component.prefix if component.prefix else component._name
-            ppar_values = tuple(
-                par_values[i] for i in component.func_args_indices)
-            result[name] = component.func(
-                x, *ppar_values, **component.model_identifiers)
+            result[name] = component.eval(params=params, x=x)
         return result
 
     def fit_report(self, show_correl=False):
@@ -690,7 +716,10 @@ class ModelResult():
             inval = '(init = ?)'
             if par.init_value is not None:
                 inval = f'(init = {par.init_value:.7g})'
-            expr = self._expr_pars.get(name, par.expr)
+            if hasattr(self, '_expr_pars'):
+                expr = self._expr_pars.get(name, par.expr)
+            else:
+                expr = None
             val = par.value if expr is None else self._ast.eval(expr)
             try:
                 val = gformat(par.value)
@@ -713,8 +742,85 @@ class ModelResult():
         return '\n'.join(buff)
 
 
+class UpdateValuesProcessor(Processor):
+    """Processor to extract fit results from a
+    :class:`~CHAP.utils.fit.Fit` (or :class:`~CHAP.utils.fit.Fit`)
+    object and format them as a list of path-keyed value dicts
+    suitable for a downstream
+    :class:`~CHAP.common.processor.NexusValuesWriter`.
+
+    This processor is the write-side complement of
+    :class:`~CHAP.utils.fit.SetupProcessor`: the paths it emits
+    correspond to the Zarr dataset layout defined by
+    :meth:`~CHAP.utils.models.FitConfig.zarr_tree`.
+    """
+
+    def process(self, data):
+        """Extract fit results from a :class:`~CHAP.utils.fit.Fit`
+        object and return them as a flat list of path-keyed value dicts.
+
+        The paths in the returned dicts match the dataset layout
+        defined by :meth:`~CHAP.utils.models.FitConfig.zarr_tree` and
+        the container created by
+        :class:`~CHAP.utils.fit.SetupProcessor`.
+
+        :param data: Input pipeline data; must include a
+            ``'FitProcessor'``-tagged item whose ``data`` field is a
+            :class:`~CHAP.utils.fit.Fit` instance.
+        :type data: list[PipelineData]
+        :return: List of dicts, each with keys ``'path'`` (str) and
+            ``'data'`` (scalar or array), for use with a downstream
+            :class:`~CHAP.common.processor.NexusValuesWriter`.
+        :rtype: list[dict]
+        """
+        fit = self.get_data(data, name='FitProcessor')
+        values = [
+            {'path': 'data/best_fit', 'data': fit.best_fit},
+            {'path': 'data/num_func_eval', 'data': fit.num_func_eval},
+            {'path': 'data/redchi', 'data': fit.redchi},
+            {'path': 'data/residual', 'data': fit.residual},
+            {'path': 'data/success', 'data': fit.success},
+        ]
+        for (comp_name, comp_info), (_, comp_evals) in zip(
+                fit.components_info.items(), fit.components_evals.items()):
+            comp_path = f'components/{comp_name}'
+            values.append({
+                'path': f'{comp_path}/data/best_fit',
+                'data': comp_evals,
+            })
+            for name in comp_info['parameters']:
+                param_path = f'{comp_path}/parameters/{name}'
+                # FIXME param_value for any parameters that are part
+                # of a component that was excluded from the fit?
+                init_params = fit.init_parameters[name]
+                if name in fit.best_parameters:
+                    param_values = fit.best_values[name]
+                    param_errors = fit.best_errors[name]
+                else:
+                    param_values = init_params['values']
+                    param_errors = None
+                values.extend([
+                    {'path': f'{param_path}/values',
+                     'data': param_values},
+                    {'path': f'{param_path}/errors',
+                     'data': param_errors},
+                    {'path': f'{param_path}/initial',
+                     'data': init_params['values']},
+                    {'path': f'{param_path}/min',
+                     'data': init_params['min'] * np.ones(param_values.shape)},
+                    {'path': f'{param_path}/max',
+                     'data': init_params['max'] * np.ones(param_values.shape)},
+                    {'path': f'{param_path}/vary',
+                     'data': init_params['vary']},
+                    {'path': f'{param_path}/expression',
+                     'data': init_params['expr']},
+                ])
+        return values
+
+
 class Fit:
-    """Wrapper class for scipy/lmfit."""
+    """Wrapper class for scipy/lmfit to fit data on a N-dimensional
+    map (can be a single data point)."""
 
     def __init__(self, y, config, logger, x=None, mask=None):
         """Initialize Fit.
@@ -727,6 +833,8 @@ class Fit:
         :type logger: logging.Logger
         :param x: Input coordinate data.
         :type x: array-like, optional
+        :param mask: Input mask data.
+        :type mask: array-like, optional
         """
         self._code = config.code
         for model in config.models:
@@ -740,12 +848,34 @@ class Fit:
         else:
             # Third party modules
             from lmfit import Parameters
+
+        self._abs_height_cutoff = None
+        self._best_errors = None
+        self._best_fit = None
+        self._best_parameters = None
+        self._best_values = None
+        self._best_vary = None
+        self._init_values = None
+        self._inv_transpose = None
         self._logger = logger
         self._mask = mask
+        self._max_nfev = None
+        self._memfolder = config.memfolder
         self._method = config.method
         self._model = None
-        self._norm = None
-        self._normalized = False
+        self._multipeak_info = None
+        self._new_parameters = None
+        self._num_func_eval = None
+        self._out_of_bounds = None
+        self._plot = False
+        self._plot_init = False
+        self._print_report = False
+        self._redchi = None
+        self._redchi_cutoff = 0.1
+        self._rel_height_cutoff = None
+        self._success = None
+        self._try_no_bounds = True
+
         self._free_parameters = []
         self._parameters = Parameters()
         if self._code == 'scipy':
@@ -765,240 +895,226 @@ class Fit:
 #        self._fwhm_max = None
 #        self._sigma_min = None
 #        self._sigma_max = None
-        self._x = None
-        self._y = None
-        self._y_norm = None
-        self._y_range = None
 #        if 'try_linear_fit' in kwargs:
 #            self._try_linear_fit = kwargs.pop('try_linear_fit')
 #            if not isinstance(self._try_linear_fit, bool):
 #                raise ValueError(
 #                    'Invalid value of keyword argument try_linear_fit '
 #                    f'({self._try_linear_fit})')
-        if y is not None:
-            self._y = np.squeeze(y)
-            if self._y.ndim != 1:
-                raise ValueError(
-                    f'Invalid input signal dimension ({self._y.ndim})')
-            if x is None:
-                self._x = np.arange(self._y.size)
-            else:
-                self._x = x
-            if True: #self._mask is None:
-                y_min = float(self._y.min())
-                self._y_range = float(self._y.max())-y_min
-                if self._y_range > 0.0:
-                    self._norm = (y_min, self._y_range)
-#            else:
-#                self._mask = np.asarray(self._mask).astype(bool)
-#                if self._x.size != self._mask.size:
-#                    raise ValueError(
-#                        f'Inconsistent x and mask dimensions ({self._x.size} '
-#                        f'vs {self._mask.size})')
-#                y_masked = np.asarray(self._y)[~self._mask]
-#                y_min = float(y_masked.min())
-#                self._y_range = float(y_masked.max())-y_min
-#                if self._y_range > 0.0:
-#                    self._norm = (y_min, self._y_range)
 
-            # Setup fit model
-            self._setup_fit_model(config.models, config.parameters)
+        self._x = np.arange(self._y.shape[-1]) if x is None else x
+        self._y = y
 
-    @property
+        # Flatten and normalize the map and store in self._y_norm
+        # At this point the fastest index should always be the signal
+        # dimension so that the slowest ndim-1 dimensions are the
+        # map dimensions
+        self._map_dim = int(self._y.size / self._x.size)
+        self._map_shape = self._y.shape[:-1]
+        y_min = self._y.min()
+        y_range = self._y.max() - y_min
+        if y_range <= FLOAT_MIN:
+            y_range = 0.
+        self._norm = (y_min, y_range)
+        self._y_norm = np.reshape(
+            self._y, (self._map_dim, self._x.size)).copy()
+        if self._norm[0]:
+            self._y_norm -= self._norm[0]
+        if self._norm[1]:
+            self._y_norm /= self._norm[1]
+
+        # Setup fit model
+        self._setup_fit_model(config.models, config.parameters)
+
+    @cached_property
     def best_errors(self):
         """Return errors in the best fit parameters.
 
-        :type: dict
+        :type: dict[str, numpy.ndarray]
         """
-        if self._result is None:
-            return {}
-        return {name:self._result.params[name].stderr
-                for name in sorted(self._result.params)
-                if name != 'tmp_normalization_offset_c'}
+        return {name:par['errors']
+                for name, par in self.best_parameters.items()}
 
     @property
     def best_fit(self):
-        """Return the best fit.
+        """Return the best fits.
 
         :type: numpy.ndarray
         """
-        if self._result is None:
-            return None
-        return self._result.best_fit
+        return self._best_fit
 
-    @property
+    @cached_property
     def best_parameters(self):
         """Return the best fit parameters.
 
-        :type: dict
+        :type: dict[str, dict]
         """
-        if self._result is None:
-            return {}
-        parameters = {}
-        for name in sorted(self._result.params):
-            if name != 'tmp_normalization_offset_c':
-                par = self._result.params[name]
-                parameters[name] = {
-                    'value': par.value,
-                    'error': par.stderr,
-                    'init_value': par.init_value,
-                    'min': par.min,
-                    'max': par.max,
-                    'vary': par.vary, 'expr': par.expr
-                }
-        return parameters
+        return {
+            name:{'errors': self._best_errors[i],
+                'init_values': self._init_values[i],
+                'values': self._best_values[i],
+                'vary': self._best_vary[i],
+            } for i, name in enumerate(self._best_parameters)
+        }
 
-    @property
+    @cached_property
     def best_values(self):
         """Return values for the best fit parameters.
 
-        :type: dict
+        :type: dict[str, numpy.ndarray]
         """
-        if self._result is None:
-            return {}
-        return {name:self._result.params[name].value
-                for name in sorted(self._result.params)
-                if name != 'tmp_normalization_offset_c'}
+        return {name:par['values']
+                for name, par in self.best_parameters.items()}
 
-    @property
+    @cached_property
     def best_vary(self):
         """Return vary parameters for the best fit parameters.
 
-        :type: dict
+        :type: dict[str, numpy.ndarray]
         """
-        if self._result is None:
-            return {}
-        return {name:self._result.params[name].vary
-                for name in sorted(self._result.params)
-                if name != 'tmp_normalization_offset_c'}
+        return {name:par['vary']
+                for name, par in self.best_parameters.items()}
 
-    @property
-    def chisqr(self):
-        """Return chisqr values for the best fit parameters.
+    @cached_property
+    def components_evals(self):
+        """Return the fit model components evaluations.
 
-        :type: numpy.ndarray
-        """
-        if self._result is None:
-            return None
-        return self._result.chisqr
-
-    @property
-    def components(self):
-        """Return fit model components info.
-
-        :type: dict
+        :type: dict[str, numpy.ndarray]
         """
         # Third party modules
         from lmfit.models import ExpressionModel
 
-        components = {}
-        if self._result is None:
-            self._logger.warning(
-                'Unable to collect components in Fit.components')
-            return components
+        components_evals = {}
+        for component, (comp_name, _) in zip(
+                self._result.components, self.components_info.items()):
+            if 'tmp_normalization_offset_c' in component.param_names:
+                continue
+            evals = np.zeros(self._best_fit.shape)
+            for index in np.ndindex(self._map_shape):
+                params = deepcopy(self._parameters)
+                for name in component.param_names:
+                    if name in self._best_parameters:
+                        params[name].set(value=self.best_values[name][index])
+                evals[index] = component.eval(params=params, x=self._x)
+            components_evals[comp_name] = evals
+        return components_evals
+
+    @cached_property
+    def components_info(self):
+        """Return the fit model components info.
+
+        :type: dict[str, dict]
+        """
+        # Third party modules
+        from lmfit.models import ExpressionModel
+
+        components_info = {}
         for component in self._result.components:
             if 'tmp_normalization_offset_c' in component.param_names:
                 continue
             parameters = {}
             for name in component.param_names:
-                par = self._parameters[name]
-                parameters[name] = {
-                    'free': par.vary,
-                    'value': self._result.params[name].value,
-                }
-                if par.expr is not None:
-                    parameters[name]['expr'] = par.expr
+                if self._parameters[name].vary:
+                    parameters[name] = {'free': True}
+                elif self._parameters[name].expr is not None:
+                    parameters[name] = {
+                        'free': False,
+                        'expr': self._parameters[name].expr,
+                    }
+                else:
+                    parameters[name] = {
+                        'free': False,
+                        'value': self.init_values[name],
+                    }
             expr = None
             if isinstance(component, ExpressionModel):
-                name = component._name
-                if name[-1] == '_':
-                    name = name[:-1]
+                comp_name = component._name.rstrip('_')
                 expr = component.expr
             else:
-                prefix = prefix.rstrip('_')
-                name = prefix + ' ({component._name})' if prefix \
+                prefix = component.prefix.rstrip('_')
+                comp_name  = prefix + f' ({component._name})' if prefix \
                     else component._name
             if expr is None:
-                components[name] = {
-                    'parameters': parameters,
-                }
+                components_info[comp_name] = {'parameters': parameters}
             else:
-                components[name] = {
-                    'expr': expr,
-                    'parameters': parameters,
-                }
-        return components
+                components_info[comp_name] = {
+                    'expr': expr, 'parameters': parameters}
+        return components_info
 
     @property
-    def covar(self):
-        """Return the covarience matrix for the best fit parameters.
+    def coordinates(self):
+        """Return the x-coordinates.
 
         :type: numpy.ndarray
         """
-        if self._result is None:
-            return None
-        return self._result.covar
+        return self._x
 
-    @property
+    @cached_property
     def init_parameters(self):
         """Return the initial parameters for the fit model.
 
-        :type: dict
+        :type: dict[str, dict]
         """
-        if self._result is None or self._result.init_params is None:
-            return {}
         parameters = {}
         for name in sorted(self._result.init_params):
             if name != 'tmp_normalization_offset_c':
                 par = self._result.init_params[name]
+                if name in self._best_parameters:
+                    init_values = self.best_parameters[name]['init_values']
+                    vary = self.best_vary[name]
+                else:
+                    init_values = self._map_dim*[par.value]
+                    vary = self._map_dim*[par.vary]
                 parameters[name] = {
                     'expr': par.expr,
                     'min': par.min,
                     'max': par.max,
-                    'value': par.value,
-                    'vary': par.vary,
+                    'values': init_values,
+                    'vary': vary,
                 }
         return parameters
 
-    @property
+    @cached_property
     def init_values(self):
-        """Return the initial values for the fit parameters.
+        """Return initial values for the fit parameters.
 
-        :type: dict
+        :type: dict[str, numpy.ndarray]
         """
-        if self._result is None or self._result.init_params is None:
-            return {}
-        return {name:self._result.init_params[name].value
-                for name in sorted(self._result.init_params)
-                if name != 'tmp_normalization_offset_c'}
+        return {name:par['values']
+                for name, par in self.init_parameters.items()}
 
     @property
-    def normalization_offset(self):
-        """Return the `normalization_offset` value for the fit model.
+    def mask(self):
+        """Return the mask
 
-        :type: float
+        :type: numpy.ndarray
         """
-        if self._result is None:
-            return None
-        if self._norm is None:
-            return 0.0
-        if self._result.init_params is not None:
-            normalization_offset = float(
-                self._result.init_params['tmp_normalization_offset_c'].value)
-        else:
-            normalization_offset = float(
-                self._result.params['tmp_normalization_offset_c'].value)
-        return normalization_offset
+        return self._mask
+
+    @property
+    def max_nfev(self):
+        """Return if the maximum number of function evaluations is
+        reached for each fit.
+
+        :type: numpy.ndarray
+        """
+        return self._max_nfev
 
     @property
     def num_func_eval(self):
-        """Return the number of function evaluations for the best fit.
+        """Return the number of function evaluations for each best fit.
 
-        :type: int
+        :type: numpy.ndarray
         """
-        if self._result is None:
-            return None
-        return self._result.nfev
+        return self._num_func_eval
+
+    @property
+    def out_of_bounds(self):
+        """Return the out_of_bounds flag values for each best fit.
+
+        :type: numpy.ndarray
+        """
+        return self._out_of_bounds
 
     @property
     def parameters(self):
@@ -1012,103 +1128,88 @@ class Fit:
 
     @property
     def redchi(self):
-        """Return redchi for the best fit.
-
-        :type: dict
-        """
-        if self._result is None:
-            return None
-        return self._result.redchi
-
-    @property
-    def residual(self):
-        """Return the residual in the best fit.
+        """Return the redchi value for each best fit.
 
         :type: numpy.ndarray
         """
-        if self._result is None:
-            return None
-        # lmfit return the negative of the residual in its common
-        # definition as (data - fit)
-        return -self._result.residual
+        return self._redchi
 
-    @property
-    def success(self):
-        """Return the success value for the fit.
+    @cached_property
+    def residual(self):
+        """Return the residual in each best fit.
 
-        :type: bool
+        :type: numpy.ndarray
         """
-        if self._result is None:
+        if self.best_fit is None:
             return None
-        if not self._result.success:
-            self._logger.warning(
-                f'ier = {self._result.ier}: {self._result.message}')
-            if (self._code == 'lmfit' and self._result.ier
-                    and self._result.ier != 5):
-                return True
-        return self._result.success
+        if self._mask is None:
+            residual = self._y - self.best_fit
+        else:
+            y_flat = np.reshape(self._y, (self._map_dim, self._x.size))
+            y_flat_masked = y_flat[:,~self._mask]
+            y_masked = np.reshape(
+                y_flat_masked,
+                list(self._map_shape) + [y_flat_masked.shape[-1]])
+            residual = y_masked - self.best_fit
+        return residual
 
     @property
-    def var_names(self):
-        """Return the variable names for the covarience matrix
-        property.
-
-        :type: list[str]
-        """
-        if self._result is None:
-            return None
-        return getattr(self._result, 'var_names', None)
-
-    @property
-    def y(self):
-        """Return the input y-coordinates.
+    def signal(self):
+        """Return the signal (or y-coordinates).
 
         :type: numpy.ndarray
         """
         return self._y
 
-    def print_fit_report(self, result=None, show_correl=False):
-        """Print a fit report.
+    @property
+    def success(self):
+        """Return the success value for each fit.
 
-        :param result: Model result, defaults to the `self._result`
-            class attribute.
-        :type result: ModelResult or lmfit.model.ModelResult, optional
-        :param show_correl: Whether to show list of correlations,
-            defaults to `False`.
-        :type show_correl: bool, optional
+        :type: bool
         """
-        if result is None:
-            result = self._result
-        if result is not None:
-            print(result.fit_report(show_correl=show_correl))
+        return self._success
 
-    def add_parameter(self, parameter):
-        """Add a fit parameter to the fit model.
-
-        :param parameter: A new parameter to be added to the fit model.
-        :type parameter: dict
+    @staticmethod
+    def guess_init_peak(
+            x, y, target_centers, centers_range, centers_range_fraction,
+            min_height=None, min_width=None):
+        """Return guesses for the initial height, center and fwhm for
+        peak-like models.
         """
-        # Local modules
-        from CHAP.utils.models import FitParameter
+        # Third party modules
+        from scipy.signal import find_peaks as find_peaks_scipy
 
-        assert isinstance(parameter, dict)
-        if parameter.get('expr') is not None:
-            raise KeyError(f'Invalid "expr" key in parameter {parameter}')
-        name = parameter['name']
-        if not parameter['vary']:
-            self._logger.warning(
-                f'Ignoring min in parameter {name} in '
-                f'Fit.add_parameter (vary = {parameter["vary"]})')
-            parameter['min'] = -np.inf
-            self._logger.warning(
-                f'Ignoring max in parameter {name} in '
-                f'Fit.add_parameter (vary = {parameter["vary"]})')
-            parameter['max'] = np.inf
-        if self._code == 'scipy':
-            self._parameters.add(FitParameter(**parameter))
+        x = np.asarray(x)
+        y = np.asarray(y)
+        target_centers = np.asarray(target_centers)
+        assert x.ndim == 1 and x.shape == y.shape
+        assert target_centers.ndim == 1
+        assert isinstance(centers_range, (int, float))
+        assert isinstance(centers_range_fraction, (int, float))
+        peaks = find_peaks_scipy(y, height=min_height, width=min_width)
+        centers = [x[v] for v in peaks[0]]
+        if 'peak_heights' in peaks[1]:
+            heights = peaks[1]['peak_heights']
         else:
-            self._parameters.add(**parameter)
-        self._free_parameters.append(name)
+            heights = [y[v] for v in peaks[0]]
+        widths = peaks[1]['widths']
+
+        num_peak = target_centers.size
+        use_peaks = num_peak*[False]
+        peak_centers = num_peak*[None]
+        peak_heights = num_peak*[None]
+        peak_widths = num_peak*[None]
+        delta_x = x[1] - x[0]
+        for n, target_center in enumerate(target_centers):
+            if centers:
+                index = np.abs(centers - target_center).argmin()
+                delta = max(centers_range, target_center*centers_range_fraction)
+                if np.abs(target_center - centers[index]) < delta:
+                    use_peaks[n] = True
+                    peak_centers[n] = centers[index]
+                    peak_heights[n] = heights[index]
+                    peak_widths[n] = widths[index]*delta_x
+        return use_peaks, peak_centers, peak_heights, peak_widths
 
     def add_model(self, model):
         """Add a model component to the fit model.
@@ -1182,12 +1283,13 @@ class Fit:
                             value = par.value
                         _min = par.min
                         _max = par.max
-                        if value is not None:
-                            value *= self._norm[1]
-                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                            _min *= self._norm[1]
-                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                            _max *= self._norm[1]
+                        if self._norm[1]:
+                            if value is not None:
+                                value *= self._norm[1]
+                            if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                                _min *= self._norm[1]
+                            if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                                _max *= self._norm[1]
                         par.set(value=value, min=_min, max=_max)
                 elif par.expr is None:
                     par.set(value=par.value)
@@ -1237,1580 +1339,38 @@ class Fit:
             self._parameters += new_parameters
 
         # Scale default initial model parameters
-        if self._norm is not None:
-            _set_default_initial_parameters(new_parameters)
+        _set_default_initial_parameters(new_parameters)
 
         # Initialize the model parameters
         _initialize_model_parameters(model, new_parameters)
 
-    def eval(self, x, result=None):
-        """Evaluate the best fit.
+    def add_parameter(self, parameter):
+        """Add a fit parameter to the fit model.
 
-        :param x: x-coordinates.
-        :type x: array-like, optional
-        :param result: Model result, defaults to the `self._result`
-            class attribute.
-        :type result: ModelResult or lmfit.model.ModelResult, optional
+        :param parameter: A new parameter to be added to the fit model.
+        :type parameter: dict
         """
-        if result is None:
-            result = self._result
-        if result is None:
-            return None
-        return result.eval(x=np.asarray(x))-self.normalization_offset
-
-    def fit(self, config=None, **kwargs):
-        """Fit the model to the input data.
-
-        :param config: Fit configuration.
-        :type config: CHAP.utils.models.FitConfig, optional
-        :param **kwargs: Additional key, value pairs to pass on
-            directly to the core fit routine.
-        """
-        # Check input parameters
-        if self._model is None:
-            self._logger.error('Undefined fit model')
-            return None
-#        if 'try_linear_fit' in kwargs:
-#            raise RuntimeError('try_linear_fit needs testing')
-#            try_linear_fit = kwargs.pop('try_linear_fit')
-#            if not isinstance(try_linear_fit, bool):
-#                raise ValueError(
-#                    'Invalid value of keyword argument try_linear_fit '
-#                    f'({try_linear_fit})')
-#            if not self._try_linear_fit:
-#                self._logger.warning(
-#                    'Ignore superfluous keyword argument "try_linear_fit" '
-#                    '(not yet supported for callable models)')
-#            else:
-#                self._try_linear_fit = try_linear_fit
-
-        # Setup the fit
-        self._setup_fit(config)
-
-        # Check if model is linear
-        try:
-            linear_model = self._check_linearity_model()
-        except Exception:
-            linear_model = False
-        if kwargs.get('check_only_linearity') is not None:
-            return linear_model
-
-        # Normalize the data and initial parameters
-        self._normalize()
-
-        if linear_model:
-            raise RuntimeError('linear solver needs testing')
-            # Perform a linear fit by direct matrix solution with numpy
-            try:
-                if self._mask is None:
-                    self._fit_linear_model(self._x, self._y_norm)
-                else:
-                    self._fit_linear_model(
-                        self._x[~self._mask],
-                        np.asarray(self._y_norm)[~self._mask])
-            except Exception:
-                linear_model = False
-        if not linear_model:
-            self._result = self._fit_nonlinear_model(
-                self._x, self._y_norm, **kwargs)
-
-        # Set internal parameter values to fit results upon success
-        if self.success:
-            for name, par in self._parameters.items():
-                if par.expr is None and par.vary:
-                    par.set(
-                        value=self._result.params[name].value,
-                        is_init_value=False)
-
-        # Renormalize the data and results
-        self._renormalize()
-
-        return None
-
-    def plot(
-            self, x=None, y=None, *, y_title=None, title=None, result=None,
-            skip_init=False, plot_comp=True, plot_comp_legends=False,
-            plot_residual=False, plot_masked_data=True, **kwargs):
-        """Plot the best fit.
-
-        :param x: x-coordinates.
-        :type x: array-like, optional
-        :param y: y-coordinates.
-        :type y: array-like, optional
-        :param y_title: y-axis label.
-        :type y_title: str, optional
-        :param title: Graph title.
-        :type title: str, optional
-        :param result: Model result, defaults to the `self._result`
-            class attribute.
-        :type result: ModelResult or lmfit.model.ModelResult, optional
-        :param skip_init: Skip plotting the initial guess, defaults
-            to `False`.
-        :type skip_init: bool, optional
-        :param plot_comp: Plot the individual model components,
-            defaults to `True`.
-        :type plot_comp: bool, optional
-        :param plot_comp_legends: Add a legend for the individual
-            model components, defaults to `False`.
-        :type plot_comp_legends: bool, optional
-        :param plot_residual: Plot the residual, defaults to `False`.
-        :type plot_residual: bool, optional
-        :param plot_masked_data: Visually distinguish the masked from
-            the unmasked data, defaults to `True`.
-        :type plot_masked_data: bool, optional
-        :param **kwargs: Additional key, value pairs to pass on
-            directly to the Matplotlib plot function.
-        """
-        if result is None:
-            result = self._result
-        if result is None:
-            return
-        plots = []
-        legend = []
-        if self._mask is None:
-            mask = np.zeros(self._x.size).astype(bool)
-            plot_masked_data = False
-        else:
-            mask = self._mask
-        if x is not None:
-            if not isinstance(x, (tuple, list, np.ndarray)):
-                self._logger.warning(
-                    'Ignoring invalid parameter x ({type(x)})')
-            if len(x) != len(self._x):
-                self._logger.warning(
-                    'Ignoring parameter x in plot (wrong dimension)')
-                x = None
-        if x is None:
-            x = self._x
-        if y is not None:
-            if not isinstance(y, (tuple, list, np.ndarray)):
-                self._logger.warning(
-                    'Ignoring invalid parameter y ({type(y)})')
-            if len(y) != len(x):
-                self._logger.warning(
-                    'Ignoring parameter y in plot (wrong dimension)')
-                y = None
-        if y is not None:
-            if y_title is None or not isinstance(y_title, str):
-                y_title = 'data'
-            if plot_masked_data:
-                plots += [(x[~mask], np.asarray(y)[~mask], 'b.')]
-                legend += [y_title]
-                plots += [(x[mask], np.asarray(y)[mask], 'bx')]
-                legend += ['masked data']
-            else:
-                plots += [(x, y, 'b.')]
-                legend += [y_title]
-        if self._y is not None:
-            if plot_masked_data:
-                plots += [(x[~mask], np.asarray(self._y)[~mask], 'b.')]
-                legend += ['data']
-                plots += [(x[mask], np.asarray(self._y)[mask], 'bx')]
-                legend += ['masked data']
-            else:
-                plots += [(x, np.asarray(self._y), 'b.')]
-                legend += ['data']
-        if isinstance(plot_residual, bool) and plot_residual:
-            plots += [(x[~mask], result.residual, 'r-')]
-            legend += ['residual']
-        plots += [(x[~mask], result.best_fit, 'k-')]
-        legend += ['best fit']
-        if not skip_init and hasattr(result, 'init_fit'):
-            plots += [(x[~mask], result.init_fit, 'g-')]
-            legend += ['init']
-        if plot_comp:
-            components = result.eval_components(x=x[~mask])
-            num_components = len(components)
-            if 'tmp_normalization_offset_' in components:
-                num_components -= 1
-            if num_components > 1:
-                eval_index = 0
-                for modelname, y_comp in components.items():
-                    if modelname == 'tmp_normalization_offset_':
-                        continue
-                    if modelname == '_eval':
-                        modelname = f'eval{eval_index}'
-                    if len(modelname) > 20:
-                        modelname = f'{modelname[0:16]} ...'
-                    if isinstance(y_comp, (int, float)):
-                        y_comp *= np.ones(x[~mask].size)
-                    plots += [(x[~mask], y_comp, '--')]
-                    if plot_comp_legends:
-                        if modelname[-1] == '_':
-                            legend.append(modelname[:-1])
-                        else:
-                            legend.append(modelname)
-        quick_plot(
-            tuple(plots), legend=legend, title=title, block=True, **kwargs)
-
-    @staticmethod
-    def guess_init_peak(
-            x, y, target_centers, centers_range, centers_range_fraction,
-            min_height=None, min_width=None):
-        """Return guesses for the initial height, center and fwhm for
-        peak-like models.
-        """
-        # Third party modules
-        from scipy.signal import find_peaks as find_peaks_scipy
-
-        x = np.asarray(x)
-        y = np.asarray(y)
-        target_centers = np.asarray(target_centers)
-        assert x.ndim == 1 and x.shape == y.shape
-        assert target_centers.ndim == 1
-        assert isinstance(centers_range, (int, float))
-        assert isinstance(centers_range_fraction, (int, float))
-        peaks = find_peaks_scipy(y, height=min_height, width=min_width)
-        centers = [x[v] for v in peaks[0]]
-        if 'peak_heights' in peaks[1]:
-            heights = peaks[1]['peak_heights']
-        else:
-            heights = [y[v] for v in peaks[0]]
-        widths = peaks[1]['widths']
-
-        num_peak = target_centers.size
-        use_peaks = num_peak*[False]
-        peak_centers = num_peak*[None]
-        peak_heights = num_peak*[None]
-        peak_widths = num_peak*[None]
-        delta_x = x[1] - x[0]
-        for n, target_center in enumerate(target_centers):
-            if centers:
-                index = np.abs(centers - target_center).argmin()
-                delta = max(centers_range, target_center*centers_range_fraction)
-                if np.abs(target_center - centers[index]) < delta:
-                    use_peaks[n] = True
-                    peak_centers[n] = centers[index]
-                    peak_heights[n] = heights[index]
-                    peak_widths[n] = widths[index]*delta_x
-        return use_peaks, peak_centers, peak_heights, peak_widths
-
-    def _create_prefixes(self, models):
-        """Check for duplicate model names and create prefixes."""
-        names = []
-        for model in models:
-            names.append(model.long_name)
-        counts = Counter(names)
-        for model, count in counts.items():
-            if count > 1:
-                n = 0
-                for i, name in enumerate(names):
-                    if name == model:
-                        n += 1
-                        models[i].prefix = f'{name}{n}_'
-
-    def _setup_fit_model(self, models, parameters):
-        """Setup the fit model."""
-        # Third party modules
-        from sympy import diff
-
         # Local modules
-        from CHAP.utils.models import PEAK_LIKE_MODELS
+        from CHAP.utils.models import FitParameter
 
-        # Check for duplicate model names and create prefixes
-        self._create_prefixes(models)
-
-        # Add the free fit parameters
-        for par in parameters:
-            self.add_parameter(
-                par.model_dump(exclude=('description', 'units')))
-
-        # Add the model functions
-        for model in models:
-            self.add_model(model)
-
-        # Check linearity of free fit parameters
-        for name in reversed(self._parameters):
-            if (name not in (self._linear_parameters +
-                             self._nonlinear_parameters +
-                             self._model_parameters)
-                    and not (model.model_type in PEAK_LIKE_MODELS
-                        and ('height' in name or 'fwhm' in name))):
-                for nname, par in self._parameters.items():
-                    if par.expr is not None:
-                        expr = par.expr.replace('fraction', 'fraction_') \
-                            if 'fraction' in par.expr else par.expr
-                        nnname = 'fraction_' \
-                            if name == 'fraction' else name
-                        if nnname in expr:
-                            if nname in self._nonlinear_parameters:
-                                self._nonlinear_parameters.insert(0, name)
-                                break
-                            else:
-                                raise RuntimeError('not updated and tested')
-                                if diff(expr, nnname, nnname):
-                                    if name not in self._nonlinear_parameters:
-                                        self._nonlinear_parameters.insert(
-                                            0, name)
-                                elif name not in self._linear_parameters:
-                                    self._linear_parameters.insert(0, name)
-
-    def _setup_fit(self, config):
-        """Setup the fit."""
-        def _setup_parameters_refit(config):
-            # Local modules
-            from CHAP.utils.models import (
-                FitConfig,
-                MultipeakModel,
-            )
-
-            # Expand multipeak model if present
-            found_multipeak = False
-            scale_factor = None
-            # RV FIX do I need multipeak_info here too?
-            for i, model in enumerate(deepcopy(config.models)):
-                if isinstance(model, MultipeakModel):
-                    if found_multipeak:
-                        raise ValueError(
-                            f'Invalid parameter models ({config.models}) '
-                            '(multiple instances of multipeak not allowed)')
-                    if (model.fit_type == 'uniform'
-                            and 'scale_factor' not in self._free_parameters):
-                        raise ValueError(
-                            f'Invalid parameter models ({config.models}) '
-                            '(uniform multipeak fit after unconstrained fit)')
-                    parameters, models = FitProcessor.create_multipeak_model(
-                        model)
-                    if (model.fit_type == 'unconstrained'
-                            and 'scale_factor' in self._free_parameters):
-                        # Third party modules
-                        from asteval import Interpreter
-
-                        scale_factor = self._parameters['scale_factor'].value
-                        self._parameters.pop('scale_factor')
-                        self._free_parameters.remove('scale_factor')
-                        ast = Interpreter()
-                        ast(f'scale_factor = {scale_factor}')
-                    if parameters:
-                        config.parameters += parameters
-                    config.models += models
-                    config.models.pop(i)
-                    found_multipeak = True
-
-            # Check for duplicate model names and create prefixes
-            self._create_prefixes(config.models)
-            parameters = config.parameters
-            for model in config.models:
-                for par in model.parameters:
-                    par.name = model.prefix + par.name
-                parameters += model.parameters
-
-            # Adjust parameters for refit as needed
-            if isinstance(self, FitMap):
-                scale_factor_index = \
-                    self._best_parameters.index('scale_factor')
-                self._best_errors = np.delete(
-                    self._best_errors, scale_factor_index, 0)
-                self._best_parameters.pop(scale_factor_index)
-                self._best_values = np.delete(
-                    self._best_values, scale_factor_index, 0)
-                self._best_vary = np.delete(
-                    self._best_vary, scale_factor_index, 0)
-                self._init_values = np.delete(
-                    self._init_values, scale_factor_index, 0)
-            for par in parameters:
-                name = par.name
-                if name not in self._parameters:
-                    raise ValueError(
-                        f'Unable to match {name} parameter {par} to an '
-                        'existing one')
-                ppar = self._parameters[name]
-                if ppar.expr is not None:
-                    if (scale_factor is not None and 'center' in name
-                            and 'scale_factor' in ppar.expr):
-                        ppar.set(value=ast(ppar.expr), expr='')
-                        value = ppar.value
-                    else:
-                        raise ValueError(
-                            f'Unable to modify {name} parameter {par} '
-                            '(currently an expression)')
-                else:
-                    value = par.value
-                if par.expr is not None:
-                    raise KeyError(
-                        f'Invalid "expr" key in {name} parameter {par}')
-                ppar.set(
-                    value=value, min=par.min, max=par.max, vary=par.vary)
-
-        # Add constant offset for a normalized model
-        if self._result is None and self._norm is not None and self._norm[0]:
-            # Local modules
-            from CHAP.utils.models import ConstantModel
-
-            model = ConstantModel(
-                model_type='constant',
-                parameters=[{
-                    'name': 'c',
-                    'value': -self._norm[0],
-                    'vary': False,
-                }],
-                prefix='tmp_normalization_offset_'
-            )
-            self.add_model(model)
-
-        # Adjust existing parameters for refit:
-        if config is not None:
-            _setup_parameters_refit(config)
-
-        # Set scipy parameters configuration
-        if self._code == 'scipy':
-            self._res_par_exprs = []
-            self._res_par_indices = []
-            self._res_par_names = []
-            self._res_par_values = []
-            for i, (name, par) in enumerate(self._parameters.items()):
-                self._res_par_values.append(par.value)
-                if par.expr:
-                    self._res_par_exprs.append(
-                        {'expr': par.expr, 'index': i})
-                elif par.vary:
-                    self._res_par_indices.append(i)
-                    self._res_par_names.append(name)
-
-        # Check for uninitialized parameters
-        for name, par in self._parameters.items():
-            if par.expr is None:
-                value = par.value
-                if value is None or np.isinf(value) or np.isnan(value):
-                    if (self._norm is None
-                            or name in self._nonlinear_parameters):
-                        self._parameters[name].set(value=1.0)
-                    elif name not in self._model_parameters:
-                        self._parameters[name].set(value=self._norm[1])
-
-    def _check_linearity_model(self):
-        """Identify the linearity of all model parameters and check if
-        the model is linear or not.
-        """
-        # Third party modules
-        from lmfit.models import ExpressionModel
-        from sympy import diff
-
-        raise RuntimeError('linear solver needs testing')
-#        if not self._try_linear_fit:
-#            self._logger.info(
-#                'Skip linearity check (not yet supported for callable models)')
-#            return False
-        free_parameters = \
-            [name for name, par in self._parameters.items() if par.vary]
-        for component in self._model.components:
-            if 'tmp_normalization_offset_c' in component.param_names:
-                continue
-            if isinstance(component, ExpressionModel):
-                for name in free_parameters:
-                    if diff(component.expr, name, name):
-                        self._nonlinear_parameters.append(name)
-                        if name in self._linear_parameters:
-                            self._linear_parameters.remove(name)
-            else:
-                model_parameters = component.param_names.copy()
-                for basename, hint in component.param_hints.items():
-                    name = component.prefix + basename
-                    if hint.get('expr') is not None:
-                        model_parameters.remove(name)
-                for name in model_parameters:
-                    expr = self._parameters[name].expr
-                    if expr is not None:
-                        for nname in free_parameters:
-                            if name in self._nonlinear_parameters:
-                                if diff(expr, nname):
-                                    self._nonlinear_parameters.append(nname)
-                                    if nname in self._linear_parameters:
-                                        self._linear_parameters.remove(nname)
-                            else:
-                                assert name in self._linear_parameters
-                                if diff(expr, nname, nname):
-                                    self._nonlinear_parameters.append(nname)
-                                    if nname in self._linear_parameters:
-                                        self._linear_parameters.remove(nname)
-        if any(True for name in self._nonlinear_parameters
-                if self._parameters[name].vary):
-            return False
-        return True
-
-    def _fit_linear_model(self, x, y):
-        """Perform a linear fit by direct matrix solution with numpy.
-        """
-        # Third party modules
-        from asteval import Interpreter
-        from lmfit.model import ModelResult
-        from lmfit.models import (
-            ConstantModel,
-            LinearModel,
-            QuadraticModel,
-            ExpressionModel,
-        )
-        # Third party modules
-        from sympy import (
-            diff,
-            simplify,
-        )
-
-        # FIX self._parameter_norms
-        # pylint: disable=no-member
-        raise RuntimeError
-        # Construct the matrix and the free parameter vector
-        free_parameters = \
-            [name for name, par in self._parameters.items() if par.vary]
-        expr_parameters = {
-            name:par.expr for name, par in self._parameters.items()
-            if par.expr is not None}
-        model_parameters = []
-        for component in self._model.components:
-            if 'tmp_normalization_offset_c' in component.param_names:
-                continue
-            model_parameters += component.param_names
-            for basename, hint in component.param_hints.items():
-                name = component.prefix + basename
-                if hint.get('expr') is not None:
-                    expr_parameters.pop(name)
-                    model_parameters.remove(name)
-        norm = 1.0
-        if self._normalized:
-            norm = self._norm[1]
-        # Add expression parameters to asteval
-        ast = Interpreter()
-        for name, expr in expr_parameters.items():
-            ast.symtable[name] = expr
-        # Add constant parameters to asteval
-        # (renormalize to use correctly in evaluation of expression
-        #     models)
-        for name, par in self._parameters.items():
-            if par.expr is None and not par.vary:
-                if self._parameter_norms[name]:
-                    ast.symtable[name] = par.value*norm
-                else:
-                    ast.symtable[name] = par.value
-        mat_a = np.zeros((len(x), len(free_parameters)), dtype='float64')
-        y_const = np.zeros(len(x), dtype='float64')
-        have_expression_model = False
-        for component in self._model.components:
-            if isinstance(component, ConstantModel):
-                name = component.param_names[0]
-                if name in free_parameters:
-                    mat_a[:,free_parameters.index(name)] = 1.0
-                else:
-                    if self._parameter_norms[name]:
-                        delta_y_const = \
-                            self._parameters[name] * np.ones(len(x))
-                    else:
-                        delta_y_const = \
-                            (self._parameters[name]*norm) * np.ones(len(x))
-                    y_const += delta_y_const
-            elif isinstance(component, ExpressionModel):
-                have_expression_model = True
-                const_expr = component.expr
-                for name in free_parameters:
-                    dexpr_dname = diff(component.expr, name)
-                    if dexpr_dname:
-                        const_expr = \
-                            f'{const_expr}-({str(dexpr_dname)})*{name}'
-                        if not self._parameter_norms[name]:
-                            dexpr_dname = f'({dexpr_dname})/{norm}'
-                        y_expr = [(lambda _: ast.eval(str(dexpr_dname)))
-                                  (ast(f'x={v}')) for v in x]
-                        if ast.error:
-                            raise ValueError(
-                                f'Unable to evaluate {dexpr_dname}')
-                        mat_a[:,free_parameters.index(name)] += y_expr
-                const_expr = str(simplify(f'({const_expr})/{norm}'))
-                delta_y_const = [(lambda _: ast.eval(const_expr))
-                                 (ast(f'x = {v}')) for v in x]
-                y_const += delta_y_const
-                if ast.error:
-                    raise ValueError(f'Unable to evaluate {const_expr}')
-            else:
-                free_model_parameters = [
-                    name for name in component.param_names
-                    if name in free_parameters or name in expr_parameters]
-                if not free_model_parameters:
-                    y_const += component.eval(params=self._parameters, x=x)
-                elif isinstance(component, LinearModel):
-                    name = f'{component.prefix}slope'
-                    if name in free_model_parameters:
-                        mat_a[:,free_parameters.index(name)] = x
-                    else:
-                        y_const += self._parameters[name].value * x
-                    name = f'{component.prefix}intercept'
-                    if name in free_model_parameters:
-                        mat_a[:,free_parameters.index(name)] = 1.0
-                    else:
-                        y_const += self._parameters[name].value \
-                            * np.ones(len(x))
-                elif isinstance(component, QuadraticModel):
-                    name = f'{component.prefix}a'
-                    if name in free_model_parameters:
-                        mat_a[:,free_parameters.index(name)] = x**2
-                    else:
-                        y_const += self._parameters[name].value * x**2
-                    name = f'{component.prefix}b'
-                    if name in free_model_parameters:
-                        mat_a[:,free_parameters.index(name)] = x
-                    else:
-                        y_const += self._parameters[name].value * x
-                    name = f'{component.prefix}c'
-                    if name in free_model_parameters:
-                        mat_a[:,free_parameters.index(name)] = 1.0
-                    else:
-                        y_const += self._parameters[name].value \
-                            * np.ones(len(x))
-                else:
-                    # At this point each build-in model must be
-                    #     strictly proportional to each linear model
-                    #     parameter. Without this assumption, the model
-                    #     equation is needed
-                    # For the current build-in lmfit models, this can
-                    #     only ever be the amplitude
-                    assert len(free_model_parameters) == 1
-                    name = f'{component.prefix}amplitude'
-                    assert free_model_parameters[0] == name
-                    assert self._parameter_norms[name]
-                    expr = self._parameters[name].expr
-                    if expr is None:
-                        parameters = deepcopy(self._parameters)
-                        parameters[name].set(value=1.0)
-                        mat_a[:,free_parameters.index(name)] += component.eval(
-                            params=parameters, x=x)
-                    else:
-                        const_expr = expr
-                        parameters = deepcopy(self._parameters)
-                        parameters[name].set(value=1.0)
-                        dcomp_dname = component.eval(params=parameters, x=x)
-                        for nname in free_parameters:
-                            dexpr_dnname = diff(expr, nname)
-                            if dexpr_dnname:
-                                assert self._parameter_norms[name]
-                                y_expr = np.asarray(
-                                    dexpr_dnname*dcomp_dname, dtype='float64')
-                                if self._parameter_norms[nname]:
-                                    mat_a[:,free_parameters.index(nname)] += \
-                                        y_expr
-                                else:
-                                    mat_a[:,free_parameters.index(nname)] += \
-                                        y_expr/norm
-                                const_expr = \
-                                    f'{const_expr}-({dexpr_dnname})*{nname}'
-                        const_expr = str(simplify(f'({const_expr})/{norm}'))
-                        y_expr = [
-                            (lambda _: ast.eval(const_expr))(ast(f'x = {v}'))
-                            for v in x]
-                        delta_y_const = np.multiply(y_expr, dcomp_dname)
-                        y_const += delta_y_const
-        solution, _, _, _ = np.linalg.lstsq(
-            mat_a, y-y_const, rcond=None)
-
-        # Assemble result
-        # (compensate for normalization in expression models)
-        for name, value in zip(free_parameters, solution):
-            self._parameters[name].set(value=value)
-        if (self._normalized
-                and (have_expression_model or expr_parameters)):
-            for name, norm in self._parameter_norms.items():
-                par = self._parameters[name]
-                if par.expr is None and norm and 'fraction' not in name:
-                    self._parameters[name].set(value=par.value*self._norm[1])
-        #RV FIX
-        self._result = ModelResult(
-            self._model, deepcopy(self._parameters), 'linear')
-        self._result.best_fit = self._model.eval(params=self._parameters, x=x)
-        if (self._normalized
-                and (have_expression_model or expr_parameters)):
-            if 'tmp_normalization_offset_c' in self._parameters:
-                offset = self._parameters['tmp_normalization_offset_c']
-            else:
-                offset = 0.0
-            self._result.best_fit = \
-                (self._result.best_fit-offset-self._norm[0]) / self._norm[1]
-            if self._normalized:
-                for name, norm in self._parameter_norms.items():
-                    par = self._parameters[name]
-                    if par.expr is None and norm and 'fraction' not in name:
-                        value = par.value/self._norm[1]
-                        self._parameters[name].set(value=value)
-                        self._result.params[name].set(value=value)
-        self._result.residual = y-self._result.best_fit
-        self._result.components = self._model.components
-        self._result.init_params = None
-
-    def _fit_nonlinear_model(self, x, y, **kwargs):
-        """Perform a nonlinear fit with spipy or lmfit."""
-        def _fit_scipy(x, y, have_bounds, **kwargs):
-            # Third party modules
-            from asteval import Interpreter
-            from scipy.optimize import (
-                leastsq,
-                least_squares,
-            )
-
-            self._ast = Interpreter()
-            self._ast.basesymtable = dict(self._ast.symtable.items())
-            pars_init = []
-            res_par_indices = []
-            for i, (name, par) in enumerate(self._parameters.items()):
-                value = par.value
-                self._res_par_values[i] = value
-                if par.expr is None:
-                    self._ast.symtable[name] = value
-                    if par.vary:
-                        pars_init.append(value)
-                        res_par_indices.append(
-                            self._res_par_indices[
-                                self._res_par_names.index(name)])
-            if have_bounds:
-                bounds = (
-                    [v['min'] for v in self._parameter_bounds.values()],
-                    [v['max'] for v in self._parameter_bounds.values()])
-                if self._method in ('lm', 'leastsq'):
-                    self._method = 'trf'
-                    self._logger.debug(
-                        f'Fit method changed to {self._method} for fit with '
-                        'bounds')
-            else:
-                bounds = (-np.inf, np.inf)
-            init_params = deepcopy(self._parameters)
-            lskws = {
-                'ftol': 1.49012e-08,
-                'xtol': 1.49012e-08,
-                'gtol': 10*FLOAT_EPS,
-            }
-            max_nfev = kwargs.get('max_nfev')
-            if self._method == 'leastsq':
-                if max_nfev is not None:
-                    lskws['maxfev'] = max_nfev
-                result = leastsq(
-                    self._residual, pars_init, args=(x, y, res_par_indices),
-                    full_output=True, **lskws)
-            else:
-                if max_nfev is not None:
-                    lskws['max_nfev'] = max_nfev
-                result = least_squares(
-                    self._residual, pars_init, bounds=bounds,
-                    method=self._method, args=(x, y, res_par_indices), **lskws)
-            model_result = ModelResult(
-                self._model, self._parameters, x=x, y=y, method=self._method,
-                ast=self._ast, res_par_exprs=self._res_par_exprs,
-                res_par_indices=res_par_indices,
-                res_par_names=self._res_par_names, result=result)
-            model_result.init_params = init_params
-            model_result.init_values = {}
-            for name, par in init_params.items():
-                model_result.init_values[name] = par.value
-            model_result.max_nfev = lskws.get('maxfev')
-            return model_result
-
-        # Check bounds and prevent initial values at boundaries
-        have_bounds = False
-        self._parameter_bounds = {}
-        for name, par in self._parameters.items():
-            if par.vary:
-                self._parameter_bounds[name] = {
-                    'min': par.min, 'max': par.max}
-                if not have_bounds and (
-                        not np.isinf(par.min) or not np.isinf(par.max)):
-                    have_bounds = True
-        if have_bounds:
-            self._reset_par_at_boundary()
-
-        # Perform the fit
-        if self._mask is not None:
-            x = x[~self._mask]
-            y = np.asarray(y)[~self._mask]
-        if self._code == 'scipy':
-            return _fit_scipy(x, y, have_bounds, **kwargs)
-#        fit_kws = {}
-#        if 'Dfun' in kwargs:
-#            fit_kws['Dfun'] = kwargs.pop('Dfun')
-        return self._model.fit(
-            y, self._parameters, x=x, method=self._method, #fit_kws=fit_kws,
-            **kwargs)
-
-    def _normalize(self):
-        """Normalize the data and initial parameters."""
-        if self._normalized:
-            return
-        if self._norm is None:
-            if self._y is not None and self._y_norm is None:
-                self._y_norm = np.asarray(self._y)
-        else:
-            if self._y is not None and self._y_norm is None:
-                self._y_norm = \
-                    (np.asarray(self._y)-self._norm[0]) / self._norm[1]
-            self._y_range = 1.0
-            for name in self._linear_parameters:
-                par = self._parameters[name]
-                if par.expr is None:
-                    value = par.value/self._norm[1]
-                    _min = par.min
-                    _max = par.max
-                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                        _min /= self._norm[1]
-                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                        _max /= self._norm[1]
-                    par.set(value=value, min=_min, max=_max)
-            self._normalized = True
-
-    def _renormalize(self):
-        """Renormalize the data and results."""
-        if self._norm is None or not self._normalized:
-            return
-        self._normalized = False
-        for name in self._linear_parameters:
-            par = self._parameters[name]
-            if par.expr is None:
-                value = par.value*self._norm[1]
-                _min = par.min
-                _max = par.max
-                if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                    _min *= self._norm[1]
-                if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                    _max *= self._norm[1]
-                par.init_value *= self._norm[1]
-                par.set(value=value, min=_min, max=_max, is_init_value=False)
-        if self._result is None:
-            return
-        self._result.best_fit = (
-            self._result.best_fit*self._norm[1] + self._norm[0])
-        if hasattr(self._result, 'init_fit'):
-            self._result.init_fit = (
-                self._result.init_fit*self._norm[1] + self._norm[0])
-        init_values = {}
-        if hasattr(self._result, 'init_values'):
-            for name, value in self._result.init_values.items():
-                if name in self._linear_parameters:
-                    init_values[name] = value*self._norm[1]
-                else:
-                    init_values[name] = value
-            self._result.init_values = init_values
-        if (hasattr(self._result, 'init_params')
-                and self._result.init_params is not None):
-            for name, par in self._result.init_params.items():
-                if par.expr is None and name in self._linear_parameters:
-                    value = par.value*self._norm[1]
-                    _min = par.min
-                    _max = par.max
-                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                        _min *= self._norm[1]
-                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                        _max *= self._norm[1]
-                    par.set(value=value, min=_min, max=_max)
-                par.init_value = par.value
-        for name, par in self._result.params.items():
-            par.init_value = init_values.get(name)
-            if name in self._linear_parameters:
-                if par.stderr is not None:
-                    if self._code == 'scipy':
-                        setattr(
-                            par, '_stderr', par.stderr*self._norm[1])
-                    else:
-                        par.stderr *= self._norm[1]
-                if par.expr is None:
-                    value = par.value*self._norm[1]
-#                    if par.init_value is not None:
-#                        if self._code == 'scipy':
-#                            setattr(par, '_init_value',
-#                                    par.init_value*self._norm[1])
-#                        else:
-#                            par.init_value *= self._norm[1]
-                    _min = par.min
-                    _max = par.max
-                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                        _min *= self._norm[1]
-                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                        _max *= self._norm[1]
-                    par.set(
-                        value=value, min=_min, max=_max, is_init_value=False)
-        # Don't renormalize chisqr, it has no useful meaning in
-        #     physical units
-#        self._result.chisqr *= self._norm[1]*self._norm[1]
-        if self._result.covar is not None:
-            for i, name in enumerate(self._result.var_names):
-                if name in self._linear_parameters:
-                    norm_sq = self._norm[1]**2
-                    for j in range(len(self._result.var_names)):
-                        if self._result.covar[i,j] is not None:
-                            self._result.covar[i,j] *= norm_sq
-                        if self._result.covar[j,i] is not None:
-                            self._result.covar[j,i] *= norm_sq
-        # Don't renormalize redchi, it has no useful meaning in
-        #     physical units
-#        self._result.redchi *= self._norm[1]*self._norm[1]
-        if self._result.residual is not None:
-            self._result.residual *= self._norm[1]
-
-    def _reset_par_at_boundary(self):
-        fraction = 0.02
-        for name, par in self._parameters.items():
-            if par.vary:
-                value = par.value
-                _min = self._parameter_bounds[name]['min']
-                _max = self._parameter_bounds[name]['max']
-                if np.isinf(_min):
-                    if not np.isinf(_max):
-                        if name in self._linear_parameters:
-                            upp = _max - fraction*self._y_range
-                        elif _max == 0.0:
-                            upp = _max - fraction
-                        else:
-                            upp = _max - fraction*abs(_max)
-                        if value >= upp:
-                            par.set(value=upp)
-                else:
-                    if np.isinf(_max):
-                        if name in self._linear_parameters:
-                            low = _min + fraction*self._y_range
-                        elif _min == 0.0:
-                            low = _min + fraction
-                        else:
-                            low = _min + fraction*abs(_min)
-                        if value <= low:
-                            par.set(value=low)
-                    else:
-                        low = (1.0-fraction)*_min + fraction*_max
-                        upp = fraction*_min + (1.0-fraction)*_max
-                        if value <= low:
-                            par.set(value=low)
-                        if value >= upp:
-                            par.set(value=upp)
-
-    def _residual(self, pars, x, y, res_par_indices):
-        res = np.zeros((x.size))
-        n_par = len(self._free_parameters)
-        for par, index in zip(pars, res_par_indices):
-            self._res_par_values[index] = par
-        if self._res_par_exprs:
-            for par, name in zip(pars, self._res_par_names):
-                self._ast.symtable[name] = par
-            for expr in self._res_par_exprs:
-                self._res_par_values[expr['index']] = \
-                    self._ast.eval(expr['expr'])
-        for component, num_par in zip(
-                self._model.components, self._res_num_pars):
-            parvalues = self._res_par_values[n_par:n_par+num_par]
-            res += component.func(
-                x, *tuple([parvalues[i] for i in component.func_args_indices]),
-                **component.model_identifiers)
-            n_par += num_par
-        return res - y
-
-
-class UpdateValuesProcessor(Processor):
-    """Processor to extract fit results from a
-    :class:`~CHAP.utils.fit.Fit` (or :class:`~CHAP.utils.fit.FitMap`)
-    object and format them as a list of path-keyed value dicts
-    suitable for a downstream
-    :class:`~CHAP.common.processor.NexusValuesWriter`.
-
-    This processor is the write-side complement of
-    :class:`~CHAP.utils.fit.SetupProcessor`: the paths it emits
-    correspond to the Zarr dataset layout defined by
-    :meth:`~CHAP.utils.models.FitConfig.zarr_tree`.
-    """
-
-    def process(self, data):
-        """Extract fit results from a :class:`~CHAP.utils.fit.Fit` or
-        :class:`~CHAP.utils.fit.FitMap` object and return them as a
-        flat list of path-keyed value dicts.
-
-        The paths in the returned dicts match the dataset layout
-        defined by :meth:`~CHAP.utils.models.FitConfig.zarr_tree` and
-        the container created by
-        :class:`~CHAP.utils.fit.SetupProcessor`.
-
-        :param data: Input pipeline data; must include a
-            ``'FitProcessor'``-tagged item whose ``data`` field is a
-            :class:`~CHAP.utils.fit.Fit` or
-            :class:`~CHAP.utils.fit.FitMap` instance.
-        :type data: list[PipelineData]
-        :return: List of dicts, each with keys ``'path'`` (str) and
-            ``'data'`` (scalar or array), for use with a downstream
-            :class:`~CHAP.common.processor.NexusValuesWriter`.
-        :rtype: list[dict]
-        """
-        # Third party modules
-        from lmfit.models import ExpressionModel
-
-        fit = self.get_data(data, name='FitProcessor')
-        is_map = isinstance(fit, FitMap)
-
-        if is_map:
-            raise TypeError('Updates from FitMap not implemented yet')
-            # FitMap: results are already full map-shaped arrays.
-            values = [
-                {'path': 'data/best_fit', 'data': fit.best_fit},
-                {'path': 'data/num_func_eval', 'data': fit.num_func_eval},
-                {'path': 'data/redchi', 'data': fit.redchi},
-                {'path': 'data/residual', 'data': fit.residual},
-                {'path': 'data/success', 'data': fit.success},
-            ]
-        else:
-            # Fit: wrap each result in a list for idx-based writing.
-            values = [
-                {'path': 'data/best_fit', 'data': [fit.best_fit]},
-                {'path': 'data/num_func_eval', 'data': [fit.num_func_eval]},
-                {'path': 'data/redchi', 'data': [fit.redchi]},
-                {'path': 'data/residual', 'data': [fit.residual]},
-                {'path': 'data/success', 'data': [fit.success]},
-            ]
-
-        map_params_names = fit.best_parameters() if is_map else None
-
-        for component_name, component_model in fit.components.items():
-            comp_prefix = f'components/{component_name}'
-
-            if is_map:
-                # Identify the lmfit component that corresponds to
-                # component_name (using the same naming logic as
-                # FitMap.components and FitMap.plot).
-                target_comp = None
-                for comp in fit._result.components:
-                    if 'tmp_normalization_offset_c' in comp.param_names:
-                        continue
-                    if isinstance(comp, ExpressionModel):
-                        comp_id = comp._name.rstrip('_')
-                    else:
-                        prefix = comp.prefix.rstrip('_')
-                        comp_id = f'{prefix} ({comp._name})' if prefix \
-                            else comp._name
-                    if comp_id == component_name:
-                        target_comp = comp
-                        break
-
-                # Evaluate the component at every map point using the
-                # stored best parameter values (same approach as
-                # FitMap.plot).
-                x = fit._x
-                comp_best_fit = np.zeros((*fit._map_shape, x.size))
-                if target_comp is not None:
-                    for idx in np.ndindex(*fit._map_shape):
-                        parameters = deepcopy(fit._parameters)
-                        for i, pname in enumerate(map_params_names):
-                            if fit._parameters[pname].vary:
-                                parameters[pname].set(
-                                    value=fit.best_values[i][idx])
-                        comp_best_fit[idx] = target_comp.eval(
-                            params=parameters, x=x)
-
-                values.append({
-                    'path': f'{comp_prefix}/data/best_fit',
-                    'data': comp_best_fit,
-                })
-            else:
-                values.append({
-                    'path': f'{comp_prefix}/data/best_fit',
-                    'data': [fit._result.eval_components()[component_name]],
-                })
-
-            best_parameters = fit.best_parameters
-            for parameter_name, parameter in (
-                    component_model.get('parameters').items()):
-                param_prefix = f'{comp_prefix}/parameters/{parameter_name}'
-                if is_map:
-                    # FIXME param_value for any parameters that are part
-                    # of a component that was excluded from the fit?
-                    if parameter_name in map_params_names:
-                        param_idx = map_params_names.index(parameter_name)
-                        param_value = fit.best_values[param_idx]
-                        param_error = fit.best_errors[param_idx]
-                    else:
-                        # Fixed parameter: scalar value, no meaningful
-                        # error across the map.
-                        param_value = fit._parameters[parameter_name].value
-                        param_error = None
-                    init_params = fit.init_parameters
-                    param = fit._parameters[parameter_name]
-                    param_initial = [init_params[parameter_name]['value']] * param_value.size # FIXME for params with no initial value
-                    param_min = [init_params[parameter_name]['min']] * param_value.size
-                    param_max = [init_params[parameter_name]['max']] * param_value.size
-                    param_vary = [init_params[parameter_name]['vary']] * param_value.size
-                    param_expr = [init_params[parameter_name]['expr']
-                                  if isinstance(init_params[parameter_name]['expr'], str)
-                                  else ''] * param_value.size
-                    values.extend([
-                        {'path': f'{param_prefix}/value',
-                         'data': param_value},
-                        {'path': f'{param_prefix}/error',
-                         'data': param_error},
-                        {'path': f'{param_prefix}/initial',
-                         'data': param_initial},
-                        {'path': f'{param_prefix}/min',
-                         'data': param_min},
-                        {'path': f'{param_prefix}/max',
-                         'data': param_max},
-                        {'path': f'{param_prefix}/vary',
-                         'data': param_vary},
-                        {'path': f'{param_prefix}/expression',
-                         'data': param_expr},
-                    ])
-                else:
-                    param = best_parameters[parameter_name]
-                    values.extend([
-                        {'path': f'{param_prefix}/value',
-                         'data': [param['value']]},
-                        {'path': f'{param_prefix}/error',
-                         'data': [param['error']]},
-                        {'path': f'{param_prefix}/initial',
-                         'data': [param['init_value']]}, # FIXME for params with no initial value
-                        {'path': f'{param_prefix}/min',
-                         'data': [param['min']]},
-                        {'path': f'{param_prefix}/max',
-                         'data': [param['max']]},
-                        {'path': f'{param_prefix}/vary',
-                         'data': [param['vary']]},
-                        {'path': f'{param_prefix}/expression',
-                         'data': [param['expr']]},
-                    ])
-        return values
-
-
-class FitMap(Fit):
-    """Wrapper to the Fit class to fit data on a N-dimensional map."""
-
-    def __init__(self, y, config, logger, x=None, mask=None):
-        """Initialize FitMap.
-
-        :param y: Input signal data.
-        :type y: array-like
-        :param config: Fit configuration.
-        :type config: CHAP.utils.models.FitConfig
-        :param logger: A python Logger object.
-        :type logger: logging.Logger
-        :param x: Input coordinate data.
-        :type x: array-like, optional
-        """
-        super().__init__(None, config, logger)
-        self._abs_height_cutoff = None
-        self._best_errors = None
-        self._best_fit = None
-        self._best_parameters = None
-        self._best_values = None
-        self._best_vary = None
-        self._init_values = None
-        self._inv_transpose = None
-        self._mask = mask
-        self._max_nfev = None
-        self._memfolder = config.memfolder
-        self._multipeak_info = None
-        self._new_parameters = None
-        self._num_func_eval = None
-        self._out_of_bounds = None
-        self._plot = False
-        self._print_report = False
-        self._redchi = None
-        self._redchi_cutoff = 0.1
-        self._rel_height_cutoff = None
-        self._skip_init = True
-        self._success = None
-        self._try_no_bounds = True
-
-        # At this point the fastest index should always be the signal
-        #     dimension so that the slowest ndim-1 dimensions are the
-        #     map dimensions
-        self._ymap = y
-        if x is None:
-            self._x = np.arange(self._ymap.shape[-1])
-        else:
-            self._x = x
-
-        # Flatten the map
-        # Store the flattened map in self._ymap_norm
-        self._map_dim = int(self._ymap.size/self._x.size)
-        self._map_shape = self._ymap.shape[:-1]
-        self._ymap_norm = np.reshape(
-            self._ymap, (self._map_dim, self._x.size))
-
-        # Check if a mask is provided
-        if True: #self._mask is None:
-            ymap_min = float(self._ymap_norm.min())
-            ymap_max = float(self._ymap_norm.max())
-        else:
-            ymap_min = None
-            ymap_max = None
-#            self._mask = np.asarray(self._mask).astype(bool)
-#            if self._x.size != self._mask.size:
-#                raise ValueError(
-#                    f'Inconsistent mask dimension ({self._x.size} vs '
-#                    f'{self._mask.size})')
-#            ymap_masked = np.asarray(self._ymap_norm)[:,~self._mask]
-#            ymap_min = float(ymap_masked.min())
-#            ymap_max = float(ymap_masked.max())
-
-        # Normalize the data
-        self._y_range = ymap_max-ymap_min
-        if self._y_range > 0.0:
-            self._norm = (ymap_min, self._y_range)
-            self._ymap_norm = (self._ymap_norm-self._norm[0])/self._norm[1]
-        else:
-            self._redchi_cutoff *= self._y_range**2
-
-        # Setup fit model
-        self._setup_fit_model(config.models, config.parameters)
-
-    @property
-    def best_errors(self):
-        """Return errors in the best fit parameters.
-
-        :type: numpy.ndarray
-        """
-        return self._best_errors
-
-    @property
-    def best_fit(self):
-        """Return the best fits.
-
-        :type: numpy.ndarray
-        """
-        return self._best_fit
-
-    @property
-    def best_values(self):
-        """Return values for the best fit parameters.
-
-        :type: numpy.ndarray
-        """
-        return self._best_values
-
-    @property
-    def best_vary(self):
-        """Return vary parameters for the best fit parameters.
-
-        :type: numpy.ndarray
-        """
-        return self._best_vary
-
-    @property
-    def chisqr(self):
-        """Return the chisqr value for each best fit.
-
-        :type: numpy.ndarray
-        """
-        self._logger.warning('Undefined property chisqr')
-
-    @property
-    def components(self):
-        """Return the fit model components info.
-
-        :type: dict
-        """
-        # Third party modules
-        from lmfit.models import ExpressionModel
-
-        components = {}
-        if self._result is None:
+        assert isinstance(parameter, dict)
+        if parameter.get('expr') is not None:
+            raise KeyError(f'Invalid "expr" key in parameter {parameter}')
+        name = parameter['name']
+        if not parameter['vary']:
             self._logger.warning(
-                'Unable to collect components in FitMap.components')
-            return components
-        for component in self._result.components:
-            if 'tmp_normalization_offset_c' in component.param_names:
-                continue
-            parameters = {}
-            for name in component.param_names:
-                if self._parameters[name].vary:
-                    parameters[name] = {'free': True}
-                elif self._parameters[name].expr is not None:
-                    parameters[name] = {
-                        'free': False,
-                        'expr': self._parameters[name].expr,
-                    }
-                else:
-                    parameters[name] = {
-                        'free': False,
-                        'value': self.init_parameters[name]['value'],
-                    }
-            expr = None
-            if isinstance(component, ExpressionModel):
-                name = component._name
-                if name[-1] == '_':
-                    name = name[:-1]
-                expr = component.expr
-            else:
-                prefix = component.prefix.rstrip('_')
-                name  = prefix + f' ({component._name})' if prefix \
-                    else component._name
-            if expr is None:
-                components[name] = {'parameters': parameters}
-            else:
-                components[name] = {'expr': expr, 'parameters': parameters}
-        return components
-
-    @property
-    def covar(self):
-        """Return the covarience matrices for the best fit parameters.
-
-        :type: numpy.ndarray
-        """
-        self._logger.warning('Undefined property covar')
-
-    @property
-    def init_values(self):
-        """Return init values of the fit parameters.
-
-        :type: numpy.ndarray
-        """
-        return self._init_values
-
-    @property
-    def max_nfev(self):
-        """Return if the maximum number of function evaluations is
-        reached for each fit.
-
-        :type: numpy.ndarray
-        """
-        return self._max_nfev
-
-    @property
-    def num_func_eval(self):
-        """Return the number of function evaluations for each best fit.
-
-        :type: numpy.ndarray
-        """
-        return self._num_func_eval
-
-    @property
-    def out_of_bounds(self):
-        """Return the out_of_bounds flag values for each best fit.
-
-        :type: numpy.ndarray
-        """
-        return self._out_of_bounds
-
-    @property
-    def redchi(self):
-        """Return the redchi value for each best fit.
-
-        :type: numpy.ndarray
-        """
-        return self._redchi
-
-    @property
-    def residual(self):
-        """Return the residual in each best fit.
-
-        :type: numpy.ndarray
-        """
-        if self.best_fit is None:
-            return None
-        if self._mask is None:
-            residual = np.asarray(self._ymap)-self.best_fit
-        else:
-            ymap_flat = np.reshape(
-                np.asarray(self._ymap), (self._map_dim, self._x.size))
-            ymap_flat_masked = ymap_flat[:,~self._mask]
-            ymap_masked = np.reshape(
-                ymap_flat_masked,
-                list(self._map_shape) + [ymap_flat_masked.shape[-1]])
-            residual = ymap_masked-self.best_fit
-        return residual
-
-    @property
-    def success(self):
-        """Return the success value for each fit.
-
-        :type: bool
-        """
-        return self._success
-
-    @property
-    def var_names(self):
-        """Return the variable names for the covarience matrix
-        property.
-
-        :type: list[str]
-        """
-        self._logger.warning('Undefined property var_names')
-
-    @property
-    def y(self):
-        """Return the input y-coordinates.
-
-        :type: numpy.ndarray
-        """
-        self._logger.warning('Undefined property y')
-
-    @property
-    def ymap(self):
-        """Return the input y-coordinates map.
-
-        :type: numpy.ndarray
-        """
-        return self._ymap
-
-    def best_parameters(self, dims=None):
-        """Return the best fit parameters.
-
-        :param dims: Map indices of the best fit parameters to return,
-            defaults to `None` which will return the list of the best
-            parameter names in the correct order for the results.
-        :type dims: int or list or tuple, optional
-        :return: Best fit parameters.
-        :rtype: list[str] or dict
-        """
-        if dims is None:
-            return self._best_parameters
-# FIX use something else, self._best_parameters is "reserved" to get the
-# parameters in the EDD strain analysis and must return the order of the
-# parameters in self.best_values, self.best_errors, and self_init_values
-#            parameters_dict = {}
-#            for i, name in enumerate(self._best_parameters):
-#                parameters_dict[name] = {
-#                    'errors': self._best_errors[i],
-#                    'init_values': self._init_values[i],
-#                    'values': self._best_values[i],
-#                }
-#            return parameters_dict
-        if (self.best_errors is None or self.best_values is None
-                or self.init_values is None):
-            self._logger.warning('No data for best parameter values')
-            return {}
-        if isinstance(dims, int):
-            dims = (dims,)
-        elif isinstance(dims, (list, tuple)):
-            dims = tuple(dims)
-        else:
-            raise ValueError(f'Invalid parameter dims ({dims})')
-        # Create current parameters
-        parameters = deepcopy(self._parameters)
-        for n, name in enumerate(self._best_parameters):
-            if self._parameters[name].vary:
-                parameters[name].set(
-                    value=self.best_values[n][dims], is_init_value=False)
-            parameters[name].init_value = self.init_values[n][dims]
-            parameters[name].stderr = self.best_errors[n][dims]
-        parameters_dict = {}
-        for name in sorted(parameters):
-            if name != 'tmp_normalization_offset_c':
-                par = parameters[name]
-                parameters_dict[name] = {
-                    'error': par.stderr,
-                    'expr': par.expr,
-                    'init_value': par.init_value,
-                    'min': par.min,
-                    'max': par.max,
-                    'value': par.value,
-                    'vary': par.vary,
-                }
-        return parameters_dict
-
-    def init_parameters(self, dims=None):
-        """Return the initial fit parameters.
-
-        :param dims: Map indices of the initial fit parameters to
-            return, defaults to `None` which will return the list of
-            the best parameter names in the correct order for the
-            results.
-        :type dims: int or list or tuple, optional
-        :return: Initial fit parameters.
-        :rtype: list[str] or dict
-        """
-        parameters_dict = self.best_parameters(dims)
-        if dims is None:
-            return parameters_dict
-        for name, par in parameters_dict.items():
-            par.pop('error')
-            par['value'] = par.pop('init_value')
-        return parameters_dict
-
-    def freemem(self):
-        """Free memory allocated for parallel processing."""
-        if self._memfolder is None:
-            return
-        try:
-            rmtree(self._memfolder)
-        except Exception:
-            self._logger.warning('Could not clean-up automatically.')
-
-    def plot(
-            self, x=None, dims=None, *, y_title=None, plot_comp_legends=False,
-            plot_residual=False, plot_masked_data=True, **kwargs):
-        """Plot the best fits.
-
-        :param x: x-coordinates.
-        :type x: array-like, optional
-        :param dims: Map indices of the data point to plot,
-            defaults to `None` which will plot the first data point.
-        :type dims: list or tuple, optional
-        :param y_title: y-axis label.
-        :type y_title: str, optional
-        :param plot_comp_legends: Add a legend for the individual
-            model components, defaults to `False`.
-        :type plot_comp_legends: bool, optional
-        :param plot_residual: Plot the residual, defaults to `False`.
-        :type plot_residual: bool, optional
-        :param plot_masked_data: Visually distinguish the masked from
-            the unmasked data, defaults to `True`.
-        :type plot_masked_data: bool, optional
-        :param **kwargs: Additional key, value pairs to pass on
-            directly to the Matplotlib plot function.
-        """
-        # Third party modules
-        from lmfit.models import ExpressionModel
-
-        if x is not None:
-            if not isinstance(x, (tuple, list, np.ndarray)):
-                self._logger.warning(
-                    'Ignoring invalid parameter x ({type(x)})')
-            if len(x) != len(self._x):
-                self._logger.warning(
-                    'Ignoring parameter x in plot (wrong dimension)')
-                x = None
-        if x is None:
-            x = self._x
-        if dims is None:
-            dims = [0]*len(self._map_shape)
-        if (not isinstance(dims, (list, tuple))
-                or len(dims) != len(self._map_shape)):
-            raise ValueError('Invalid parameter dims ({dims})')
-        dims = tuple(dims)
-        if (self._result is None or self.best_fit is None
-                or self.best_values is None):
+                f'Ignoring min in parameter {name} in '
+                f'Fit.add_parameter (vary = {parameter["vary"]})')
+            parameter['min'] = -np.inf
             self._logger.warning(
-                f'Unable to plot fit for dims = {dims}')
-            return
-        if y_title is None or not isinstance(y_title, str):
-            y_title = 'data'
-        if self._mask is None:
-            mask = np.zeros(x.size).astype(bool)
-            plot_masked_data = False
+                f'Ignoring max in parameter {name} in '
+                f'Fit.add_parameter (vary = {parameter["vary"]})')
+            parameter['max'] = np.inf
+        if self._code == 'scipy':
+            self._parameters.add(FitParameter(**parameter))
         else:
-            mask = self._mask
-        if plot_masked_data:
-            plots = [(x[~mask], np.asarray(self._ymap[dims])[~mask], 'b.')]
-            legend = [y_title]
-            plots += [(x[mask], np.asarray(self._ymap[dims])[mask], 'bx')]
-            legend += ['masked data']
-        else:
-            plots = [(x, np.asarray(self._ymap[dims]), 'b.')]
-            legend = [y_title]
-        plots += [(x[~mask], self.best_fit[dims], 'k-')]
-        legend += ['best fit']
-        if plot_residual:
-            plots += [(x[~mask], self.residual[dims], 'r--')]
-            legend += ['residual']
-        # Create current parameters
-        parameters = deepcopy(self._parameters)
-        for name in self._best_parameters:
-            if self._parameters[name].vary:
-                parameters[name].set(
-                    value=self.best_values[self._best_parameters.index(name)]
-                    [dims])
-        for component in self._result.components:
-            if 'tmp_normalization_offset_c' in component.param_names:
-                continue
-            if isinstance(component, ExpressionModel):
-                modelname = component._name.rstrip('_')+f' ({component.expr})'
-            else:
-                prefix = component.prefix.rstrip('_')
-                modelname = prefix + f' ({component._name})' if prefix \
-                    else component._name
-            if len(modelname) > 20:
-                modelname = f'{modelname[0:16]} ...'
-            y = component.eval(params=parameters, x=x[~mask])
-            if isinstance(y, (int, float)):
-                y *= np.ones(x[~mask].size)
-            plots += [(x[~mask], y, '--')]
-            if plot_comp_legends:
-                legend.append(modelname)
-        quick_plot(
-            tuple(plots), legend=legend, title=str(dims), block=True, **kwargs)
+            self._parameters.add(**parameter)
+        self._free_parameters.append(name)
 
     def fit(self, config=None, **kwargs):
         """Fit the model to the input data.
@@ -2829,32 +1389,34 @@ class FitMap(Fit):
             self._abs_height_cutoff = kwargs.pop('abs_height_cutoff')
             self._multipeak_info = kwargs.pop('multipeak_info', None)
             self._plot = kwargs.pop('plot', False)
+            self._plot_init = kwargs.pop('plot_init', False)
             self._print_report = kwargs.pop('print_report', False)
             self._redchi_cutoff = kwargs.pop('redchi_cutoff', 0.1)
             self._rel_height_cutoff = kwargs.pop('rel_height_cutoff')
-            self._skip_init = kwargs.pop('skip_init', True)
             self._try_no_bounds = kwargs.pop('try_no_bounds', False)
         else:
             num_proc = config.num_proc
             self._abs_height_cutoff = config.abs_height_cutoff
             self._plot = config.plot
+#            self._plot_init = config.plot_init
             self._print_report = config.print_report
-#            self._redchi_cutoff = config.redchi_cutoff
             self._rel_height_cutoff = config.rel_height_cutoff
-#            self._skip_init = config.skip_init
 #            self._try_no_bounds = config.try_no_bounds
         if num_proc > 1 and not HAVE_JOBLIB:
             self._logger.warning(
                 'Missing joblib in the conda environment, running serially')
             num_proc = 1
         if num_proc > num_proc_max:
-            self._logger.warning(
+            self._logger.info(
                 f'The requested number of processors ({num_proc}) exceeds the '
                 'maximum allowed number of processors, num_proc reduced to '
                 f'{num_proc_max}')
             num_proc = num_proc_max
         self._logger.info(f'Using {num_proc} processors to fit the data')
-        self._redchi_cutoff *= self._y_range**2
+        if self._abs_height_cutoff is not None:
+            self._abs_height_cutoff -= self._norm[0]
+            if self._norm[1]:
+                self._abs_height_cutoff /= self._norm[1]
 
         # Setup the fit
         self._setup_fit(config)
@@ -2898,7 +1460,7 @@ class FitMap(Fit):
             self._best_values = [
                 np.reshape(self._best_values[i], self._map_dim)
                 for i in range(num_best_parameters)]
-            if self._norm is not None:
+            if self._norm[1]:
                 for i, name in enumerate(self._best_parameters):
                     if name in self._linear_parameters:
                         self._best_values[i] /= self._norm[1]
@@ -2936,7 +1498,7 @@ class FitMap(Fit):
             self._redchi_flat = np.zeros(self._map_dim, dtype=np.float64)
             self._success_flat = np.zeros(self._map_dim, dtype=bool)
             self._best_fit_flat = np.zeros(
-                (self._map_dim, x_size), dtype=self._ymap_norm.dtype)
+                (self._map_dim, x_size), dtype=self._y.dtype)
             self._best_errors_flat = [
                 np.zeros(self._map_dim, dtype=np.float64)
                 for _ in range(num_best_parameters+num_new_parameters)]
@@ -2981,7 +1543,7 @@ class FitMap(Fit):
                 filename_memmap, dtype=bool, shape=(self._map_dim), mode='w+')
             filename_memmap = path.join(self._memfolder, 'best_fit_memmap')
             self._best_fit_flat = np.memmap(
-                filename_memmap, dtype=self._ymap_norm.dtype,
+                filename_memmap, dtype=self._y.dtype,
                 shape=(self._map_dim, x_size), mode='w+')
             self._best_errors_flat = []
             for i in range(num_best_parameters+num_new_parameters):
@@ -3056,7 +1618,7 @@ class FitMap(Fit):
                 # Perform the remaining fits in parallel
                 num_fit = self._map_dim-1
                 if num_proc > num_fit:
-                    self._logger.warning(
+                    self._logger.info(
                         f'The requested number of processors ({num_proc}) '
                         'exceeds the number of fits, num_proc reduced to '
                         f'{num_fit}')
@@ -3073,36 +1635,6 @@ class FitMap(Fit):
                             (current_best_values, num_fit_batch, n_start,
                              **kwargs)
                         for n_start in range(1, self._map_dim, num_fit_batch))
-
-        # Renormalize the initial parameters for external use
-        if self._norm is not None and self._normalized:
-            if hasattr(self._result, 'init_values'):
-                init_values = {}
-                for name, value in self._result.init_values.items():
-                    if (name in self._nonlinear_parameters
-                            or self._parameters[name].expr is not None):
-                        init_values[name] = value
-                    elif 'fraction' not in name:
-                        init_values[name] = value*self._norm[1]
-                    else:
-                        raise RuntimeError('must check, should not be here')
-                self._result.init_values = init_values
-            if (hasattr(self._result, 'init_params')
-                    and self._result.init_params is not None):
-                for name, par in self._result.init_params.items():
-                    if par.expr is None and name in self._linear_parameters:
-                        value = par.value*self._norm[1]
-                        _min = par.min
-                        _max = par.max
-                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                            _min *= self._norm[1]
-                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                            _max *= self._norm[1]
-                        par.set(value=value, min=_min, max=_max)
-                    if self._code == 'scipy':
-                        setattr(par, '_init_value', par.value)
-                    else:
-                        par.init_value = par.value
 
         # Remap the best results
         self._out_of_bounds = np.copy(np.reshape(
@@ -3157,8 +1689,7 @@ class FitMap(Fit):
         # Restore parameter bounds and renormalize the parameters
         for name, par in self._parameter_bounds.items():
             self._parameters[name].set(min=par['min'], max=par['max'])
-        self._normalized = False
-        if self._norm is not None:
+        if self._norm[1]:
             for name in self._linear_parameters:
                 par = self._parameters[name]
                 if par.expr is None:
@@ -3170,45 +1701,132 @@ class FitMap(Fit):
                     if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
                         _max *= self._norm[1]
                     par.set(value=value, min=_min, max=_max)
-                # RV FIX
-                #if self._code == 'scipy':
-                #    setattr(par, '_init_value', par.init_value*self._norm[1])
+
+        # Renormalize the initial parameters
+        if self._norm[1]:
+            for name, par in self._result.init_params.items():
+                if par.expr is None and name in self._linear_parameters:
+                    value = par.value*self._norm[1]
+                    _min = par.min
+                    _max = par.max
+                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                        _min *= self._norm[1]
+                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                        _max *= self._norm[1]
+                    par.set(value=value, min=_min, max=_max)
+                par.init_value = par.value
 
         if num_proc > 1:
             # Free the shared memory
             self.freemem()
 
-    def _fit_parallel(self, current_best_values, num, n_start, **kwargs):
-        num = min(num, self._map_dim-n_start)
-        for n in range(num):
-            self._fit(n_start+n, current_best_values, **kwargs)
+    def freemem(self):
+        """Free memory allocated for parallel processing."""
+        if self._memfolder is None:
+            return
+        try:
+            rmtree(self._memfolder)
+        except Exception:
+            self._logger.warning('Could not clean-up automatically.')
+
+    def _create_prefixes(self, models):
+        """Check for duplicate model names and create prefixes."""
+        names = []
+        for model in models:
+            names.append(model.long_name)
+        counts = Counter(names)
+        for model, count in counts.items():
+            if count > 1:
+                n = 0
+                for i, name in enumerate(names):
+                    if name == model:
+                        n += 1
+                        models[i].prefix = f'{name}{n}_'
 
     def _fit(self, n, current_best_values, return_result=False, **kwargs):
-        # Do not attempt a fit if the data is zero or entirely below
-        # the cutoff
-        y_max = self._ymap_norm[n].max()
-        if (y_max == 0.0
-                or (self._normalized and self._abs_height_cutoff is not None
-                    and (y_max*self._norm[1] + self._norm[0]
-                         < self._abs_height_cutoff))):
-            self._logger.debug(f'Skipping fit {n} (rel norm = {y_max:.5f})')
+        # Do not attempt a fit if the normalized data is zero or
+        # entirely below the cutoff
+        y_min = self._y_norm[n].min()
+        y_max = self._y_norm[n].max()
+        y_range = y_max - y_min
+        if y_range <= FLOAT_MIN:
+            y_range = 0.
+        if (not y_range
+                or (self._abs_height_cutoff is not None
+                    and (y_range < self._abs_height_cutoff))):
+            if self._abs_height_cutoff is not None:
+                if self._norm[1]:
+                    y_max *= self._norm[1]
+                y_max += self._norm[0]
+                self._logger.debug(
+                    f'Skipping fit {n} (height = {y_max:.5f})')
+            parameters = deepcopy(self._parameters)
+            for name in self._linear_parameters:
+                if name != 'tmp_normalization_offset_c':
+                    parameters[name].set(value=0)
             if self._code == 'scipy':
+                # Third party modules
+                from asteval import Interpreter
+
                 # Local modules
                 from CHAP.utils.fit import ModelResult
 
-                result = ModelResult(self._model, deepcopy(self._parameters))
-                result.init_params = deepcopy(self._parameters)
+                ast = Interpreter()
+                ast.basesymtable = dict(ast.symtable.items())
+                best_pars = []
+                res_par_indices = []
+                for i, (name, par) in enumerate(parameters.items()):
+                    value = par.value
+                    if par.expr is None:
+                        ast.symtable[name] = value
+                        if par.vary:
+                            best_pars.append(value)
+                            res_par_indices.append(
+                                self._res_par_indices[
+                                    self._res_par_names.index(name)])
+
+                result = ModelResult(
+                   # self._model, self._y[n], deepcopy(self._parameters),
+                   # x=self._x, method=self._method)
+                    self._model, self._y_norm[n], parameters, x=self._x,
+                    method=self._method,
+                    ast=ast, res_par_exprs=self._res_par_exprs,
+                    res_par_indices=res_par_indices,
+                    res_par_names=self._res_par_names, best_pars=best_pars)
             else:
                 # Third party modules
                 from lmfit.model import ModelResult
 
-                result = ModelResult(self._model, deepcopy(self._parameters))
-            result.init_values = {}
-            for name, par in result.init_params.items():
-                result.init_values[name] = par.value
-            result.success = False
+                result = self._model.fit(
+                    self._y_norm[n], parameters, x=self._x,
+                    method=self._method, max_nfev=0)
+                if 'tmp_normalization_offset_c' in parameters:
+                    result.init_fit -= parameters[
+                        'tmp_normalization_offset_c'].value
+                    result.best_fit -= parameters[
+                        'tmp_normalization_offset_c'].value
+                result.aic = 0
+                result.bic = 0
+                result.chisqr = 0
+                result.redchi = 0
             # Renormalize the data and results
+            result.success = True
+            for name in self._linear_parameters:
+                if (name != 'tmp_normalization_offset_c'
+                        and name in ('c', 'intercept')):
+                    result.init_params[name].set(value=self._norm[0])
+                    result.params[name].set(value=self._norm[0])
+                    break
             self._renormalize(n, result)
+            if y_range:
+                self._success_flat[n] = False
+            # Print output or plot
+            if self._print_report:
+                print(result.fit_report(show_correl=False))
+            if self._plot:
+                self._plot_result(
+                    n, result, plot_comp_legends=True,
+                    plot_init=self._plot_init)
             return result
 
         parameters_save = deepcopy(self._parameters)
@@ -3226,7 +1844,7 @@ class FitMap(Fit):
                 else y_max*self._rel_height_cutoff
             use_peaks, _, peak_heights, peak_widths = \
                 self.guess_init_peak(
-                    self._x, self._ymap_norm[n], centers, centers_range,
+                    self._x, self._y_norm[n], centers, centers_range,
                     centers_range_fraction, min_height=min_height, min_width=5)
 
             ast = Interpreter()
@@ -3267,7 +1885,7 @@ class FitMap(Fit):
                 True for par in current_best_values
                 if par in result.params.values())
             # FIX made a flag to propagete best values to the next fit
-            # do not do it by default (add a kwarg to FitMap.fit())
+            # do not do it by default (add a kwarg to Fit.fit())
             #for par in result.params.values():
             #    if par.vary:
             #        current_best_values[par.name] = par.value
@@ -3290,18 +1908,108 @@ class FitMap(Fit):
         if self._print_report:
             print(result.fit_report(show_correl=False))
         if self._plot:
-            dims = np.unravel_index(n, self._map_shape)
-            if self._inv_transpose is not None:
-                dims = tuple(
-                    dims[self._inv_transpose[i]] for i in range(len(dims)))
-            super().plot(
-                result=result, y=np.asarray(self._ymap[dims]),
-                plot_comp_legends=True, skip_init=self._skip_init,
-                title=str(dims))
+            self._plot_result(
+                n, result, plot_comp_legends=True, plot_init=self._plot_init)
 
         if return_result:
             return result
         return None
+
+    def _fit_nonlinear_model(self, x, y, **kwargs):
+        """Perform a nonlinear fit with spipy or lmfit."""
+        def _fit_scipy(x, y, have_bounds, **kwargs):
+            # Third party modules
+            from asteval import Interpreter
+            from scipy.optimize import (
+                leastsq,
+                least_squares,
+            )
+
+            self._ast = Interpreter()
+            self._ast.basesymtable = dict(self._ast.symtable.items())
+            pars_init = []
+            res_par_indices = []
+            for i, (name, par) in enumerate(self._parameters.items()):
+                value = par.value
+                self._res_par_values[i] = value
+                if par.expr is None:
+                    self._ast.symtable[name] = value
+                    if par.vary:
+                        pars_init.append(value)
+                        res_par_indices.append(
+                            self._res_par_indices[
+                                self._res_par_names.index(name)])
+            if have_bounds:
+                bounds = (
+                    [v['min'] for v in self._parameter_bounds.values()],
+                    [v['max'] for v in self._parameter_bounds.values()])
+                if self._method in ('lm', 'leastsq'):
+                    self._method = 'trf'
+                    self._logger.debug(
+                        f'Fit method changed to {self._method} for fit with '
+                        'bounds')
+            else:
+                bounds = (-np.inf, np.inf)
+            lskws = {
+                'ftol': 1.49012e-08,
+                'xtol': 1.49012e-08,
+                'gtol': 10*FLOAT_EPS,
+            }
+            max_nfev = kwargs.get('max_nfev')
+            if self._method == 'leastsq':
+                if max_nfev is not None:
+                    lskws['maxfev'] = max_nfev
+                result = leastsq(
+                    self._residual, pars_init, args=(x, y, res_par_indices),
+                    full_output=True, **lskws)
+            else:
+                if max_nfev is not None:
+                    lskws['max_nfev'] = max_nfev
+                result = least_squares(
+                    self._residual, pars_init, bounds=bounds,
+                    method=self._method, args=(x, y, res_par_indices), **lskws)
+            model_result = ModelResult(
+                self._model, y, self._parameters, x=x, method=self._method,
+                ast=self._ast, res_par_exprs=self._res_par_exprs,
+                res_par_indices=res_par_indices,
+                res_par_names=self._res_par_names, result=result)
+            model_result.max_nfev = lskws.get('maxfev')
+            return model_result
+
+        # Check bounds and prevent initial values at boundaries
+        have_bounds = False
+        self._parameter_bounds = {}
+        for name, par in self._parameters.items():
+            if par.vary:
+                self._parameter_bounds[name] = {
+                    'min': par.min, 'max': par.max}
+                if not have_bounds and (
+                        not np.isinf(par.min) or not np.isinf(par.max)):
+                    have_bounds = True
+        if have_bounds:
+            self._reset_par_at_boundary()
+
+        # Perform the fit
+        if self._mask is not None:
+            x = x[~self._mask]
+            y = np.asarray(y)[~self._mask]
+        if self._code == 'scipy':
+            return _fit_scipy(x, y, have_bounds, **kwargs)
+#        fit_kws = {}
+#        if 'Dfun' in kwargs:
+#            fit_kws['Dfun'] = kwargs.pop('Dfun')
+        model_result  = self._model.fit(
+            y, self._parameters, x=x, method=self._method, #fit_kws=fit_kws,
+            **kwargs)
+        if 'tmp_normalization_offset_c' in self._parameters:
+            model_result.init_fit -= self._parameters[
+                'tmp_normalization_offset_c'].value
+        return model_result
+
+    def _fit_parallel(self, current_best_values, num, n_start, **kwargs):
+        num = min(num, self._map_dim-n_start)
+        for n in range(num):
+            self._fit(n_start+n, current_best_values, **kwargs)
 
     def _fit_with_bounds_check(self, n, current_best_values, **kwargs):
         # Set parameters to current best values, but prevent them from
@@ -3323,8 +2031,7 @@ class FitMap(Fit):
                     elif par.expr is None:
                         par.set(value=self._best_values[i][n])
         self._reset_par_at_boundary()
-        result = self._fit_nonlinear_model(
-            self._x, self._ymap_norm[n], **kwargs)
+        result = self._fit_nonlinear_model(self._x, self._y_norm[n], **kwargs)
         out_of_bounds = False
         for name, par in self._parameter_bounds.items():
             if self._parameters[name].vary:
@@ -3361,7 +2068,7 @@ class FitMap(Fit):
                             par.set(value=self._best_values[i][n])
             self._reset_par_at_boundary()
             result = self._fit_nonlinear_model(
-                self._x, self._ymap_norm[n], **kwargs)
+                self._x, self._y_norm[n], **kwargs)
             out_of_bounds = False
             for name, par in self._parameter_bounds.items():
                 if self._parameters[name].vary:
@@ -3377,35 +2084,100 @@ class FitMap(Fit):
         assert not out_of_bounds
         return result
 
+    def _normalize(self):
+        """Normalize the data and initial parameters."""
+        if self._norm[1]:
+            for name in self._linear_parameters:
+                par = self._parameters[name]
+                if par.expr is None:
+                    value = par.value/self._norm[1]
+                    _min = par.min
+                    _max = par.max
+                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                        _min /= self._norm[1]
+                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                        _max /= self._norm[1]
+                    par.set(value=value, min=_min, max=_max)
+
+    def _plot_result(
+            self, n, result, plot_comp_legends=False, plot_masked_data=True,
+            plot_init=False, **kwargs):
+        """Plot the best fits.
+
+        :param n: Index of flattened map point to plot.
+        :type n: int
+        :param result: Fit result
+        :type result: class:`~CHAP.utils.fit.ModelResult` or
+            lmfit.model.ModelResult.
+        :param plot_comp_legends: Add a legend for the individual
+            model components, defaults to `False`.
+        :type plot_comp_legends: bool, optional
+        :param plot_masked_data: Visually distinguish the masked from
+            the unmasked data, defaults to `True`.
+        :type plot_masked_data: bool, optional
+        :param plot_init:Plot the initial guess, defaults to `True`.
+        :type plot_init: bool, optional
+        :param **kwargs: Additional key, value pairs to pass on
+            directly to the Matplotlib plot function.
+        """
+        # Third party modules
+        from lmfit.models import ExpressionModel
+
+        if self._mask is None:
+            mask = np.zeros(self._x.size).astype(bool)
+            plot_masked_data = False
+        else:
+            mask = self._mask
+        x = self._x[~mask]
+        y = self._y[n][~mask]
+        x_masked = self._x[mask]
+        y_masked = self._y[n][mask]
+        if plot_masked_data:
+            plots = [(x, y, 'b.')]
+            legend = ['data']
+            plots += [(x_masked, y_masked, 'bx')]
+            legend += ['masked data']
+        else:
+            plots = [(x, y, 'b.')]
+            legend = ['data']
+        plots += [(x, self._best_fit_flat[n], 'k-')]
+        legend += ['best fit']
+        if plot_init:
+            plots += [(x[~mask], result.init_fit, 'g-')]
+            legend += ['init']
+        # Create current parameters
+        parameters = deepcopy(self._parameters)
+        for i, name in enumerate(self._best_parameters):
+            parameters[name].set(value=self._best_values_flat[i][n])
+        for component in result.components:
+            if 'tmp_normalization_offset_c' in component.param_names:
+                continue
+            if isinstance(component, ExpressionModel):
+                modelname = component._name.rstrip('_')+f' ({component.expr})'
+            else:
+                prefix = component.prefix.rstrip('_')
+                modelname = prefix + f' ({component._name})' if prefix \
+                    else component._name
+            if len(modelname) > 20:
+                modelname = f'{modelname[0:16]} ...'
+            y = component.eval(params=parameters, x=x)
+            if y is not None:
+                if isinstance(y, (int, float)):
+                    y *= np.ones(x.size)
+                plots += [(x, y, '--')]
+            if plot_comp_legends:
+                legend.append(modelname)
+        quick_plot(
+            tuple(plots), legend=legend, title=f'point {n}', block=True,
+            **kwargs)
+
     def _renormalize(self, n, result):
         self._success_flat[n] = result.success
-        if (hasattr(result, 'init_params')
-                and result.init_params is not None):
-            have_init_params = True
-        else:
-            have_init_params = False
         if result.success:
             self._redchi_flat[n] = np.float64(result.redchi)
-        if self._norm is None or not self._normalized:
-            for i, name in enumerate(self._best_parameters):
-                self._best_errors_flat[i][n] = np.float64(
-                    result.params[name].stderr)
-                self._best_values_flat[i][n] = np.float64(
-                    result.params[name].value)
-                self._best_vary_flat[i][n] = (
-                    result.params[name].vary and result.success)
-                if have_init_params:
-                    self._init_values_flat[i][n] = np.float64(
-                        result.init_params[name].value)
-                else:
-                    self._init_values_flat[i][n] = np.float64(
-                        result.params[name].value)
-            if result.success:
-                self._best_fit_flat[n] = result.best_fit
-        else:
-            for name, par in result.params.items():
-                par.init_value = result.init_params[name].value \
-                    if have_init_params else par.value
+        for name, par in result.params.items():
+            par.init_value = result.init_params[name].value
+            if self._norm[1]:
                 if name in self._linear_parameters:
                     if par.init_value is not None:
                         par.init_value *= self._norm[1]
@@ -3420,20 +2192,258 @@ class FitMap(Fit):
                             if (not np.isinf(par.max)
                                     and abs(par.max) != FLOAT_MIN):
                                 par.max *= self._norm[1]
-            for i, name in enumerate(self._best_parameters):
-                self._best_errors_flat[i][n] = np.float64(
-                    result.params[name].stderr)
-                self._best_values_flat[i][n] = np.float64(
-                    result.params[name].value)
-                self._best_vary_flat[i][n] = (
-                    result.params[name].stderr and result.success)
-                self._init_values_flat[i][n] = np.float64(
-                    result.params[name].init_value)
-            if result.success:
-                self._best_fit_flat[n] = (
+        for i, name in enumerate(self._best_parameters):
+            self._best_errors_flat[i][n] = np.float64(
+                result.params[name].stderr)
+            self._best_values_flat[i][n] = np.float64(
+                result.params[name].value)
+            self._best_vary_flat[i][n] = (
+                result.params[name].stderr and result.success)
+            self._init_values_flat[i][n] = np.float64(
+                result.params[name].init_value)
+        if result.success:
+            if self._norm[1]:
+                result.best_fit = (
                     result.best_fit*self._norm[1] + self._norm[0])
-                if self._plot:
-                    if not self._skip_init:
-                        result.init_fit = (
-                            result.init_fit*self._norm[1] + self._norm[0])
-                    result.best_fit = np.copy(self._best_fit_flat[n])
+            else:
+                result.best_fit += self._norm[0]
+            self._best_fit_flat[n] = result.best_fit
+        if self._plot and self._plot_init:
+            if self._norm[1]:
+                result.init_fit = (
+                    result.init_fit*self._norm[1] + self._norm[0])
+            else:
+                result.init_fit += self._norm[0]
+
+    def _reset_par_at_boundary(self):
+        fraction = 0.02
+        y_range = self._norm[1] if self._norm[1] else 1
+        for name, par in self._parameters.items():
+            if par.vary:
+                value = par.value
+                _min = self._parameter_bounds[name]['min']
+                _max = self._parameter_bounds[name]['max']
+                if np.isinf(_min):
+                    if not np.isinf(_max):
+                        if name in self._linear_parameters:
+                            upp = _max - fraction*y_range
+                        elif not _max:
+                            upp = _max - fraction
+                        else:
+                            upp = _max - fraction*abs(_max)
+                        if value >= upp:
+                            par.set(value=upp)
+                else:
+                    if np.isinf(_max):
+                        if name in self._linear_parameters:
+                            low = _min + fraction*y_range
+                        elif not _min:
+                            low = _min + fraction
+                        else:
+                            low = _min + fraction*abs(_min)
+                        if value <= low:
+                            par.set(value=low)
+                    else:
+                        low = (1.-fraction)*_min + fraction*_max
+                        upp = fraction*_min + (1.-fraction)*_max
+                        if value <= low:
+                            par.set(value=low)
+                        if value >= upp:
+                            par.set(value=upp)
+
+    def _residual(self, pars, x, y, res_par_indices):
+        res = np.zeros((x.size))
+        n_par = len(self._free_parameters)
+        for par, index in zip(pars, res_par_indices):
+            self._res_par_values[index] = par
+        if self._res_par_exprs:
+            for par, name in zip(pars, self._res_par_names):
+                self._ast.symtable[name] = par
+            for expr in self._res_par_exprs:
+                self._res_par_values[expr['index']] = \
+                    self._ast.eval(expr['expr'])
+        for component, num_par in zip(
+                self._model.components, self._res_num_pars):
+            parvalues = self._res_par_values[n_par:n_par+num_par]
+            res += component.func(
+                x, *tuple([parvalues[i] for i in component.func_args_indices]),
+                **component.model_identifiers)
+            n_par += num_par
+        return res - y
+
+    def _setup_fit(self, config):
+        """Setup the fit."""
+        def _setup_parameters_refit(config):
+            # Local modules
+            from CHAP.utils.models import (
+                FitConfig,
+                MultipeakModel,
+            )
+
+            # Expand multipeak model if present
+            found_multipeak = False
+            scale_factor = None
+            # RV FIX do I need multipeak_info here too?
+            for i, model in enumerate(deepcopy(config.models)):
+                if isinstance(model, MultipeakModel):
+                    if found_multipeak:
+                        raise ValueError(
+                            f'Invalid parameter models ({config.models}) '
+                            '(multiple instances of multipeak not allowed)')
+                    if (model.fit_type == 'uniform'
+                            and 'scale_factor' not in self._free_parameters):
+                        raise ValueError(
+                            f'Invalid parameter models ({config.models}) '
+                            '(uniform multipeak fit after unconstrained fit)')
+                    parameters, models = FitProcessor.create_multipeak_model(
+                        model)
+                    if (model.fit_type == 'unconstrained'
+                            and 'scale_factor' in self._free_parameters):
+                        # Third party modules
+                        from asteval import Interpreter
+
+                        scale_factor = self._parameters['scale_factor'].value
+                        self._parameters.pop('scale_factor')
+                        self._free_parameters.remove('scale_factor')
+                        ast = Interpreter()
+                        ast(f'scale_factor = {scale_factor}')
+                    if parameters:
+                        config.parameters += parameters
+                    config.models += models
+                    config.models.pop(i)
+                    found_multipeak = True
+
+            # Check for duplicate model names and create prefixes
+            self._create_prefixes(config.models)
+            parameters = config.parameters
+            for model in config.models:
+                for par in model.parameters:
+                    par.name = model.prefix + par.name
+                parameters += model.parameters
+
+            # Adjust parameters for refit as needed
+            scale_factor_index = \
+                self._best_parameters.index('scale_factor')
+            self._best_errors = np.delete(
+                self._best_errors, scale_factor_index, 0)
+            self._best_parameters.pop(scale_factor_index)
+            self._best_values = np.delete(
+                self._best_values, scale_factor_index, 0)
+            self._best_vary = np.delete(
+                self._best_vary, scale_factor_index, 0)
+            self._init_values = np.delete(
+                self._init_values, scale_factor_index, 0)
+            for par in parameters:
+                name = par.name
+                if name not in self._parameters:
+                    raise ValueError(
+                        f'Unable to match {name} parameter {par} to an '
+                        'existing one')
+                ppar = self._parameters[name]
+                if ppar.expr is not None:
+                    if (scale_factor is not None and 'center' in name
+                            and 'scale_factor' in ppar.expr):
+                        ppar.set(value=ast(ppar.expr), expr='')
+                        value = ppar.value
+                    else:
+                        raise ValueError(
+                            f'Unable to modify {name} parameter {par} '
+                            '(currently an expression)')
+                else:
+                    value = par.value
+                if par.expr is not None:
+                    raise KeyError(
+                        f'Invalid "expr" key in {name} parameter {par}')
+                ppar.set(
+                    value=value, min=par.min, max=par.max, vary=par.vary)
+
+        # Add constant offset for a normalized model
+        if self._result is None and self._norm[0]:
+            # Local modules
+            from CHAP.utils.models import ConstantModel
+
+            model = ConstantModel(
+                model_type='constant',
+                parameters=[{
+                    'name': 'c',
+                    'value': -self._norm[0],
+                    'vary': False,
+                }],
+                prefix='tmp_normalization_offset_'
+            )
+            self.add_model(model)
+
+        # Adjust existing parameters for refit:
+        if config is not None:
+            _setup_parameters_refit(config)
+
+        # Set scipy parameters configuration
+        if self._code == 'scipy':
+            self._res_par_exprs = []
+            self._res_par_indices = []
+            self._res_par_names = []
+            self._res_par_values = []
+            for i, (name, par) in enumerate(self._parameters.items()):
+                self._res_par_values.append(par.value)
+                if par.expr:
+                    self._res_par_exprs.append(
+                        {'expr': par.expr, 'index': i})
+                elif par.vary:
+                    self._res_par_indices.append(i)
+                    self._res_par_names.append(name)
+
+        # Check for uninitialized parameters
+        for name, par in self._parameters.items():
+            if par.expr is None:
+                value = par.value
+                if value is None or np.isinf(value) or np.isnan(value):
+                    if self._norm[1] or name in self._nonlinear_parameters:
+                        self._parameters[name].set(value=1.0)
+                    elif name not in self._model_parameters:
+                        self._parameters[name].set(value=self._norm[1])
+
+    def _setup_fit_model(self, models, parameters):
+        """Setup the fit model."""
+        # Third party modules
+        from sympy import diff
+
+        # Local modules
+        from CHAP.utils.models import PEAK_LIKE_MODELS
+
+        # Check for duplicate model names and create prefixes
+        self._create_prefixes(models)
+
+        # Add the free fit parameters
+        for par in parameters:
+            self.add_parameter(
+                par.model_dump(exclude=('description', 'units')))
+
+        # Add the model functions
+        for model in models:
+            self.add_model(model)
+
+        # Check linearity of free fit parameters
+        for name in reversed(self._parameters):
+            if (name not in (self._linear_parameters +
+                             self._nonlinear_parameters +
+                             self._model_parameters)
+                    and not (model.model_type in PEAK_LIKE_MODELS
+                        and ('height' in name or 'fwhm' in name))):
+                for nname, par in self._parameters.items():
+                    if par.expr is not None:
+                        expr = par.expr.replace('fraction', 'fraction_') \
+                            if 'fraction' in par.expr else par.expr
+                        nnname = 'fraction_' \
+                            if name == 'fraction' else name
+                        if nnname in expr:
+                            if nname in self._nonlinear_parameters:
+                                self._nonlinear_parameters.insert(0, name)
+                                break
+                            else:
+                                raise RuntimeError('not updated and tested')
+                                if diff(expr, nnname, nnname):
+                                    if name not in self._nonlinear_parameters:
+                                        self._nonlinear_parameters.insert(
+                                            0, name)
+                                elif name not in self._linear_parameters:
+                                    self._linear_parameters.insert(0, name)

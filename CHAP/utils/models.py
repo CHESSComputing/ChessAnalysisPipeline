@@ -38,7 +38,7 @@ s2ln2 = np.sqrt(2*np.log(2))
 
 #def constant(x, c=0.5):
 def constant(x, c=0.0):
-    r"""Return a linear function.
+    r"""Return a constant function.
 
     :param c: Constant, defaults to `0`.
     :type c: float, optional
@@ -522,16 +522,12 @@ class FitParameter(CHAPBaseModel):
             nxlinks = [nxlinks]
         if nxlinks:
             data_attrs['__nxlinks__'] = {
-                os.path.basename(p): p for p in nxlinks
-            }
-        if nxlinks:
-            data_attrs['__nxlinks__'] = {
-                os.path.basename(p): p for p in nxlinks
+                os.path.basename(p): p for p in nxlinks[:-1]
             }
         return {
             'attributes': data_attrs,
             'children': {
-                'value': {
+                'values': {
                     'attributes': {
                         'NX_class': 'NXfield',
                         'units': self.units,
@@ -540,7 +536,7 @@ class FitParameter(CHAPBaseModel):
                     'shape': dataset_shape,
                     'chunks': dataset_chunks,
                 },
-                'error': {
+                'errors': {
                     'attributes': {
                         'NX_class': 'NXfield',
                         'units': self.units,

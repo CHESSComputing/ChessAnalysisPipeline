@@ -4,7 +4,7 @@
 
 # System modules
 from logging import getLogger
-from os import path
+import os
 
 # Third party modules
 import numpy as np
@@ -29,6 +29,9 @@ HAVE_HEXRD = True
 #    except ImportError:
 #        raise
 #        HAVE_HEXRD = False
+
+# suppress set_exclusions DeprecatedFunctionError
+os.environ['ACK_DEPRECATED'] = 'true'
 
 POWDER_INTENSITY_CUTOFF = 1.e-8
 
@@ -357,7 +360,7 @@ class Material:
             if sgnum is not None:
                 logger.warning(
                     'Ignore sgnum input when material_file is specified')
-            if not (path.splitext(material_file)[1] in
+            if not (os.path.splitext(material_file)[1] in
                     ('.h5', '.hdf5', '.xtal', '.cif')):
                 raise ValueError(f'Illegal material file {material_file}')
             matl = material.Material(
