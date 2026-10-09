@@ -988,7 +988,6 @@ class SetupProcessor(Processor):
         )
         zarr_pyfai = dict_to_zarr(zarr_pyfai_tree, logger=self.logger)
 
-
         # Get zarr container for corrected datasets
         intg_by_name = {
             intg.name: intg for intg in self.pyfai_config.integrations
@@ -1059,7 +1058,7 @@ class SetupProcessor(Processor):
                     proc.input_data_name)
 
         proc_nxlinks = {}
-        for proc in self.correction_config.corrections + self.fit_config.fits:
+        for proc in self.correction_config.corrections:
             # For nxlinks use the first source to find an integration
             # ancestor (all sources in a multi-source correction/fit share
             # the same chain type).
@@ -1081,6 +1080,12 @@ class SetupProcessor(Processor):
                         for coord in intg_by_name[intg_ancestor].result_coords
                     ]
                 )
+        for proc in self.fit_config.fits:
+            # For nxlinks only need links to the fitted intensity axes
+            # FIX what about cake data? We need to add those coords
+            # that will be part of the fit map dimensions
+            proc_nxlinks[proc.name] = dim_paths
+
         zarr_corr = dict_to_zarr(
             self.correction_config.zarr_tree(
                 self.dataset_shape, self.dataset_chunks,

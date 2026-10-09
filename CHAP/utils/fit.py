@@ -800,9 +800,9 @@ class UpdateValuesProcessor(Processor):
                     param_values = init_params['values']
                     param_errors = None
                 values.extend([
-                    {'path': f'{param_path}/value',
+                    {'path': f'{param_path}/values',
                      'data': param_values},
-                    {'path': f'{param_path}/error',
+                    {'path': f'{param_path}/errors',
                      'data': param_errors},
                     {'path': f'{param_path}/initial',
                      'data': init_params['values']},

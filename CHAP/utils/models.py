@@ -531,7 +531,7 @@ class FitParameter(CHAPBaseModel):
         return {
             'attributes': data_attrs,
             'children': {
-                'value': {
+                'values': {
                     'attributes': {
                         'NX_class': 'NXfield',
                         'units': self.units,
@@ -540,7 +540,7 @@ class FitParameter(CHAPBaseModel):
                     'shape': dataset_shape,
                     'chunks': dataset_chunks,
                 },
-                'error': {
+                'errors': {
                     'attributes': {
                         'NX_class': 'NXfield',
                         'units': self.units,
