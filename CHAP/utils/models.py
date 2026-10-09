@@ -522,11 +522,7 @@ class FitParameter(CHAPBaseModel):
             nxlinks = [nxlinks]
         if nxlinks:
             data_attrs['__nxlinks__'] = {
-                os.path.basename(p): p for p in nxlinks
-            }
-        if nxlinks:
-            data_attrs['__nxlinks__'] = {
-                os.path.basename(p): p for p in nxlinks
+                os.path.basename(p): p for p in nxlinks[:-1]
             }
         return {
             'attributes': data_attrs,

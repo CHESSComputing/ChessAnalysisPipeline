@@ -1081,10 +1081,23 @@ class SetupProcessor(Processor):
                     ]
                 )
         for proc in self.fit_config.fits:
-            # For nxlinks only need links to the fitted intensity axes
-            # FIX what about cake data? We need to add those coords
-            # that will be part of the fit map dimensions
-            proc_nxlinks[proc.name] = dim_paths
+            # For nxlinks use the first source to find an integration
+            # ancestor (all sources in a multi-source correction/fit share
+            # the same chain type).
+            # Omit the link to src_signal for fitting
+            first_src = (proc.input_data_name[0]
+                         if isinstance(proc.input_data_name, list)
+                         else proc.input_data_name)
+            intg_ancestor = _resolve_intg_ancestor(first_src)
+            if intg_ancestor is None:
+                continue
+            proc_nxlinks[proc.name] = (
+                dim_paths
+                + [
+                    f'{intg_ancestor}/data/{coord}'
+                    for coord in intg_by_name[intg_ancestor].result_coords
+                ]
+            )
 
         zarr_corr = dict_to_zarr(
             self.correction_config.zarr_tree(
@@ -1433,9 +1446,9 @@ class UpdateValuesProcessor(Processor):
                     intg.init_placeholder_results(ais)
                 if intg._placeholder_result is not None:
                     coords = intg._placeholder_result.get('coords', {})
-                    coord_values = list(coords.values())
-                    if coord_values:
-                        coord_outputs[intg.name] = coord_values[0]['data']
+                    coord_outputs[intg.name] = {}
+                    for k, v in coords.items():
+                        coord_outputs[intg.name][k] = v['data']
 
             pending_intgs = still_pending_intgs
 
@@ -1521,10 +1534,13 @@ class UpdateValuesProcessor(Processor):
                     continue
                 signal = integrated_outputs[fit_cfg.input_data_name]
                 fit_input = [PipelineData(name='signal', data=signal)]
-                coords = coord_outputs.get(fit_cfg.input_data_name)
-                if coords is not None:
-                    fit_input.append(
-                        PipelineData(name='coordinates', data=coords))
+                x_dim = signal.shape[-1]
+                coords = coord_outputs.get(fit_cfg.input_data_name, {})
+                for x in coords.values():
+                    if x.size == x_dim:
+                        fit_input.append(
+                            PipelineData(name='coordinates', data=x))
+                        break
                 fit_result = self.setup_pipelineitem(
                     UtilsFitProcessor(config=fit_cfg)
                 ).process(fit_input)
