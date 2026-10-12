@@ -30,9 +30,6 @@ HAVE_HEXRD = True
 #        raise
 #        HAVE_HEXRD = False
 
-# suppress set_exclusions DeprecatedFunctionError
-os.environ['ACK_DEPRECATED'] = 'true'
-
 POWDER_INTENSITY_CUTOFF = 1.e-8
 
 logger = getLogger(__name__)
@@ -294,7 +291,7 @@ class Material:
         matl.latticeParameters = lattice_parameters
         matl.dmin = valWUnit('lp', 'length',  dmin_angstroms, 'angstrom')
         nhkls = len(matl.planeData.exclusions)
-        matl.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
+        matl.planeData.exclusions = np.zeros(nhkls, dtype=bool)
         return matl
 
         if material_file is None:
@@ -348,7 +345,7 @@ class Material:
                     exclusion or i >= len(powder_intensity)
                     or powder_intensity[i] < POWDER_INTENSITY_CUTOFF
                     for i, exclusion in enumerate(exclusions)]
-                matl.planeData.set_exclusions(exclusions)
+                matl.planeData.exclusions = exclusions
                 logger.debug(
                     f'powder_intensity = {matl.planeData.powder_intensity}')
                 logger.debug(f'exclusions = {matl.planeData.exclusions}')
@@ -374,7 +371,7 @@ class Material:
                 exclusion or i >= len(powder_intensity)
                 or powder_intensity[i] < POWDER_INTENSITY_CUTOFF
                 for i, exclusion in enumerate(exclusions)]
-            matl.planeData.set_exclusions(exclusions)
+            matl.planeData.exclusions = exclusions
             logger.debug(
                 f'powder_intensity = {matl.planeData.powder_intensity}')
             logger.debug(f'exclusions = {matl.planeData.exclusions}')

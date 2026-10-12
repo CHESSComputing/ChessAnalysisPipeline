@@ -65,7 +65,7 @@ def get_peak_locations(ds, tth):
 #    material.latticeParameters = lattice_parameters
 #    material.dmin = valWUnit('lp', 'length',  dmin, 'angstrom')
 #    nhkls = len(material.planeData.exclusions)
-#    material.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
+#    material.planeData.exclusions = np.zeros(nhkls, dtype=bool)
 #
 #    return material
 
