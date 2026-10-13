@@ -1729,7 +1729,7 @@ def baseline_arPLS(
     diag = np.ones((num-2))
     D = spdiags([diag, -2*diag, diag], [0, -1, -2], num, num-2)
 
-    H = lam * D.dot(D.T)
+    H = (lam * D.dot(D.T)).tocsr()
 
     if w is None:
         w = np.ones(num)
@@ -1740,7 +1740,8 @@ def baseline_arPLS(
 
     exp_max = int(np.log(sys.float_info.max))
     while error > tol and num_iter < max_iter:
-        z = linalg.spsolve(W + H, W * y)
+        W_csr = W.tocsr()
+        z = linalg.spsolve(W_csr + H, W_csr * y)
         d = y - z
         dn = d[d < 0]
         if not dn.size:

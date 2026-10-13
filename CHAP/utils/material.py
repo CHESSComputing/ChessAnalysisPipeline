@@ -4,7 +4,7 @@
 
 # System modules
 from logging import getLogger
-from os import path
+import os
 
 # Third party modules
 import numpy as np
@@ -291,7 +291,7 @@ class Material:
         matl.latticeParameters = lattice_parameters
         matl.dmin = valWUnit('lp', 'length',  dmin_angstroms, 'angstrom')
         nhkls = len(matl.planeData.exclusions)
-        matl.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
+        matl.planeData.exclusions = np.zeros(nhkls, dtype=bool)
         return matl
 
         if material_file is None:
@@ -345,7 +345,7 @@ class Material:
                     exclusion or i >= len(powder_intensity)
                     or powder_intensity[i] < POWDER_INTENSITY_CUTOFF
                     for i, exclusion in enumerate(exclusions)]
-                matl.planeData.set_exclusions(exclusions)
+                matl.planeData.exclusions = exclusions
                 logger.debug(
                     f'powder_intensity = {matl.planeData.powder_intensity}')
                 logger.debug(f'exclusions = {matl.planeData.exclusions}')
@@ -357,7 +357,7 @@ class Material:
             if sgnum is not None:
                 logger.warning(
                     'Ignore sgnum input when material_file is specified')
-            if not (path.splitext(material_file)[1] in
+            if not (os.path.splitext(material_file)[1] in
                     ('.h5', '.hdf5', '.xtal', '.cif')):
                 raise ValueError(f'Illegal material file {material_file}')
             matl = material.Material(
@@ -371,7 +371,7 @@ class Material:
                 exclusion or i >= len(powder_intensity)
                 or powder_intensity[i] < POWDER_INTENSITY_CUTOFF
                 for i, exclusion in enumerate(exclusions)]
-            matl.planeData.set_exclusions(exclusions)
+            matl.planeData.exclusions = exclusions
             logger.debug(
                 f'powder_intensity = {matl.planeData.powder_intensity}')
             logger.debug(f'exclusions = {matl.planeData.exclusions}')

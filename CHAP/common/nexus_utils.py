@@ -8,6 +8,76 @@
 from CHAP.processor import Processor
 
 
+def nxs_match(nxobject_a, nxobject_b, rtol=1e-05, atol=1e-08, equal_nan=False):
+    """Return true if the two nxobjects "match" -- they must be
+    exactly identical, with one exception: any attributes or fields
+    related to code version or file datetime may differ and still be
+    considered a "match". Values in corresponding data arrays between
+    nxobjects are compared with
+    [`np.allclose`](https://numpy.org/doc/stable/reference/generated/numpy.allclose.html).
+
+    :param nxobject_a, nxobject_b: Input NeXus objects to compare.
+    :type nxobject_a, nxobject_b: nexus.nexusformat.NXobject
+    :param rtol: Relative tolerance parameter used with `np.allclose`.
+    :type rtol: array_like
+    :param atol: Absolute tolerance parameter used with `np.allclose`.
+    :type atol: array_like
+    :param equal_nan: Whether to compare NaN’s as equal. Used with
+        `np.allclose`.
+    :type equal_nan: bool
+    :rtype: bool
+    """
+    # Third party modules
+    import numpy as np
+    from nexusformat.nexus import NXfield, NXgroup
+
+    _SKIP_ATTRS = frozenset({
+        'date', 'datetime', 'timestamp',
+        'file_time', 'file_update_time',
+        'version', 'program_version', 'CHAP_version',
+    })
+    _SKIP_FIELDS = frozenset({
+        'start_time', 'end_time', 'duration', 'timestamp',
+        'program_name', 'program_version', 'configuration',
+    })
+
+    def _filtered_attrs(obj):
+        return {k: v for k, v in obj.attrs.items()
+                if k not in _SKIP_ATTRS}
+
+    def _match(a, b):
+        if type(a) is not type(b):
+            return False
+        a_attrs = _filtered_attrs(a)
+        b_attrs = _filtered_attrs(b)
+        if set(a_attrs) != set(b_attrs):
+            return False
+        for k, va in a_attrs.items():
+            vb = b_attrs[k]
+            if isinstance(va, np.ndarray):
+                if not np.allclose(va, vb, rtol=rtol, atol=atol, equal_nan=equal_nan):
+                    return False
+            elif va != vb:
+                return False
+        if isinstance(a, NXfield):
+            if a.shape != b.shape or a.dtype != b.dtype:
+                return False
+            return np.allclose(
+                a.nxdata, b.nxdata, rtol=rtol, atol=atol, equal_nan=equal_nan
+            )
+        if isinstance(a, NXgroup):
+            a_keys = {k for k in a.keys() if k not in _SKIP_FIELDS}
+            b_keys = {k for k in b.keys() if k not in _SKIP_FIELDS}
+            if a_keys != b_keys:
+                return False
+            for k in a_keys:
+                if not _match(a[k], b[k]):
+                    return False
+        return True
+
+    return _match(nxobject_a, nxobject_b)
+
+
 class NexusMakeLinkProcessor(Processor):
     """Processor to run
     `makelink <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup.makelink>`__

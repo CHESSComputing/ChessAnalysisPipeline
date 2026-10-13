@@ -1235,12 +1235,6 @@ class MapProcessor(Processor):
                                       *independent_dimensions[i].shape[1:]),
                             chunks=(1, *independent_dimensions[i].shape[1:])
                         )
-            else:
-                nxentry.independent_dimensions.index = NXfield(
-                    np.arange(independent_dimensions[0].size), 'index',
-                    maxshape=(None,),
-                    chunks=(1,)
-                )
         else:
             for i, dim in enumerate(self.config.independent_dimensions):
                 nxentry.independent_dimensions[dim.label] = NXfield(
@@ -1253,6 +1247,14 @@ class MapProcessor(Processor):
                               *independent_dimensions[i].shape[1:]),
                     chunks=(1, *independent_dimensions[i].shape[1:])
                 )
+        if (self.config.independent_dimensions
+                and self.config.experiment_type in ('GIWAXS', 'SAXSWAXS')
+                and 'index' not in nxentry.independent_dimensions):
+            nxentry.independent_dimensions.index = NXfield(
+                np.arange(independent_dimensions[0].size), 'index',
+                maxshape=(None,),
+                chunks=(1,)
+            )
 
         # Set up scalar data NXdata group
         # (add the constant independent dimensions)

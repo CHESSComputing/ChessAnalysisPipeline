@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""Test functions for the Tomo workflow."""
+"""pytest-style unittests for CHAP.tomo.processor module."""
 
 # System modules
 import os
@@ -27,7 +25,7 @@ class TestTomo:
 
     def test_id3b(self):
         run_config = {
-            'root': 'tests/tomo',
+            'root': 'CHAP/test/tomo',
             'inputdir': 'input',
             'interactive': False,
             'log_level': 'WARNING'}
