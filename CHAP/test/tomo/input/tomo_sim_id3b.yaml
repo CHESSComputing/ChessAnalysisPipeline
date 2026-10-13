@@ -1,0 +1,7 @@
+station: id3b
+sample_type: hollow_cube
+sample_size:
+- 1.0
+wall_thickness: 0.2
+theta_step: 1.0
+slit_size: 2.0

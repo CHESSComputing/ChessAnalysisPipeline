@@ -4,30 +4,58 @@ on:
   - push
   - pull_request
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   unittests:
+    name: Run ${{ matrix.env-name }}
     runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        shell: bash -l {0}
 
-    container:
-      image: python:3.11
+    strategy:
+      fail-fast: false 
+      matrix:
+        python-version: ["3.11", "3.14.8"]
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-    # Maybe faster than using container: image: python:3.11?
-    # - uses: actions/setup-python@v5
-    #   with:
-    #     python-version: '3.11'
+    - name: Calculate Cache Key
+      id: get-date
+      run: echo "today=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+    - name: Set up Conda Environment
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+        auto-activate-base: true
+        activate-environment: ""
+        use-mamba: true
+        cache-environment: true
+        cache-environment-key: conda-${{ runner.os }}-${{ matrix.python-version }}-${{ steps.get-date.outputs.today }}-${{ hashFiles('CHAP/test/requirements-*.txt') }}
+
+    - name: Install Conda-only packages
+      run: |
+        conda install -c conda-forge tomopy==1.15.3
+        conda install -c conda-forge -c hexrd hexrd==0.10.6
+        conda list
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        pip install -r CHAP/test/requirements-${{ matrix.python-version }}.txt
         sed -i "s/PACKAGE_VERSION/0.0.0/" setup.py
+        sed -i "s/PACKAGE_VERSION/0.0.0/" CHAP/__init__.py
         pip install -e .
-        pip install -r CHAP/test/requirements.txt
+        conda list
 
-    - name: Run CHAP unittests
-      run: python -m unittest CHAP.test
-
-    - name: Run CHAP pytests
-      run: pytest CHAP/test/ --ignore=CHAP/test/saxswaxs/server/
+    - name: Run CHAP tests
+      run: |
+        python -m unittest CHAP.test
+        pytest CHAP/test/ --ignore=CHAP/test/saxswaxs/server/

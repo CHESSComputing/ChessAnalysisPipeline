@@ -20,7 +20,6 @@ from typing import (
     Annotated,
     Optional,
 )
-import tkinter as tk
 
 # Third party modules
 from json import loads
@@ -1540,13 +1539,13 @@ class TomoReduceProcessor(Processor):
                     config={'models': [model], 'method': 'trf'},
                     **self.run_config)
                 parameters = bounds_fit.best_values
-                row_low_fit = parameters.get('center1', None)
-                row_upp_fit = parameters.get('center2', None)
-                sig_low = parameters.get('sigma1', None)
-                sig_upp = parameters.get('sigma2', None)
-                have_fit = (bounds_fit.success and row_low_fit is not None
-                    and row_upp_fit is not None and sig_low is not None
-                    and sig_upp is not None
+                row_low_fit = parameters.get('center1', [None])[0]
+                row_upp_fit = parameters.get('center2', [None])[0]
+                sig_low = parameters.get('sigma1', [None])[0]
+                sig_upp = parameters.get('sigma2', [None])[0]
+                have_fit = (bounds_fit.success[0]
+                    and None not in (
+                        row_low_fit, row_upp_fit, sig_low, sig_upp)
                     and 0 <= row_low_fit < row_upp_fit <= row_sum.size
                     and (sig_low+sig_upp) / (row_upp_fit-row_low_fit) < 0.1)
                 if num_tomo_stacks == 1:

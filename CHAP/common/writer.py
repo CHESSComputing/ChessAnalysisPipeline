@@ -664,12 +664,13 @@ class NexusValuesWriter(Writer):
         with NXFile(self.filename, 'a') as nxroot:
             for d in data:
                 try:
-                    self.nxs_writer(
-                        nxroot=nxroot,
-                        path=os.path.join(self.path_prefix, d['path']),
-                        idx=d.get('idx', self.idx_slice._slice),
-                        data=d['data']
-                    )
+                    if d['data'] is not None:
+                        self.nxs_writer(
+                            nxroot=nxroot,
+                            path=os.path.join(self.path_prefix, d['path']),
+                            idx=d.get('idx', self.idx_slice._slice),
+                            data=d['data']
+                        )
                 except Exception as exc:
                     self.logger.error(exc)
 
@@ -940,12 +941,13 @@ class ZarrValuesWriter(Writer):
         for d in self.get_pipelinedata_item(data, remove=self.remove):
             try:
                 self.logger.info(f'd = {d}')
-                self.zarr_writer(
-                    zarrfile=zarrfile,
-                    path=os.path.join(self.path_prefix, d['path']),
-                    idx=d.get('idx', self.idx_slice._slice),
-                    data=d['data']
-                )
+                if d['data'] is not None:
+                    self.zarr_writer(
+                        zarrfile=zarrfile,
+                        path=os.path.join(self.path_prefix, d['path']),
+                        idx=d.get('idx', self.idx_slice._slice),
+                        data=d['data']
+                    )
             except Exception as exc:
                 self.logger.error(exc)
 
