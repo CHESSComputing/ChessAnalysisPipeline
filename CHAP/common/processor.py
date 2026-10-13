@@ -1248,6 +1248,7 @@ class MapProcessor(Processor):
                     chunks=(1, *independent_dimensions[i].shape[1:])
                 )
         if (self.config.independent_dimensions
+                and self.config.experiment_type in ('GIWAXS', 'SAXSWAXS')
                 and 'index' not in nxentry.independent_dimensions):
             nxentry.independent_dimensions.index = NXfield(
                 np.arange(independent_dimensions[0].size), 'index',
