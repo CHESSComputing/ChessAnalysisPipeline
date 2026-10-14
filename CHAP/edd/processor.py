@@ -3713,9 +3713,6 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
 
             # Insert the peaks omitted from the fit due to
             # find_peak_cutoff
-            amplitudes_vary = np.asarray(fit_results['amplitudes_vary'])
-            if num_points > 1:
-                amplitudes_vary = np.moveaxis(amplitudes_vary, -1, 0)
             insert_peak_indices = [
                 vv-ii for ii, vv in enumerate(
                     i for i, v in enumerate(use_peaks) if not v)]
