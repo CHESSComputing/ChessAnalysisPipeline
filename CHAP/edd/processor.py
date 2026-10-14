@@ -3319,25 +3319,29 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
             # Setup the NXdata object under NXdetector for the
             # detector wide peak fitting results
             shape = det_nxdata.intensity.shape
-            det_nxdata.best_fit = NXfield(
-                shape=shape, dtype=np.float64,
-                maxshape=(None, *shape[1:]), chunks=(1, *shape[1:]))
-            det_nxdata.included_peaks = NXfield(
-                shape=[shape[0], len(hkls_fit)], dtype=bool,
-                maxshape=(None, *shape[1:]), chunks=(1, *shape[1:]))
-            det_nxdata.included_peaks.attrs['hkls'] = dumps(
-                peak_fit_info.get('hkls', ''))
-            det_nxdata.included_peaks.attrs['use_peaks'] = peak_fit_info.get(
-                'use_peaks')
-            det_nxdata.residual = NXfield(
-                shape=shape, dtype=np.float64,
-                maxshape=(None, *shape[1:]), chunks=(1, *shape[1:]))
-            det_nxdata.redchi = NXfield(
-                shape=[shape[0]], dtype=np.float64,
-                maxshape=(None,), chunks=(1,))
-            det_nxdata.success = NXfield(
-                shape=[shape[0]], dtype='bool',
-                maxshape=(None,), chunks=(1,))
+            for fit_type in {'uniform', 'unconstrained'}:
+                nxdetector[f'data_{fit_type}'] = NXdata()
+                ddet_nxdata = nxdetector[f'data_{fit_type}']
+                ddet_nxdata.best_fit = NXfield(
+                    shape=shape, dtype=np.float64,
+                    maxshape=(None, *shape[1:]), chunks=(1, *shape[1:]))
+                ddet_nxdata.included_peaks = NXfield(
+                    shape=[shape[0], len(hkls_fit)], dtype=bool,
+                    maxshape=(None, *shape[1:]), chunks=(1, *shape[1:]))
+                ddet_nxdata.included_peaks.attrs['hkls'] = dumps(
+                    peak_fit_info.get('hkls', ''))
+                ddet_nxdata.included_peaks.attrs['use_peaks'] = \
+                    peak_fit_info.get('use_peaks')
+                ddet_nxdata.residual = NXfield(
+                    shape=shape, dtype=np.float64,
+                    maxshape=(None, *shape[1:]), chunks=(1, *shape[1:]))
+                ddet_nxdata.redchi = NXfield(
+                    shape=[shape[0]], dtype=np.float64,
+                    maxshape=(None,), chunks=(1,))
+                ddet_nxdata.success = NXfield(
+                    shape=[shape[0]], dtype='bool',
+                    maxshape=(None,), chunks=(1,))
+
 
             # Setup the NXcollection objects for the per material peak
             # fitting results
@@ -3676,10 +3680,10 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 material_names_used)
 
             # Perform a component-wise uniform fit
-            fit_results_uniform = {}
+            component_hkl_indices = {}
             if num_peak > 1:
                 for material_name in set(material_names):
-                    component_mask_ranges, component_hkl_indices, _ = \
+                    component_mask_ranges, hkl_indices, _ = \
                         select_mask_and_hkls(
                             energies_masked, mean_data_masked, hkls_used,
                             ds_used, detector.tth_calibrated,
@@ -3689,27 +3693,24 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                             detector_id=detector.get_id(),
                             label='Sum of spectra in the map ({material_name})',
                             interactive=False)
-                    component_mask = np.zeros(
-                        (energies_masked.size)).astype(bool)
-                    indices = np.arange(energies_masked.size, dtype=np.int32)
-                    for min_, max_ in component_mask_ranges:
-                        component_mask = np.logical_or(
-                            component_mask,
-                            np.logical_and(indices >= min_, indices < max_))
-                    self.logger.info(f'Fitting detector {detector.get_id()} '
-                                     f'for the {material_name} component...')
-                    fit_results_uniform[material_name] = get_spectra_fits(
-                        np.squeeze(intensities_masked), energies_masked,
-                        peak_locations_used[component_hkl_indices], detector,
-                        fit_type='uniform', mask=~component_mask,
-                        max_nfev=self.config.max_nfev,
-                        num_proc=self.config.num_proc, **self.run_config)
-                    self.logger.info('... done')
+                    component_hkl_indices[material_name] = hkl_indices
+                self.logger.info(
+                    f'Fitting detector {detector.get_id()} (uniform)...')
+                fit_results_uniform = get_spectra_fits(
+                    np.squeeze(intensities_masked), energies_masked,
+                    peak_locations_used, detector, fit_type='uniform',
+                    component_hkl_indices=component_hkl_indices,
+                    max_nfev=self.config.max_nfev,
+                    num_proc=self.config.num_proc, **self.run_config)
+                self.logger.info('... done')
+                amplitudes_vary_uniform = np.asarray([
+                    fit_results['best_vary'][f'peak{i+1}_amplitude']
+                    for i in range(num_peak)])
 
             # FIX for multiple materials
-            if len(component_strains) == 1 and 'eta' in detector.attrs:
-                normal_strains.append(strains)
-                det_angles.append(detector.attrs['eta'])
+#            if len(component_strains) == 1 and 'eta' in detector.attrs:
+#                normal_strains.append(strains)
+#                det_angles.append(detector.attrs['eta'])
 
             # Insert the peaks omitted from the fit due to
             # find_peak_cutoff
@@ -3719,6 +3720,10 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
             amplitudes_vary = np.insert(
                 np.moveaxis(amplitudes_vary, -1, 0), insert_peak_indices,
                 [False], axis=-1)
+            if num_peak > 1:
+                amplitudes_vary_uniform = np.insert(
+                    np.moveaxis(amplitudes_vary_uniform, -1, 0),
+                    insert_peak_indices, [False], axis=-1)
 
             # Remap the results if peaks where masked
             best_fits_masked = fit_results['best_fits']
@@ -3731,6 +3736,17 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 residuals = np.zeros(map_shape)
                 best_fits[:,mask_used] = best_fits_masked
                 residuals[:,mask_used] = residuals_masked
+            if num_peak > 1:
+                best_fits_uniform_masked = fit_results_uniform['best_fits']
+                residuals_uniform_masked = fit_results_uniform['residuals']
+                if all(use_peaks):
+                    best_fits_uniform = best_fits_uniform_masked
+                    residuals_uniform = residuals_uniform_masked
+                else:
+                    best_fits_uniform = np.zeros(map_shape)
+                    residuals_uniform = np.zeros(map_shape)
+                    best_fits_uniform[:,mask_used] = best_fits_uniform_masked
+                    residuals_uniform[:,mask_used] = residuals_uniform_masked
 
             # Store results as full arrays (leading axis = num_points)
             det_id = detector.get_id()
@@ -3738,6 +3754,9 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
             results.update({
                 f'{path}/intensity': nxdata.nxsignal.nxdata[:,mask],
                 f'{path}/norm': intensity_norms,
+            })
+            path = f'{det_id}/data_unconstrained'
+            results.update({
                 f'{path}/best_fit': best_fits,
                 f'{path}/included_peaks': amplitudes_vary,
                 f'{path}/residual': residuals,
@@ -3745,18 +3764,26 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 f'{path}/success': fit_results['success'],
             })
             if num_peak > 1:
-                for material_name, result_uniform \
-                        in fit_results_uniform.items():
-                    path = f'{det_id}/{material_name}/uniform'
-                    results.update({
-                        f'{path}/strain': result_uniform['strain'],
-                    })
+                path = f'{det_id}/data_uniform'
+                results.update({
+                    f'{path}/best_fit': best_fits_uniform,
+                    f'{path}/included_peaks': amplitudes_vary_uniform,
+                    f'{path}/residual': residuals_uniform,
+                    f'{path}/redchi': fit_results_uniform['redchis'],
+                    f'{path}/success': fit_results_uniform['success'],
+                })
             for material_name, component_strain in component_strains.items():
                 path = f'{det_id}/{material_name}/unconstrained'
                 results.update({
                     f'{path}/strain': component_strain['mean'],
                     f'{path}/strain_stdev': component_strain['stdev'],
                 })
+                if num_peak > 1:
+                    path = f'{det_id}/{material_name}/uniform'
+                    results.update({
+                        f'{path}/strain':
+                            fit_results_uniform['strain'][material_name],
+                    })
             for j, (hkl, material_name) in enumerate(zip(
                     hkls[use_peaks], material_names[use_peaks])):
                 hkl_name = '_'.join(str(hkl)[1:-1].split(' '))

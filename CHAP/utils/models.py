@@ -1078,6 +1078,8 @@ class MultipeakModel(CHAPBaseModel):
     :ivar peak_models: Type of peaks, defaults to `'gaussian'`.
     :vartype peak_models: Literal['gaussian', 'lorentzian', 'pvoigt'],
         optional.
+    :ivar prefix: Model prefix, defaults to `''`.
+    :vartype prefix: str, optional
     """
 
     model_type: Literal['multipeak']
@@ -1089,6 +1091,7 @@ class MultipeakModel(CHAPBaseModel):
     fwhm_min: Optional[confloat(allow_inf_nan=False)] = None
     fwhm_max: Optional[confloat(allow_inf_nan=False)] = None
     peak_models: Literal['gaussian', 'lorentzian', 'pvoigt'] = 'gaussian'
+    prefix: Optional[str] = ''
 
 
 class FitConfig(CHAPBaseModel):
