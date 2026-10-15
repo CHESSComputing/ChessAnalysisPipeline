@@ -81,6 +81,7 @@ setuptools.setup(
         'console_scripts': [
             'CHAP = CHAP.runner:main',
             'saxswaxs-server = CHAP.saxswaxs.server.server:run',
+            'xrf-map = CHAP.xrf.raw_data_cli:run',
         ],
     },
     classifiers=[
