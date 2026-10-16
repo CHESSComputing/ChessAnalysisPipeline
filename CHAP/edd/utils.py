@@ -1269,7 +1269,7 @@ def get_rolling_sum_spectra(
 
 def get_spectra_fits(
         spectra, energies, peak_locations, detector, mask=None,
-        fit_type='unconstrained', **kwargs):
+        fit_type='unconstrained', component_hkl_indices=None, **kwargs):
     """Return the fit results for the map of spectra provided.
 
     :param spectra: Intensity spectra to fit.
@@ -1280,11 +1280,14 @@ def get_spectra_fits(
     :type peak_locations: list[float]
     :param detector: MCA detector element configuration.
     :type detector: MCAElementStrainAnalysisConfig
-    :ivar mask: Mask to apply to the data during fitting (boolean
+    :param mask: Mask to apply to the data during fitting (boolean
         array, `True` meaning mask in the fit).
-    :param mask: numpy.ndarray, optional
+    :type mask: numpy.ndarray, optional
     :param fit_type: Type of fit, defaults to `'unconstrained'`.
     :type fit_type: Literal['uniform', 'unconstrained'], optional
+    :param component_hkl_indices: The component names and its peak
+        indices in peak_locations for individual components.
+    :type component_hkl_indices: dict[str, list[int]], optional
     :returns: The best fit parameters and their errors and vary
         properties, uniform strains, best fits, residuals between the
         best fits and the input spectra, reduced chi, and fit success
@@ -1297,6 +1300,9 @@ def get_spectra_fits(
     # Local modules
     from CHAP.pipeline import PipelineData
     from CHAP.utils.fit import FitProcessor
+
+    if component_hkl_indices is None:
+        component_hkl_indices = {}
 
     # Construct the fit model
     models = []
@@ -1313,16 +1319,28 @@ def get_spectra_fits(
         for peak in backgroundpeaks:
             peak.prefix = f'bkgd_{peak.prefix}'
         models += backgroundpeaks
-    models.append(
-        {'model_type': 'multipeak', 'centers': list(peak_locations),
-         'fit_type': fit_type, 'peak_models': detector.peak_models,
-         'centers_range': detector.centers_range,
-         'centers_range_fraction': detector.centers_range_fraction,
-         'fwhm_min': detector.fwhm_min, 'fwhm_max': detector.fwhm_max})
+    num_component = len(component_hkl_indices)
+    if num_component > 1:
+        for material_name, hkl_indices in component_hkl_indices.items():
+            models.append(
+                {'model_type': 'multipeak',
+                 'centers': list(peak_locations[hkl_indices]),
+                 'fit_type': fit_type, 'peak_models': detector.peak_models,
+                 'centers_range': detector.centers_range,
+                 'centers_range_fraction': detector.centers_range_fraction,
+                 'fwhm_min': detector.fwhm_min, 'fwhm_max': detector.fwhm_max,
+                 'prefix': f'{material_name}_'})
+    else:
+        models.append(
+            {'model_type': 'multipeak',
+             'centers': list(peak_locations),
+             'fit_type': fit_type, 'peak_models': detector.peak_models,
+             'centers_range': detector.centers_range,
+             'centers_range_fraction': detector.centers_range_fraction,
+             'fwhm_min': detector.fwhm_min, 'fwhm_max': detector.fwhm_max})
     config = {
         'abs_height_cutoff': detector.abs_height_cutoff,
 #        'code': 'lmfit',
-        'force_fitmap': True,
         'models': models,
 #        'plot': True,
 #        'print_report': True,
@@ -1342,6 +1360,21 @@ def get_spectra_fits(
     if mask is not None:
         data.append(PipelineData(name='mask', data=mask))
     fit = FitProcessor.run(data=data, config=config, **kwargs)
+    fit_strain = None
+    if fit_type == 'uniform' and len(peak_locations) > 1:
+        if num_component > 1:
+            fit_strain = {}
+            for name in component_hkl_indices:
+                fit_strain[name] = {
+                    'value': 1 - fit.best_values[f'{name}_scale_factor'],
+                    'error': fit.best_errors[f'{name}_scale_factor'],
+                }
+        else:
+            fit_strain = {
+                str(next(iter(component_hkl_indices))):
+                    {'value': 1 - fit.best_values['scale_factor'],
+                     'error': fit.best_errors['scale_factor']}
+            }
     return {
         'best_errors': fit.best_errors,
         'best_fits': fit.best_fit,
@@ -1350,6 +1383,5 @@ def get_spectra_fits(
         'residuals': fit.residual,
         'redchis': fit.redchi,
         'success': fit.success,
-        'strain': 1 - fit.best_values['scale_factor']
-            if fit_type == 'uniform' and len(peak_locations) > 1 else None,
+        'strain': fit_strain,
     }
