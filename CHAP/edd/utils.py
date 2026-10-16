@@ -1367,13 +1367,13 @@ def get_spectra_fits(
             for name in component_hkl_indices:
                 fit_strain[name] = {
                     'value': 1 - fit.best_values[f'{name}_scale_factor'],
-                    'error': 1 - fit.best_errors[f'{name}_scale_factor'],
+                    'error': fit.best_errors[f'{name}_scale_factor'],
                 }
         else:
             fit_strain = {
                 str(next(iter(component_hkl_indices))):
                     {'value': 1 - fit.best_values['scale_factor'],
-                     'error': 1 - fit.best_errors['scale_factor']}
+                     'error': fit.best_errors['scale_factor']}
             }
     return {
         'best_errors': fit.best_errors,
