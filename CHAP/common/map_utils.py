@@ -443,7 +443,7 @@ class SpecScanToMapConfigProcessor(Processor):
                         {
                             'label': 'Start_Epoch',
                             'units': 'seconds',
-                            'data_type': 'scan_start_time',
+                            'data_type': 'spec_epoch',
                             'name': 'Start_Epoch',
                         },
                     ]
