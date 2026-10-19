@@ -176,21 +176,20 @@ class FitProcessor(Processor):
             return data
 
         # Expand multipeak model if present
-        found_multipeak = False
-        multipeak_info = None
-        for i, model in enumerate(deepcopy(self.config.models)):
+        multipeak_models = []
+        for i, model in reversed(list(enumerate(
+                deepcopy(self.config.models)))):
             if isinstance(model, MultipeakModel):
-                if found_multipeak:
-                    raise ValueError(
-                        f'Invalid parameter models ({self.config.models}) '
-                        '(multiple instances of multipeak not allowed)')
-                parameters, models = self.create_multipeak_model(model)
-                if parameters:
-                    self.config.parameters += parameters
-                self.config.models += models
-                self.config.models.pop(i)
-                found_multipeak = True
-                multipeak_info = model.model_dump()
+                multipeak_models.append(self.config.models.pop(i))
+        num_mpm = len(multipeak_models)
+        for i, model in enumerate(multipeak_models):
+            if num_mpm > 1 and not model.prefix:
+                model.prefix = f'mpm{i+1}_'
+            parameters, models = self.create_multipeak_model(model)
+            if parameters:
+                self.config.parameters += parameters
+            self.config.models += models
+        multipeak_info = [m.model_dump() for m in multipeak_models]
 
         # Instantiate the Fit object and fit the data
         y = np.squeeze(data[1])[None,:] \
@@ -228,20 +227,22 @@ class FitProcessor(Processor):
 
             if not model.centers_range_fraction:
                 parameters = [FitParameter(
-                    name='scale_factor', value=1.0, min=FLOAT_MIN)]
+                    name=f'{model.prefix}scale_factor', value=1.0,
+                    min=FLOAT_MIN)]
             else:
                 parameters = [FitParameter(
-                    name='scale_factor', value=1.0,
+                    name=f'{model.prefix}scale_factor', value=1.0,
                     min=1.0-model.centers_range_fraction,
                     max=1.0+model.centers_range_fraction)]
             peak_models = []
             for i, cen in enumerate(model.centers):
                 peak_models.append(peak_model_class(
                     model_type=model.peak_models,
-                    prefix=f'peak{i+1}_',
+                    prefix=f'{model.prefix}peak{i+1}_',
                     parameters=[
                          {'name': 'amplitude', 'min': FLOAT_MIN},
-                         {'name': 'center', 'expr': f'scale_factor*{cen}'},
+                         {'name': 'center',
+                          'expr': f'{model.prefix}scale_factor*{cen}'},
                          {'name': 'sigma', 'min': sig_min, 'max': sig_max}]))
             return parameters, peak_models
 
@@ -253,7 +254,7 @@ class FitProcessor(Processor):
                 if not (model.centers_range and model.centers_range_fraction):
                     peak_models.append(peak_model_class(
                         model_type=model.peak_models,
-                        prefix=f'peak{i+1}_',
+                        prefix=f'{model.prefix}peak{i+1}_',
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
                              {'name': 'center', 'value': cen},
@@ -264,7 +265,7 @@ class FitProcessor(Processor):
                         model.centers_range, cen*model.centers_range_fraction)
                     peak_models.append(peak_model_class(
                         model_type=model.peak_models,
-                        prefix=f'peak{i+1}_',
+                        prefix=f'{model.prefix}peak{i+1}_',
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
                              {'name': 'center', 'value': cen,
@@ -1387,7 +1388,7 @@ class Fit:
         if config is None:
             num_proc = kwargs.pop('num_proc', num_proc_max)
             self._abs_height_cutoff = kwargs.pop('abs_height_cutoff')
-            self._multipeak_info = kwargs.pop('multipeak_info', None)
+            self._multipeak_info = kwargs.pop('multipeak_info', [])
             self._plot = kwargs.pop('plot', False)
             self._plot_init = kwargs.pop('plot_init', False)
             self._print_report = kwargs.pop('print_report', False)
@@ -1744,6 +1745,9 @@ class Fit:
                         models[i].prefix = f'{name}{n}_'
 
     def _fit(self, n, current_best_values, return_result=False, **kwargs):
+        # Third party modules
+        from asteval import Interpreter
+
         # Do not attempt a fit if the normalized data is zero or
         # entirely below the cutoff
         y_min = self._y_norm[n].min()
@@ -1831,15 +1835,12 @@ class Fit:
 
         parameters_save = deepcopy(self._parameters)
         parameters_bounds_save = deepcopy(self._parameter_bounds)
-        if self._multipeak_info is not None:
-            # Third party modules
-            from asteval import Interpreter
-
-            centers = self._multipeak_info.get('centers')
-            centers_range = self._multipeak_info.get('centers_range')
+        for multipeak_info in self._multipeak_info:
+            centers = multipeak_info.get('centers')
+            centers_range = multipeak_info.get('centers_range')
             centers_range_fraction = \
-                self._multipeak_info.get('centers_range_fraction')
-            model_type = self._multipeak_info.get('peak_models')
+                multipeak_info.get('centers_range_fraction')
+            model_type = multipeak_info.get('peak_models')
             min_height = None if self._rel_height_cutoff is None \
                 else y_max*self._rel_height_cutoff
             use_peaks, _, peak_heights, peak_widths = \
@@ -1847,10 +1848,11 @@ class Fit:
                     self._x, self._y_norm[n], centers, centers_range,
                     centers_range_fraction, min_height=min_height, min_width=5)
 
+            prefix = multipeak_info.get('prefix')
             ast = Interpreter()
             for i, (use_peak, height, width) in enumerate(zip(
                     use_peaks, peak_heights, peak_widths)):
-                name = f'peak{i+1}_amplitude'
+                name = f'{prefix}peak{i+1}_amplitude'
                 ast(f'fwhm = {width}')
                 ast(f'height = {height}')
                 sigma = ast(fwhm_factor[model_type])
