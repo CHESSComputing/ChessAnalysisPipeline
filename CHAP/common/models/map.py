@@ -433,7 +433,7 @@ class PointByPointScanData(CHAPBaseModel):
     data_type: Literal[
         'detector_log_timestamps', 'expression', 'scan_column',
         'scan_number', 'scan_start_time', 'scan_step_index',
-        'smb_par', 'spec_motor', 'spec_motor_absolute',
+        'smb_par', 'spec_epoch', 'spec_motor', 'spec_motor_absolute',
         'spec_motor_static'
     ]
     name: constr(strip_whitespace=True, min_length=1)
@@ -621,6 +621,12 @@ class PointByPointScanData(CHAPBaseModel):
                 scanparser = get_scanparser(spec_scans.spec_file, scan_number)
                 return np.array([start_time] * scanparser.spec_scan_npts)
             return start_time
+        if self.data_type == 'spec_epoch':
+            spec_epoch = get_spec_epoch(spec_scans.spec_file, scan_number)
+            if scan_step_index < 0:
+                scanparser = get_scanparser(spec_scans.spec_file, scan_number)
+                return np.array([spec_epoch] * scanparser.spec_scan_npts)
+            return spec_epoch
         if self.data_type == 'smb_par':
             return get_smb_par_value(
                 spec_scans.spec_file, scan_number, self.name)
@@ -775,6 +781,28 @@ def get_scan_start_time(spec_file, scan_number):
     )
     start_time = start_time.astimezone(tz=datetime.timezone.utc)
     return start_time.timestamp()
+
+@cache
+def get_spec_epoch(spec_file, scan_number):
+    """Return the previous most recent epoch (``#E`` line) recorded in
+    the spec file."""
+    _scanparser = get_scanparser(spec_file, scan_number)
+    scan_firstline = _scanparser.spec_scan.firstline
+    headers = _scanparser.spec_file._headers
+    useheader_i = -1
+    spec_epoch = None
+    while useheader_i < len(headers) - 1:
+        if headers[useheader_i + 1].firstline < scan_firstline:
+            useheader_i += 1
+        else:
+            break
+        spec_epoch = headers[useheader_i]._epoch
+    if spec_epoch is None:
+        raise RuntimeError(
+            'No headers containing epoch preceding scan '
+            f'{scan_number} in {spec_file}'
+        )
+    return spec_epoch
 
 def get_expression_value(
         spec_scans, scan_number, scan_step_index, expression,
