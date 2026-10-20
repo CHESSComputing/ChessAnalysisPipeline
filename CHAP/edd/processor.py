@@ -3188,7 +3188,8 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         :type calibration_config:
             CHAP.edd.models.MCATthCalibrationConfig
         :param nxprocess: NeXus style `nexusformat.nexus.NXprocess`
-            wrapped in an `nexusformat.nexus.NXroot`.
+            (wrapped in an `nexusformat.nexus.NXroot` for
+            non-standalone analysis)
         :type nxprocess: nexusformat.nexus.NXprocess
         """
         # Third party modules
