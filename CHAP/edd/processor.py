@@ -2651,15 +2651,13 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         return data
 
     @staticmethod
-    def add_points(nxroot, points, logger=None):
+    def add_points(nxprocess, points, logger=None):
         """Add or update the strain analysis for a set of map points 
-        in a
-        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
-        object.
+        in a NeXus `NXprocess` object.
 
-        :param nxroot: Strain analysis object to add/update the
+        :param nxprocess: NeXus `NXprocess` object to add/update the
             points to.
-        :type nxroot: nexusformat.nexus.NXroot
+        :type nxprocess: nexusformat.nexus.NXprocess
         :param points: Strain analysis results for a set of points.
         :type points: list[dict[str, object]
         """
@@ -2673,14 +2671,6 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
 
         # Local modules
         from CHAP.common.map_utils import get_axes
-
-        nxprocess = None
-        for nxobject in nxroot.values():
-            if isinstance(nxobject, NXprocess):
-                nxprocess = nxobject
-                break
-        if nxprocess is None:
-            raise RuntimeError('Unable to find the strainanalysis object')
 
         nxdata_detectors = []
         for nxobject in nxprocess.values():
@@ -2743,6 +2733,9 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         :rtype: list[dict[str, object]] or
             nexusformat.nexus.NXroot, PipelineData, PipelineData
         """
+        # Third party modules
+        from nexusformat.nexus import NXprocess
+
         # Local modules
         from CHAP.utils.general import list_to_string
 
@@ -2759,11 +2752,23 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         self._animation = []
 
         # Load the pipeline input data
-        nxroot = self.get_nxroot(self.get_data(data))
+        nxprocess = NXprocess()
+        if self.setup and not self.standalone:
+            # Third party modules
+            from nexusformat.nexus import NXprocess
+
+            # Local modules
+            from CHAP.utils.general import nxcopy
+
+            nxroot = nxcopy(self.get_data(data))
+            nxentry = self.get_default_nxentry(nxroot)
+
+            # Initialize a NXprocess under NXroot for link consistency
+            nxroot[f'{nxentry.nxname}_strainanalysis'] = nxprocess
+        else:
+            nxentry = self.get_default_nxentry(self.get_data(data))
 
         # Load the detector data
-        # FIX set rel_height_cutoff
-        nxentry = self.get_default_nxentry(nxroot)
         nxdata = nxentry[nxentry.default]
 
         # Load the validated calibration configuration
@@ -2884,15 +2889,12 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         if self.update and not no_raw_data:
             results = self._strain_analysis()
         if self.setup:
-            if self.standalone:
-                nxsetup = self._get_nxprocess(nxentry, calibration_config)
-            else:
-                nxsetup = self._get_nxroot(nxentry, calibration_config)
+            self._get_nxprocess(calibration_config, nxprocess)
             if not self.standalone:
                 points = self._get_points(results)
                 if points:
                     self.logger.info(f'Adding {len(points)} points')
-                    self.add_points(nxsetup, points, logger=self.logger)
+                    self.add_points(nxprocess, points, logger=self.logger)
                     self.logger.info(f'... done')
                 else:
                     self.logger.warning('Skip adding points')
@@ -2900,11 +2902,11 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 # Return nxprocess structure and values separately for
                 # writer
                 values = self._get_values(results)
-                ret = [nxsetup, values]
+                ret = [nxprocess, values]
             else:
                 if not (self._figures or self._animation):
-                    return nxsetup
-                ret = [nxsetup]
+                    return nxroot
+                ret = [nxroot]
         else:
             result = self._get_values(results) if self.standalone \
                      else self._get_points(results)
@@ -3178,20 +3180,17 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         """
         return [{'data': v, 'path': k} for k, v in results.items()]
 
-    def _get_nxprocess(self, nxentry, calibration_config, name):
+    def _get_nxprocess(self, calibration_config, nxprocess):
         """Return a standalone NXprocess for the strain analysis
         results & metadata.
 
-        :param nxentry: Strain analysis map, including the raw
-            MCA data.
-        :type nxentry: nexusformat.nexus.NXentry
         :param calibration_config: 2&theta calibration configuration.
         :type calibration_config:
             CHAP.edd.models.MCATthCalibrationConfig
-        :param name: NXprocess name.
-        :type name: str
-        :return: Strain analysis results & associated metadata.
-        :rtype: nexusformat.nexus.NXprocess
+        :param nxprocess: NeXus style `nexusformat.nexus.NXprocess`
+            (wrapped in an `nexusformat.nexus.NXroot` for
+            non-standalone analysis)
+        :type nxprocess: nexusformat.nexus.NXprocess
         """
         # Third party modules
         # pylint: disable=no-name-in-module
@@ -3200,8 +3199,6 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
             NXdata,
             NXdetector,
             NXfield,
-            NXparameters,
-            NXprocess,
         )
         # pylint: enable=no-name-in-module
 
@@ -3218,7 +3215,6 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 'StrainAnalysis Configuration, or re-run the pipeline with '
                 'the --interactive flag.')
 
-        nxprocess = NXprocess(name=name)
         nxprocess.calibration_config = \
             calibration_config.model_dump_json()
         nxprocess.strain_analysis_config = \
@@ -3322,7 +3318,7 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 ddet_nxdata.success = NXfield(
                     shape=[shape[0]], dtype='bool',
                     maxshape=(None,), chunks=(1,))
-
+                self._linkdims(ddet_nxdata, det_nxdata)
 
             # Setup the NXcollection objects for the per material peak
             # fitting results
@@ -3366,6 +3362,9 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                                    'Standard deviations in strain from peak '
                                    'fit (\u03B5)'},
                         maxshape=(None,), chunks=(1,)))
+                self._linkdims(
+                    nxcollection['unconstrained'].strains, det_nxdata,
+                    skip_field_dims=['energy'])
 
             # Add the peak fit results
             self._add_fit_nxcollection(
@@ -3374,32 +3373,6 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
             # Add the strain fields
             det_nxdata.tth.nxdata = detector.get_tth_map((num_points,))
 
-        return nxprocess
-
-    def _get_nxroot(self, nxentry, calibration_config):
-        """Return a `nexusformat.nexus.NXroot` object initialized for
-        the strain analysis.
-
-        :param nxentry: Strain analysis map, including the raw
-            MCA data.
-        :type nxentry: nexusformat.nexus.NXentry
-        :param calibration_config: 2&theta calibration configuration.
-        :type calibration_config:
-            CHAP.edd.models.MCATthCalibrationConfig
-        :return: Strain analysis results & associated metadata.
-        :rtype: nexusformat.nexus.NXroot
-        """
-        # Third party modules
-        # pylint: disable=no-name-in-module
-        from nexusformat.nexus import NXroot
-        # pylint: enable=no-name-in-module
-
-        nxroot = NXroot()
-        nxroot[nxentry.nxname] = nxentry
-        nxprocess = self._get_nxprocess(
-            nxentry, calibration_config, f'{nxentry.nxname}_strainanalysis')
-        nxroot[f'{nxentry.nxname}_strainanalysis'] = nxprocess
-        return nxroot
 
     def _linkdims(
             self, nxgroup, nxdata_source, *, add_field_dims=None,
@@ -3630,14 +3603,15 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     name, i = component_peak_indices[j]
                     assert name == material_name
                     prefix = f'{name}_peak{i+1}_'
+                centers_errors_j = \
+                    fit_results['best_errors'][f'{prefix}center']
                 results.update({
                     f'{path}/amplitudes/values':
                         fit_results['best_values'][f'{prefix}amplitude'],
                     f'{path}/amplitudes/errors':
                         fit_results['best_errors'][f'{prefix}amplitude'],
                     f'{path}/centers/values': centers[j],
-                    f'{path}/centers/errors':
-                        fit_results['best_errors'][f'{prefix}center'],
+                    f'{path}/centers/errors': centers_errors_j,
                     f'{path}/sigmas/values':
                         fit_results['best_values'][f'{prefix}sigma'],
                     f'{path}/sigmas/errors':
@@ -3651,25 +3625,24 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                             fit_results['best_errors'][f'{prefix}fraction'],
                     })
                 # Strain values: NaN where unconstrained center is zero
-#                has_center = centers[j].astype(bool)
-#                centers_errors_j = \
-#                    fit_results['best_errors'][f'{prefix}center']
-#                strain_errors_raw = np.asarray([
-#                    (e / c if e is not None else np.nan)
-#                    for e, c in zip(centers_errors_j, centers[j])
-#                ])
-#                results.update({
-#                    f'{path}/strains/values':
-#                        np.where(has_center, strains[j], np.nan),
-#                    f'{path}/strains/errors':
-#                        np.where(has_center, strain_errors_raw, np.nan),
-#                    f'{path}/strains/residuals':
-#                        np.where(
-#                            has_center,
-#                            (component_strains[material_name]['mean'] -
-#                             strains[j]),
-#                            np.nan),
-#                })
+                if fit_type == 'unconstrained':
+                    has_center = centers[j].astype(bool)
+                    strain_errors_raw = np.asarray([
+                        (e / c if e is not None else np.nan)
+                        for e, c in zip(centers_errors_j, centers[j])
+                    ])
+                    results.update({
+                        f'{path}/strains/values':
+                            np.where(has_center, strains[j], np.nan),
+                        f'{path}/strains/errors':
+                            np.where(has_center, strain_errors_raw, np.nan),
+                        f'{path}/strains/residuals':
+                            np.where(
+                                has_center,
+                                (component_strains[material_name]['mean'] -
+                                 strains[j]),
+                                np.nan),
+                    })
 
         # Get and subtract the detector baselines
         self._subtract_baselines()
