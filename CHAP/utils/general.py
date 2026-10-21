@@ -2006,6 +2006,18 @@ def select_mask_1d(
             selected_index_ranges[-1] = (selected_index_ranges[-1], num_data-1)
         return selected_index_ranges
 
+    def on_close(event):
+        """Callback function to disconnect and remove all widgets."""
+        # Disconnect all widget callbacks when figure is closed
+        add_span_btn.disconnect(add_span_cid)
+        reset_btn.disconnect(reset_cid)
+        confirm_btn.disconnect(confirm_cid)
+
+        # ...and remove the buttons before returning the figure
+        add_span_btn.ax.remove()
+        reset_btn.ax.remove()
+        confirm_btn.ax.remove()
+
     # Check inputs
     y = np.asarray(y)
     if y.ndim > 1:
@@ -2112,18 +2124,11 @@ def select_mask_1d(
         confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
         confirm_cid = confirm_btn.on_clicked(confirm)
 
+        # Connect the close event callback to the canvas
+        fig.canvas.mpl_connect('close_event', on_close)
+
         # Show figure for user interaction
         plt.show()
-
-        # Disconnect all widget callbacks when figure is closed
-        add_span_btn.disconnect(add_span_cid)
-        reset_btn.disconnect(reset_cid)
-        confirm_btn.disconnect(confirm_cid)
-
-        # ...and remove the buttons before returning the figure
-        add_span_btn.ax.remove()
-        reset_btn.ax.remove()
-        confirm_btn.ax.remove()
         plt.subplots_adjust(bottom=0.0)
 
     selected_index_ranges = _get_selected_index_ranges()
@@ -2295,6 +2300,17 @@ def select_roi_2d(
         _change_fig_title(f'Selected ROI: {roi}')
         plt.close()
 
+    def on_close(event):
+        """Callback function to disconnect and remove all widgets."""
+        # Disconnect all widget callbacks when figure is closed
+        reset_btn.disconnect(reset_cid)
+        confirm_btn.disconnect(confirm_cid)
+
+        # ... and remove the buttons before returning the figure
+        reset_btn.ax.remove()
+        confirm_btn.ax.remove()
+
+
     # Check inputs
     a = np.asarray(a)
     if a.ndim != 2:
@@ -2361,16 +2377,11 @@ def select_roi_2d(
         confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
         confirm_cid = confirm_btn.on_clicked(confirm)
 
+        # Connect the close event callback to the canvas
+        fig.canvas.mpl_connect('close_event', on_close)
+
         # Show figure for user interaction
         plt.show()
-
-        # Disconnect all widget callbacks when figure is closed
-        reset_btn.disconnect(reset_cid)
-        confirm_btn.disconnect(confirm_cid)
-
-        # ... and remove the buttons before returning the figure
-        reset_btn.ax.remove()
-        confirm_btn.ax.remove()
 
     buf = None
     if filename is not None or return_buf:
@@ -2566,6 +2577,19 @@ def select_image_indices(
             get_selected_indices(_change_fig_title)
             plt.close()
 
+    def on_close(event):
+        """Callback function to disconnect and remove all widgets."""
+        # Disconnect all widget callbacks when figure is closed
+        index_input.disconnect(indices_cid)
+        reset_btn.disconnect(reset_cid)
+        confirm_btn.disconnect(confirm_cid)
+
+        # ... and remove the buttons before returning the figure
+        index_input.ax.remove()
+        reset_btn.ax.remove()
+        confirm_btn.ax.remove()
+
+
     # Check inputs
     a = np.asarray(a)
     if a.ndim != 2:
@@ -2670,17 +2694,10 @@ def select_image_indices(
         confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
         confirm_cid = confirm_btn.on_clicked(confirm)
 
+        # Connect the close event callback to the canvas
+        fig.canvas.mpl_connect('close_event', on_close)
+
         plt.show()
-
-        # Disconnect all widget callbacks when figure is closed
-        index_input.disconnect(indices_cid)
-        reset_btn.disconnect(reset_cid)
-        confirm_btn.disconnect(confirm_cid)
-
-        # ... and remove the buttons before returning the figure
-        index_input.ax.remove()
-        reset_btn.ax.remove()
-        confirm_btn.ax.remove()
 
     fig_title[0].set_in_layout(True)
     fig.tight_layout(rect=(0, 0, 1, 0.95))

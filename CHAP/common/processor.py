@@ -390,6 +390,19 @@ class ConstructBaseline(Processor):
             """Callback function for the "Confirm" button."""
             plt.close()
 
+        def on_close(event):
+            """Callback function to disconnect and remove all widgets."""
+            # Disconnect all widget callbacks when figure is closed
+            lambda_box.disconnect(lambda_cid)
+            continue_btn.disconnect(continue_cid)
+            confirm_btn.disconnect(confirm_cid)
+
+            # ... and remove the buttons before returning the figure
+            lambda_box.ax.remove()
+            continue_btn.ax.remove()
+            confirm_btn.ax.remove()
+
+
         def get_baseline(
                 y, *, mask=None, w=None, tol=1.e-6, lam=1.6, max_iter=20):
             """Get a baseline.
@@ -484,18 +497,11 @@ class ConstructBaseline(Processor):
                 plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
             confirm_cid = confirm_btn.on_clicked(confirm)
 
+            # Connect the close event callback to the canvas
+            fig.canvas.mpl_connect('close_event', on_close)
+
             # Show figure for user interaction
             plt.show()
-
-            # Disconnect all widget callbacks when figure is closed
-            lambda_box.disconnect(lambda_cid)
-            continue_btn.disconnect(continue_cid)
-            confirm_btn.disconnect(confirm_cid)
-
-            # ... and remove the buttons before returning the figure
-            lambda_box.ax.remove()
-            continue_btn.ax.remove()
-            confirm_btn.ax.remove()
 
         if return_buf:
             fig_title.set_in_layout(True)
