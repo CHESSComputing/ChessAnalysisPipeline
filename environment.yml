@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - python==3.10.19
-  - numpy
-  - pydantic
-  - pyyaml
+  - python==3.11
+  - numpy==2.4.6
+  - pydantic==2.13.5
+  - pyyaml==6.0.3
