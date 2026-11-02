@@ -3,10 +3,12 @@ Contains a CLI tool to convert raw FMB-style XRF data to a standard
 `NXentry` structure with :class:`~CHAP.common.processor.MapProcessor`.
 """
 import argparse
+import json
 import logging
 import os
 import sys
 from typing import Literal
+import yaml
 
 from CHAP.common.map_utils import SpecScanToMapConfigProcessor
 from CHAP.common.processor import MapProcessor
@@ -17,7 +19,7 @@ from CHAP.pipeline import PipelineData
 VORTEX_CONFIG = {
     'detectors': [
         {'id': i}
-        for i in range(3)
+        for i in range(4)
     ]
 }
 
@@ -114,7 +116,7 @@ class ParseDetectorConfig(argparse.Action):
         if os.path.isfile(values):
             # Try loading detector_config from .yaml file
             with open(values, 'r') as inf:
-                detector_config = yaml.load(inf)
+                detector_config = yaml.safe_load(inf)
         elif isinstance(values, str):
             # Try loading detector_config from JSON string
             detector_config = json.loads(values)
@@ -225,6 +227,7 @@ def run():
 
     logger.info(f'Using detector configuration {args.detector_config}')
     map_config = get_map_config(args)
+    map_config['spec_scans'][0]['spec_file'] = args.spec_file
     logger.info(f'Using map configuration {map_config}')
     mapprocessor_config = {
         'config': map_config,
