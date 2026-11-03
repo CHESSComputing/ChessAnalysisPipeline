@@ -1580,6 +1580,17 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
                 error_texts.pop()
             plt.close()
 
+        def on_close(event):
+            """Callback function to disconnect and remove all widgets."""
+            # Disconnect all widget callbacks when figure is closed
+            reset_btn.disconnect(reset_cid)
+            confirm_btn.disconnect(confirm_cid)
+
+            # ... and remove the buttons before returning the figure
+            reset_btn.ax.remove()
+            confirm_btn.ax.remove()
+
+
         def find_peaks(min_height=0.05, min_width=5, tolerance=10):
             """Find the peaks.
 
@@ -1739,15 +1750,10 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
                 plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
             confirm_cid = confirm_btn.on_clicked(confirm)
 
+            # Connect the close event callback to the canvas
+            fig.canvas.mpl_connect('close_event', on_close)
+
             plt.show()
-
-            # Disconnect all widget callbacks when figure is closed
-            reset_btn.disconnect(reset_cid)
-            confirm_btn.disconnect(confirm_cid)
-
-            # ... and remove the buttons before returning the figure
-            reset_btn.ax.remove()
-            confirm_btn.ax.remove()
 
         if return_buf:
             fig_title[0].set_in_layout(True)

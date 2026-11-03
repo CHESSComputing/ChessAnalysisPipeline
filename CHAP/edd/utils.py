@@ -217,6 +217,16 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
         """Callback function for the "Confirm" button."""
         plt.close()
 
+    def on_close(event):
+        """Callback function to disconnect and remove all widgets."""
+        # Disconnect all widget callbacks when figure is closed
+        tth_input.disconnect(cid_update_tth)
+        confirm_btn.disconnect(confirm_cid)
+
+        # ...and remove the buttons before returning the figure
+        tth_input.ax.remove()
+        confirm_btn.ax.remove()
+
     fig_title = []
     error_texts = []
 
@@ -268,16 +278,11 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
         confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
         confirm_cid = confirm_btn.on_clicked(confirm)
 
+        # Connect the close event callback to the canvas
+        fig.canvas.mpl_connect('close_event', on_close)
+
         # Show figure for user interaction
         plt.show()
-
-        # Disconnect all widget callbacks when figure is closed
-        tth_input.disconnect(cid_update_tth)
-        confirm_btn.disconnect(confirm_cid)
-
-        # ...and remove the buttons before returning the figure
-        tth_input.ax.remove()
-        confirm_btn.ax.remove()
 
     # Save the figures if requested and close
     if return_buf:
@@ -1100,6 +1105,19 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
                                      f'detector {detector_id}')
                 plt.close()
 
+        def on_close(event):
+            """Callback function to disconnect and remove all widgets."""
+            # Disconnect all widget callbacks when figure is closed
+            add_span_btn.disconnect(add_span_cid)
+            fig.canvas.mpl_disconnect(pick_hkl_cid)
+            reset_btn.disconnect(reset_cid)
+            confirm_btn.disconnect(confirm_cid)
+
+            # ...and remove the buttons before returning the figure
+            add_span_btn.ax.remove()
+            confirm_btn.ax.remove()
+            reset_btn.ax.remove()
+
         if detector_id is None:
             _change_fig_title('Select data and HKLs to use in fitting')
         else:
@@ -1125,19 +1143,11 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
         confirm_cid = confirm_btn.on_clicked(confirm)
 
+        # Connect the close event callback to the canvas
+        fig.canvas.mpl_connect('close_event', on_close)
+
         # Show figure for user interaction
         plt.show()
-
-        # Disconnect all widget callbacks when figure is closed
-        add_span_btn.disconnect(add_span_cid)
-        fig.canvas.mpl_disconnect(pick_hkl_cid)
-        reset_btn.disconnect(reset_cid)
-        confirm_btn.disconnect(confirm_cid)
-
-        # ...and remove the buttons before returning the figure
-        add_span_btn.ax.remove()
-        confirm_btn.ax.remove()
-        reset_btn.ax.remove()
         plt.subplots_adjust(bottom=0.0)
 
     if return_buf:
