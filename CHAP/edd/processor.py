@@ -2909,6 +2909,8 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 # writer
                 values = self._get_values(results)
                 ret = [nxprocess, values]
+            elif self.standalone:
+                ret = [nxprocess]
             else:
                 if not (self._figures or self._animation):
                     return nxroot
