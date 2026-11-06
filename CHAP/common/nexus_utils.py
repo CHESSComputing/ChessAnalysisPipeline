@@ -29,7 +29,6 @@ def nxs_match(nxobject_a, nxobject_b, rtol=1e-05, atol=1e-08, equal_nan=False):
     """
     # Third party modules
     import numpy as np
-    from nexusformat.nexus import NXfield, NXgroup
 
     _SKIP_ATTRS = frozenset({
         'date', 'datetime', 'timestamp',
@@ -50,7 +49,9 @@ def nxs_match(nxobject_a, nxobject_b, rtol=1e-05, atol=1e-08, equal_nan=False):
             return False
         a_attrs = _filtered_attrs(a)
         b_attrs = _filtered_attrs(b)
-        if set(a_attrs) != set(b_attrs):
+        if type(a) != type(b):
+            return False
+        if a.nxclass != 'NXroot' and set(a_attrs) != set(b_attrs):
             return False
         for k, va in a_attrs.items():
             vb = b_attrs[k]
@@ -59,13 +60,13 @@ def nxs_match(nxobject_a, nxobject_b, rtol=1e-05, atol=1e-08, equal_nan=False):
                     return False
             elif va != vb:
                 return False
-        if isinstance(a, NXfield):
+        if a.nxclass == 'NXfield':
             if a.shape != b.shape or a.dtype != b.dtype:
                 return False
             return np.allclose(
                 a.nxdata, b.nxdata, rtol=rtol, atol=atol, equal_nan=equal_nan
             )
-        if isinstance(a, NXgroup):
+        if a.nxclass == 'NXgroup':
             a_keys = {k for k in a.keys() if k not in _SKIP_FIELDS}
             b_keys = {k for k in b.keys() if k not in _SKIP_FIELDS}
             if a_keys != b_keys:
