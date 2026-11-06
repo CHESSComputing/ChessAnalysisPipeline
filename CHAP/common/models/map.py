@@ -628,8 +628,12 @@ class PointByPointScanData(CHAPBaseModel):
                 return np.array([spec_epoch] * scanparser.spec_scan_npts)
             return spec_epoch
         if self.data_type == 'smb_par':
-            return get_smb_par_value(
+            val = get_smb_par_value(
                 spec_scans.spec_file, scan_number, self.name)
+            if scan_step_index < 0:
+                scanparser = get_scanparser(spec_scans.spec_file, scan_number)
+                return np.array([val] * scanparser.spec_scan_npts)
+            return val
         if self.data_type == 'expression':
             if scalar_data is None:
                 scalar_data = []
@@ -648,6 +652,9 @@ class PointByPointScanData(CHAPBaseModel):
             scanparser = get_scanparser(spec_scans.spec_file, scan_number)
             return [i for i in range(scanparser.spec_scan_npts)]
         if self.data_type == 'scan_number':
+            if scan_step_index < 0:
+                scanparser = get_scanparser(spec_scans.spec_file, scan_number)
+                return np.array([scan_number] * scanparser.spec_scan_npts)
             return scan_number
         return None
 
