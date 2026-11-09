@@ -1,7 +1,6 @@
-prefix: sim
-rows: 80
-columns: 400
-pixel_size:
-- 0.025
-- 0.005
-lens_magnification: 1.0
+detectors:
+- id: sim
+  shape: [80, 400]
+  attrs:
+    pixel_size: [0.025, 0.005]
+    lens_magnification: 1.0

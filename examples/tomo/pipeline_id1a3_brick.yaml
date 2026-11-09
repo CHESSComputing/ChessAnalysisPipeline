@@ -8,16 +8,18 @@ config:
 
 map:
 
-  # Convert the CHESS style map
+  - common.YAMLReader:
+      filename: detector_brick.yaml
+      schema: common.models.map.DetectorConfig
   - common.YAMLReader:
       filename: map_id1a3_brick.yaml
       schema: common.models.map.MapConfig
   - common.MapProcessor:
       num_proc: 1
-      detector_config:
-        detectors:
-          - id: sim
       schema: tomofields
+  - common.NexusWriter:
+      filename: map.nxs
+      force_overwrite: true
   - common.SpecReader:
       config:
         station: id1a3
@@ -41,23 +43,22 @@ map:
         detectors:
           - id: sim
       schema: brightfield
-  - common.YAMLReader:
-      filename: detector.yaml
-      schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
   - common.NexusWriter:
-      filename: chess_map_hollow_brick.nxs
+      filename: chess_map.nxs
       force_overwrite: true
 
-full_recon:
+recon:
 
-  # Full tomography reconstruction
   - common.NexusReader:
-      filename: chess_map_hollow_brick.nxs
+      filename: chess_map.nxs
   - tomo.TomoReduceProcessor:
       save_figures: true
   - common.ImageWriter:
       outputdir: saved_figures
+      force_overwrite: true
+  - tomo.TomoWriter:
+      filename: reduced.nxs
       force_overwrite: true
 
   - common.YAMLReader:
@@ -71,6 +72,9 @@ full_recon:
   - common.ImageWriter:
       outputdir: saved_figures
       force_overwrite: true
+  - common.YAMLWriter:
+      filename: center.yaml
+      force_overwrite: true
 
   - common.YAMLReader:
       filename: reconstruct_data.yaml
@@ -80,6 +84,9 @@ full_recon:
   - common.ImageWriter:
       outputdir: saved_figures
       force_overwrite: true
+  - tomo.TomoWriter:
+      filename: reconstructed.nxs
+      force_overwrite: true
 
   - common.YAMLReader:
       filename: combine_data_id1a3.yaml
@@ -87,7 +94,7 @@ full_recon:
   - tomo.TomoCombineProcessor:
       save_figures: true
   - tomo.TomoWriter:
-      filename: combined_hollow_brick.nxs
+      filename: combined.nxs
       force_overwrite: true
   - common.ImageWriter:
       outputdir: saved_figures
