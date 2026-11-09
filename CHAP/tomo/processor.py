@@ -294,9 +294,14 @@ class TomoCHESSMapConverter(Processor):
 
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
     :vartype nxmemory: int, optional
+        :class:`~CHAP.tomo.models.TomoReduceConfig`.
+    :ivar remove: Flag to remove the :class:`~CHAP.common.MapProcessor`
+         input entry in `data', defaults to `True`.
+    :vartype remove: bool, optional
     """
 
     nxmemory: Optional[conint(gt=0)] = 100000
+    remove: Optional[bool] = True
 
     def process(self, data):
         """Process the input map and configuration and return a NeXus
@@ -343,7 +348,7 @@ class TomoCHESSMapConverter(Processor):
 
         # Load and validate the tomography fields
         tomofields = self.get_default_nxentry(
-            self.get_data(data, schema='tomofields'))
+            self.get_data(data, schema='tomofields', remove=self.remove))
         detector_id = str(tomofields.detector_ids)
         detector_config = DetectorConfig(
             **loads(str(tomofields.detector_config)))
@@ -850,6 +855,9 @@ class TomoReduceProcessor(Processor):
     :vartype num_proc: int, optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
     :vartype nxmemory: int, optional
+    :ivar remove: Flag to remove the :class:`~CHAP.tomo.TomoCHESSMapConverter`
+         input entry in `data', defaults to `True`.
+    :vartype remove: bool, optional
     :ivar save_figures: Create Matplotlib figures that can be saved to
         file downstream in the workflow, defaults to `True`.
     :vartype save_figures: bool, optional
@@ -861,6 +869,7 @@ class TomoReduceProcessor(Processor):
     config: Optional[TomoReduceConfig] = TomoReduceConfig()
     num_proc: Optional[conint(gt=0)] = 64
     nxmemory: Optional[conint(gt=0)] = 100000
+    remove: Optional[bool] = True
     save_figures: Optional[bool] = True
 
     _figures: list = PrivateAttr(default=[])
@@ -899,7 +908,7 @@ class TomoReduceProcessor(Processor):
         nxsetconfig(memory=self.nxmemory)
 
         # Load the tomography data
-        nxroot = self.get_data(data)
+        nxroot = self.get_data(data, remove=self.remove)
         nxentry = self.get_default_nxentry(nxroot)
 
         # Check the number of processors
@@ -1031,17 +1040,19 @@ class TomoReduceProcessor(Processor):
         nxentry.reduced_data.attrs['did'] = metadata.get('did')
         nxentry.reduced_data.attrs['parent_did'] = metadata.get('parent_did')
 
-        return (
+        ret = [
             PipelineData(
                 name=self.name, data=metadata,
                 schema='foxden.reader.FoxdenMetadataReader'),
             PipelineData(
                 name=self.name, data=provenance,
                 schema='foxden.reader.FoxdenProvenanceReader'),
-            PipelineData(
+            PipelineData(name=self.name, data=nxroot, schema='tomodata')]
+        if self._figures:
+            ret.append(PipelineData(
                 name=self.name, data=self._figures,
-                schema='common.write.ImageWriter'),
-            PipelineData(name=self.name, data=nxroot, schema='tomodata'))
+                schema='common.write.ImageWriter'))
+        return tuple(ret)
 
     def _gen_bright(self, nxentry, reduced_data, image_key):
         """Generate bright field."""
@@ -2463,7 +2474,7 @@ class TomoFindCenterProcessor(Processor):
             user_metadata={'findcenter': self.config.model_dump()},
             logger=self.logger)
 
-        return (
+        ret = [
             PipelineData(
                 name=self.name, data=metadata,
                 schema='foxden.reader.FoxdenMetadataReader'),
@@ -2471,11 +2482,13 @@ class TomoFindCenterProcessor(Processor):
                 name=self.name, data=provenance,
                 schema='foxden.reader.FoxdenProvenanceReader'),
             PipelineData(
-                name=self.name, data=self._figures,
-                schema='common.write.ImageWriter'),
-            PipelineData(
                 name=self.name, data=self.config.model_dump(),
-                schema='tomo.models.TomoFindCenterConfig'))
+                schema='tomo.models.TomoFindCenterConfig')]
+        if self._figures:
+            ret.append(PipelineData(
+                name=self.name, data=self._figures,
+                schema='common.write.ImageWriter'))
+        return tuple(ret)
 
     def _find_center(self, tomo_stack, row_offset, thetas):
         """Find calibrated center axis using Nghia Vo's method
@@ -2564,6 +2577,9 @@ class TomoReconstructProcessor(Processor):
     :vartype num_proc: int, optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
     :vartype nxmemory: int, optional
+    :ivar remove: Flag to remove the :class:`~CHAP.tomo.TomoReduceProcessor`
+         input entry in `data', defaults to `True`.
+    :vartype remove: bool, optional
     :ivar save_figures: Create Matplotlib figures that can be saved to
         file downstream in the workflow, defaults to `True`.
     :vartype save_figures: bool, optional
@@ -2577,6 +2593,7 @@ class TomoReconstructProcessor(Processor):
     center_config: Optional[TomoFindCenterConfig] = TomoFindCenterConfig()
     num_proc: Optional[conint(gt=0)] = 64
     nxmemory: Optional[conint(gt=0)] = 100000
+    remove: Optional[bool] = True
     save_figures: Optional[bool] = True
 
     _figures: list = PrivateAttr(default=[])
@@ -2615,7 +2632,7 @@ class TomoReconstructProcessor(Processor):
         nxsetconfig(memory=self.nxmemory)
 
         # Load the reduced tomography data
-        nxroot = self.get_data(data)
+        nxroot = self.get_data(data, remove=self.remove)
         nxentry = self.get_default_nxentry(nxroot)
 
         # Check if reduced data is available
@@ -2904,16 +2921,18 @@ class TomoReconstructProcessor(Processor):
         nxentry.reconstructed_data.attrs['parent_did'] = \
             metadata.get('parent_did')
 
-        return (
+        ret = [
             PipelineData(name=self.name, data=metadata,
                 schema='foxden.reader.FoxdenMetadataReader'),
             PipelineData(
                 name=self.name, data=provenance,
                 schema='foxden.reader.FoxdenProvenanceReader'),
-            PipelineData(
+            PipelineData(name=self.name, data=nxroot, schema='tomodata')]
+        if self._figures:
+            ret.append(PipelineData(
                 name=self.name, data=self._figures,
-                schema='common.write.ImageWriter'),
-            PipelineData(name=self.name, data=nxroot, schema='tomodata'))
+                schema='common.write.ImageWriter'))
+        return tuple(ret)
 
     def _reconstruct_one_tomo_stack(
             self, tomo_stack, thetas, *, center_offsets=None, num_proc=1,
@@ -3142,6 +3161,10 @@ class TomoCombineProcessor(Processor):
     :vartype num_proc: int, optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
     :vartype nxmemory: int, optional
+    :ivar remove: Flag to remove the
+        :class:`~CHAP.tomo.TomoReconstructProcessor` input entry in
+        `data', defaults to `True`.
+    :vartype remove: bool, optional
     :ivar save_figures: Create Matplotlib figures that can be saved to
         file downstream in the workflow, defaults to `True`.
     :vartype save_figures: bool, optional
@@ -3153,6 +3176,7 @@ class TomoCombineProcessor(Processor):
     config: Optional[TomoCombineConfig] = TomoCombineConfig()
     num_proc: Optional[conint(gt=0)] = 64
     nxmemory: Optional[conint(gt=0)] = 100000
+    remove: Optional[bool] = True
     save_figures: Optional[bool] = True
 
     _figures: list = PrivateAttr(default=[])
@@ -3186,7 +3210,7 @@ class TomoCombineProcessor(Processor):
         nxsetconfig(memory=self.nxmemory)
 
         # Load the reduced tomography data
-        nxroot = self.get_data(data)
+        nxroot = self.get_data(data, remove=self.remove)
         nxentry = self.get_default_nxentry(nxroot)
 
         # Check the number of stacks
@@ -3391,17 +3415,19 @@ class TomoCombineProcessor(Processor):
         nxentry.combined_data.attrs['did'] = metadata.get('did')
         nxentry.combined_data.attrs['parent_did'] = metadata.get('parent_did')
 
-        return (
+        ret = [
             PipelineData(
                 name=self.name, data=metadata,
                 schema='foxden.reader.FoxdenMetadataReader'),
             PipelineData(
                 name=self.name, data=provenance,
                 schema='foxden.reader.FoxdenProvenanceReader'),
-            PipelineData(
+            PipelineData(name=self.name, data=nxroot, schema='tomodata')]
+        if self._figures:
+            ret.append(PipelineData(
                 name=self.name, data=self._figures,
-                schema='common.write.ImageWriter'),
-            PipelineData(name=self.name, data=nxroot, schema='tomodata'))
+                schema='common.write.ImageWriter'))
+        return tuple(ret)
 
     def _resize_reconstructed_data(
             self, data, *, x_bounds=None, y_bounds=None, z_bounds=None,
