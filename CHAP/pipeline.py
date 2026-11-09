@@ -268,10 +268,10 @@ class PipelineItem(RunConfig):
         """Look through `data` for the last item which `'data'` value
         is a NeXus style
         `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
-        object or matches a given name or schema. Pick the last item for which
-        the `'name'` key matches `name` if set or the `'schema'` key matches
-        `schema` if set, pick the last match for a `NXobject` object
-        otherwise. Return the data object.
+        object or matches a given name and/or schema. Pick the last
+        item for which the `'name'` key matches `name` if set and/or
+        the `'schema'` key matches `schema` if set, pick the last match
+        for a `NXobject` object otherwise. Return the data object.
 
         :param data: Input data.
         :type data: list[PipelineData].
@@ -306,12 +306,22 @@ class PipelineItem(RunConfig):
         elif name is not None:
             for i, d in reversed(list(enumerate(data))):
                 if d.get('name') == name:
-                    result = d.get('data')
-                    if remove:
-                        data.pop(i)
-                    break
+                    if schema is None:
+                        result = d.get('data')
+                        if remove:
+                            data.pop(i)
+                        break
+                    elif d.get('schema') in schema:
+                        result = d.get('data')
+                        if remove:
+                            data.pop(i)
+                        break
             else:
-                raise ValueError(f'No match for data item named "{name}"')
+                if schema is None:
+                    raise ValueError(f'No match for data item named "{name}"')
+                else:
+                    raise ValueError(f'No match for data item named "{name}" '
+                                     f'with schema "{schema}"')
         elif schema is not None:
             if isinstance(schema, str):
                 schema = [schema]
