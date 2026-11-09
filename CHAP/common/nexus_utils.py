@@ -32,8 +32,10 @@ def nxs_match(nxobject_a, nxobject_b, rtol=1e-05, atol=1e-08, equal_nan=False):
 
     _SKIP_ATTRS = frozenset({
         'date', 'datetime', 'timestamp',
-        'file_time', 'file_update_time',
+        'file_name','file_time', 'file_update_time',
         'version', 'program_version', 'CHAP_version',
+        'HDF5_Version', 'h5py_version',
+        'creator', 'creator_version',
     })
     _SKIP_FIELDS = frozenset({
         'start_time', 'end_time', 'duration', 'timestamp',
@@ -51,7 +53,7 @@ def nxs_match(nxobject_a, nxobject_b, rtol=1e-05, atol=1e-08, equal_nan=False):
         b_attrs = _filtered_attrs(b)
         if type(a) != type(b):
             return False
-        if a.nxclass != 'NXroot' and set(a_attrs) != set(b_attrs):
+        if set(a_attrs) != set(b_attrs):
             return False
         for k, va in a_attrs.items():
             vb = b_attrs[k]
