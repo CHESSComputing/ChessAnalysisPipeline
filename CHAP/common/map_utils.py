@@ -359,6 +359,10 @@ class SpecScanToMapConfigProcessor(Processor):
         ``validate_data_present`` key in the output map configuration.
         Defaults to ``True``.
     :vartype validate_data_present: bool
+    :ivar absolute: Flag to use absolute motor positions (`data_type:
+        spec_motor_absolute`, as opposed to `data_type:
+        spec_motor`). Defaults to `False`.
+    :vartype absolute: bool
     """
 
     spec_file: FilePath
@@ -369,6 +373,7 @@ class SpecScanToMapConfigProcessor(Processor):
     presample_intensity_counter_name: str
     postsample_intensity_counter_name: Optional[str] = None
     validate_data_present: bool = True
+    absolute: bool = False
 
     def process(self, data):
         """Return a dictionary representing a valid
@@ -466,6 +471,14 @@ class SpecScanToMapConfigProcessor(Processor):
                              _scanparser.spec_scan_motor_mnes)],
                     []
                 )
+            if self.absolute:
+                return (
+                    [{'label': mne,
+                      'units': 'unknown units',
+                      'data_type': 'spec_motor_absolute',
+                      'name': mne}
+                     for mne in _scanparser.spec_scan_motor_mnes],
+                    [])
             return (
                 [{'label': mne,
                   'units': 'unknown units',

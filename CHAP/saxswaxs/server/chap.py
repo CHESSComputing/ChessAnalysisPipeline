@@ -255,6 +255,7 @@ def scan_to_map(cfg):
             presample_intensity_counter_name=cfg.presample_intensity_counter_name,
             postsample_intensity_counter_name=cfg.postsample_intensity_counter_name,
             validate_data_present=False,
+            absolute=True,
             logger=get_task_logger("SpecScanToMapConfigProcessor.run"),
         ),
     )]
