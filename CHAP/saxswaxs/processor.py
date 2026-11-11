@@ -570,15 +570,25 @@ class NewZarrToOldNexusProcessor(Processor):
         # Each array holds the raw (per-scan-step) coordinate value, so
         # shape = (N_scan_pts,).  Unique sorted values define the grid.
         indep_group = zarr_map['independent_dimensions']
-        dim_names = list(indep_group.keys())
+        map_data_attrs = dict(zarr_map['data'].attrs)
+        if 'unstructured_axes' in map_data_attrs:
+            dim_names = list(map_data_attrs['unstructured_axes'])
+        elif 'axes' in map_data_attrs:
+            ax = map_data_attrs['axes']
+            dim_names = [ax] if isinstance(ax, str) else list(ax)
+        else:
+            dim_names = list(indep_group.keys())
         try:
             dim_names.remove('index')
-        except:
+        except ValueError:
             pass
         dim_raw = {d: np.array(indep_group[d]) for d in dim_names}
-        dim_unique = {d: np.unique(dim_raw[d]) for d in dim_names}
-        map_shape = tuple(len(dim_unique[d]) for d in dim_names)
         n_pts = len(dim_raw[dim_names[0]])
+        valid_mask = np.ones(n_pts, dtype=bool)
+        for d in dim_names:
+            valid_mask &= ~np.isnan(dim_raw[d])
+        dim_unique = {d: np.unique(dim_raw[d][valid_mask]) for d in dim_names}
+        map_shape = tuple(len(dim_unique[d]) for d in dim_names)
 
         def _structured_index(i):
             """Return the grid index tuple for flat scan point i."""
@@ -587,8 +597,11 @@ class NewZarrToOldNexusProcessor(Processor):
                 for d in dim_names
             )
 
-        # Pre-compute structured indices for all scan points.
-        structured_indices = [_structured_index(i) for i in range(n_pts)]
+        # Pre-compute structured indices; NaN-coordinate points map to None.
+        structured_indices = [
+            _structured_index(i) if valid_mask[i] else None
+            for i in range(n_pts)
+        ]
 
         def _restructure(flat_arr):
             """Reshape a flat (N, *signal_shape) array to a structured
@@ -597,7 +610,8 @@ class NewZarrToOldNexusProcessor(Processor):
             out = np.full((*map_shape, *signal_shape), np.nan,
                           dtype=flat_arr.dtype)
             for i, idx in enumerate(structured_indices):
-                out[idx] = flat_arr[i]
+                if idx is not None:
+                    out[idx] = flat_arr[i]
             return out
 
         nxroot = NXroot()
@@ -628,7 +642,8 @@ class NewZarrToOldNexusProcessor(Processor):
                                for k, v in zarr_scalar[field_name].attrs.items()}
                 structured = np.full(map_shape, np.nan, dtype=raw_arr.dtype)
                 for i, idx in enumerate(structured_indices):
-                    structured[idx] = raw_arr[i]
+                    if idx is not None:
+                        structured[idx] = raw_arr[i]
                 nxentry[field_name] = NXdata()
                 nxentry[field_name].attrs['axes'] = dim_names
                 nxentry[field_name].attrs['signal'] = field_name
