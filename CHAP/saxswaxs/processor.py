@@ -570,10 +570,17 @@ class NewZarrToOldNexusProcessor(Processor):
         # Each array holds the raw (per-scan-step) coordinate value, so
         # shape = (N_scan_pts,).  Unique sorted values define the grid.
         indep_group = zarr_map['independent_dimensions']
-        dim_names = list(indep_group.keys())
+        map_data_attrs = dict(zarr_map['data'].attrs)
+        if 'unstructured_axes' in map_data_attrs:
+            dim_names = list(map_data_attrs['unstructured_axes'])
+        elif 'axes' in map_data_attrs:
+            ax = map_data_attrs['axes']
+            dim_names = [ax] if isinstance(ax, str) else list(ax)
+        else:
+            dim_names = list(indep_group.keys())
         try:
             dim_names.remove('index')
-        except:
+        except ValueError:
             pass
         dim_raw = {d: np.array(indep_group[d]) for d in dim_names}
         n_pts = len(dim_raw[dim_names[0]])
