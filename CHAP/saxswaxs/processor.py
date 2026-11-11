@@ -571,6 +571,10 @@ class NewZarrToOldNexusProcessor(Processor):
         # shape = (N_scan_pts,).  Unique sorted values define the grid.
         indep_group = zarr_map['independent_dimensions']
         dim_names = list(indep_group.keys())
+        try:
+            dim_names.remove('index')
+        except:
+            pass
         dim_raw = {d: np.array(indep_group[d]) for d in dim_names}
         dim_unique = {d: np.unique(dim_raw[d]) for d in dim_names}
         map_shape = tuple(len(dim_unique[d]) for d in dim_names)

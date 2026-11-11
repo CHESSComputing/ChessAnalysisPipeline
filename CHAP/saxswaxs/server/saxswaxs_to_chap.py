@@ -213,6 +213,7 @@ def make_pipeline(outputdir,
             {
                 'common.writer.NexusWriter': {
                     'filename': nxs_filename,
+                    'force_overwrite': True,
                 }
             },
         ],
