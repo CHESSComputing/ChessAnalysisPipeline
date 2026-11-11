@@ -1239,7 +1239,8 @@ class MapProcessor(Processor):
                                    'local_name': dim.name},
                             maxshape=(None,
                                       *independent_dimensions[i].shape[1:]),
-                            chunks=(1, *independent_dimensions[i].shape[1:])
+                            chunks=(1, *independent_dimensions[i].shape[1:]),
+                            fillvalue=np.nan,
                         )
         else:
             for i, dim in enumerate(self.config.independent_dimensions):
@@ -1251,7 +1252,8 @@ class MapProcessor(Processor):
                            'local_name': dim.name},
                     maxshape=(None,
                               *independent_dimensions[i].shape[1:]),
-                    chunks=(1, *independent_dimensions[i].shape[1:])
+                    chunks=(1, *independent_dimensions[i].shape[1:]),
+                    fillvalue=np.nan,
                 )
         if (self.config.independent_dimensions
                 and self.config.experiment_type in ('GIWAXS', 'SAXSWAXS')
@@ -1259,7 +1261,8 @@ class MapProcessor(Processor):
             nxentry.independent_dimensions.index = NXfield(
                 np.arange(independent_dimensions[0].size), 'index',
                 maxshape=(None,),
-                chunks=(1,)
+                chunks=(1,),
+                fillvalue=np.nan,
             )
 
         # Set up scalar data NXdata group
@@ -1278,7 +1281,8 @@ class MapProcessor(Processor):
                        'data_type': dim.data_type,
                        'local_name': dim.name},
                 maxshape=(None, *all_scalar_data[i].shape[1:]),
-                chunks=(1, *all_scalar_data[i].shape[1:])
+                chunks=(1, *all_scalar_data[i].shape[1:]),
+                fillvalue=np.nan,
             ))
 
         if (self.config.experiment_type == 'EDD'
@@ -1290,7 +1294,8 @@ class MapProcessor(Processor):
                     'Indicates whether placeholder data may be present for'
                     'the corresponding frames of detector data.'},
                 maxshape=(None, *all_scalar_data[-1].shape[1:]),
-                chunks=(1, *all_scalar_data[-1].shape[1:])
+                chunks=(1, *all_scalar_data[-1].shape[1:]),
+                fillvalue=np.nan,
             ))
         if self.remove_constant_dims:
             for i, dim in enumerate(
@@ -1304,7 +1309,8 @@ class MapProcessor(Processor):
                                'data_type': dim.data_type,
                                'local_name': dim.name},
                         maxshape=(None, *independent_dimensions[i].shape[1:]),
-                        chunks=(1, *independent_dimensions[i].shape[1:])
+                        chunks=(1, *independent_dimensions[i].shape[1:]),
+                        fillvalue=np.nan,
                     ))
                     self.config.all_scalar_data.append(
                         PointByPointScanData(**dim.model_dump()))
@@ -1336,7 +1342,8 @@ class MapProcessor(Processor):
                        'min': ddata.min() if ddata.size else np.nan,
                        'max': ddata.max() if ddata.size else np.nan},
                 maxshape=(None, *data[detector_id].shape[1:]),
-                chunks=(1, *data[detector_id].shape[1:])
+                chunks=(1, *data[detector_id].shape[1:]),
+                fillvalue=np.nan,
             )
             detector_ids.append(detector_id)
         linkdims(nxdata, nxentry.independent_dimensions)
@@ -2009,6 +2016,7 @@ class NexusToZarrProcessor(Processor):
                                 attributes={k: v.nxvalue
                                             for k, v in item.attrs.items()},
                                 chunks=_chunks,
+                                fill_value=item.fillvalue,
                             )
                             self.logger.info(f'Copying {item.nxpath}')
                             zarr_dset[:] = nxdata
@@ -2593,7 +2601,12 @@ class SetupNXdataProcessor(Processor):
             attrs=c.get('attrs'),
             dtype=c.get('dtype', 'float64')) for c in self.coords)
         entries = {s['name']: NXfield(
-            value=np.full((*self.shape, *s['shape']), 0),
+            value=np.full(
+                (*self.shape, *s['shape']),
+                np.nan if np.issubdtype(
+                    np.dtype(s.get('dtype', 'float64')), np.floating)
+                else 0,
+            ),
             name=s['name'],
             attrs=s.get('attrs'),
             dtype=s.get('dtype', 'float64')) for s in self.signals}
@@ -3428,6 +3441,7 @@ class ZarrToNexusProcessor(Processor):
                                 compression='gzip',
                                 compression_opts=4,  # GZIP compression level
                                 maxshape=(None, *item.shape[1:]),
+                                fillvalue=item.fill_value,
                             )
                         # Copy dataset attributes
                         for attr_key, attr_value in item.attrs.items():
