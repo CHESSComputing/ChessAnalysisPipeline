@@ -305,11 +305,15 @@ def convert_configs(outputdir, tool_config_files,
                     'method': 'bbox_csr_cython',
                 }
             else:
+                chi_disc = 180
+                if t['azimuthal_min'] <= 180 and t['azimuthal_max'] >= 180:
+                    chi_disc = 0
                 integration_config['multi_geometry'] = {
                     'ais': [det['prefix'] for det in t.get('detectors', [])],
                     'unit': t['radial_units'],
                     'radial_range': [t['radial_min'], t['radial_max']],
                     'azimuth_range': [t['azimuthal_min'], t['azimuthal_max']],
+                    'chi_disc': chi_disc,
                 }
                 if t.get('integration_type') == 'azimuthal':
                     integration_config['integration_method'] = 'integrate1d'
