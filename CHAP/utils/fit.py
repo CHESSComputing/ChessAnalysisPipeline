@@ -1458,9 +1458,8 @@ class Fit:
             assert self._best_values is not None
             assert self._best_values.shape[0] == num_best_parameters
             assert self._best_values.shape[1:] == self._map_shape
-            self._best_values = [
-                np.reshape(self._best_values[i], self._map_dim)
-                for i in range(num_best_parameters)]
+            self._best_values = np.reshape(
+                self._best_values, (num_best_parameters, self._map_dim))
             if self._norm[1]:
                 for i, name in enumerate(self._best_parameters):
                     if name in self._linear_parameters:
@@ -1500,24 +1499,21 @@ class Fit:
             self._success_flat = np.zeros(self._map_dim, dtype=bool)
             self._best_fit_flat = np.zeros(
                 (self._map_dim, x_size), dtype=self._y.dtype)
-            self._best_errors_flat = [
-                np.zeros(self._map_dim, dtype=np.float64)
-                for _ in range(num_best_parameters+num_new_parameters)]
-            if self._result is None:
-                self._best_values_flat = [
-                    np.zeros(self._map_dim, dtype=np.float64)
-                    for _ in range(num_best_parameters)]
-            else:
-                self._best_values_flat = self._best_values
-                self._best_values_flat += [
-                    np.zeros(self._map_dim, dtype=np.float64)
-                    for _ in range(num_new_parameters)]
-            self._best_vary_flat = [
-                np.zeros(self._map_dim, dtype=bool)
-                for _ in range(num_best_parameters+num_new_parameters)]
-            self._init_values_flat = [
-                np.zeros(self._map_dim, dtype=np.float64)
-                for _ in range(num_best_parameters+num_new_parameters)]
+            self._best_errors_flat = np.zeros(
+                (num_best_parameters+num_new_parameters, self._map_dim),
+                dtype=np.float64)
+            self._best_values_flat = np.zeros(
+                (num_best_parameters+num_new_parameters, self._map_dim),
+                dtype=np.float64)
+            if self._result is not None:
+                self._best_values_flat[:num_best_parameters,:] = \
+                    self._best_values[:num_best_parameters,:]
+            self._best_vary_flat = np.zeros(
+                (num_best_parameters+num_new_parameters, self._map_dim),
+                dtype=bool)
+            self._init_values_flat = np.zeros(
+                (num_best_parameters+num_new_parameters, self._map_dim),
+                dtype=np.float64)
         else:
             try:
                 mkdir(self._memfolder)
@@ -1546,43 +1542,30 @@ class Fit:
             self._best_fit_flat = np.memmap(
                 filename_memmap, dtype=self._y.dtype,
                 shape=(self._map_dim, x_size), mode='w+')
-            self._best_errors_flat = []
-            for i in range(num_best_parameters+num_new_parameters):
-                filename_memmap = path.join(
-                    self._memfolder, f'best_errors_memmap_{i}')
-                self._best_errors_flat.append(
-                    np.memmap(filename_memmap, dtype=np.float64,
-                              shape=self._map_dim, mode='w+'))
-            self._best_values_flat = []
-            for i in range(num_best_parameters):
-                filename_memmap = path.join(
-                    self._memfolder, f'best_values_memmap_{i}')
-                self._best_values_flat.append(
-                    np.memmap(filename_memmap, dtype=np.float64,
-                              shape=self._map_dim, mode='w+'))
-                if self._result is not None:
-                    self._best_values_flat[i][:] = self._best_values[i][:]
-            for i in range(num_new_parameters):
-                filename_memmap = path.join(
-                    self._memfolder,
-                    f'best_values_memmap_{i+num_best_parameters}')
-                self._best_values_flat.append(
-                    np.memmap(filename_memmap, dtype=np.float64,
-                              shape=self._map_dim, mode='w+'))
-            self._best_vary_flat = []
-            for i in range(num_best_parameters+num_new_parameters):
-                filename_memmap = path.join(
-                    self._memfolder, f'best_vary_memmap_{i}')
-                self._best_vary_flat.append(
-                    np.memmap(filename_memmap, dtype=bool,
-                              shape=self._map_dim, mode='w+'))
-            self._init_values_flat = []
-            for i in range(num_best_parameters+num_new_parameters):
-                filename_memmap = path.join(
-                    self._memfolder, f'init_values_memmap_{i}')
-                self._init_values_flat.append(
-                    np.memmap(filename_memmap, dtype=np.float64,
-                              shape=self._map_dim, mode='w+'))
+
+            filename_memmap = path.join(self._memfolder, 'best_errors_memmap')
+            self._best_errors_flat = np.memmap(
+                filename_memmap, dtype=np.float64,
+                shape=(num_best_parameters+num_new_parameters, self._map_dim),
+                mode='w+')
+            filename_memmap = path.join(self._memfolder, 'best_values_memmap')
+            self._best_values_flat = np.memmap(
+                filename_memmap, dtype=np.float64,
+                shape=(num_best_parameters+num_new_parameters, self._map_dim),
+                mode='w+')
+            if self._result is not None:
+                self._best_values_flat[:num_best_parameters,:] = \
+                   self._best_values[:num_best_parameters,:]
+            filename_memmap = path.join(self._memfolder, f'best_vary_memmap')
+            self._best_vary_flat = np.memmap(
+                filename_memmap, dtype=bool,
+                shape=(num_best_parameters+num_new_parameters, self._map_dim),
+                mode='w+')
+            filename_memmap = path.join(self._memfolder, f'init_values_memmap')
+            self._init_values_flat = np.memmap(
+                filename_memmap, dtype=np.float64,
+                shape=(num_best_parameters+num_new_parameters, self._map_dim),
+                mode='w+')
 
         # Update the best parameter list
         if num_new_parameters:
@@ -1649,14 +1632,18 @@ class Fit:
             self._success_flat, self._map_shape))
         self._best_fit = np.copy(np.reshape(
             self._best_fit_flat, list(self._map_shape)+[x_size]))
-        self._best_errors = np.asarray([np.reshape(
-            par, list(self._map_shape)) for par in self._best_errors_flat])
-        self._best_values = np.asarray([np.reshape(
-            par, list(self._map_shape)) for par in self._best_values_flat])
-        self._best_vary = np.asarray([np.reshape(
-            par, list(self._map_shape)) for par in self._best_vary_flat])
-        self._init_values = np.asarray([np.reshape(
-            par, list(self._map_shape)) for par in self._init_values_flat])
+        self._best_errors = np.reshape(
+            self._best_errors_flat,
+            [num_best_parameters+num_new_parameters] +list(self._map_shape))
+        self._best_values = np.reshape(
+            self._best_values_flat,
+            [num_best_parameters+num_new_parameters] +list(self._map_shape))
+        self._best_vary = np.reshape(
+            self._best_vary_flat,
+            [num_best_parameters+num_new_parameters] +list(self._map_shape))
+        self._init_values = np.reshape(
+            self._init_values_flat,
+            [num_best_parameters+num_new_parameters] +list(self._map_shape))
         if self._inv_transpose is not None:
             self._out_of_bounds = np.transpose(
                 self._out_of_bounds, self._inv_transpose)
@@ -2031,7 +2018,7 @@ class Fit:
                         if name in current_best_values:
                             par.set(value=current_best_values[name])
                     elif par.expr is None:
-                        par.set(value=self._best_values[i][n])
+                        par.set(value=self._best_values[i,n])
         self._reset_par_at_boundary()
         result = self._fit_nonlinear_model(self._x, self._y_norm[n], **kwargs)
         out_of_bounds = False
@@ -2067,7 +2054,7 @@ class Fit:
                             if name in current_best_values:
                                 par.set(value=current_best_values[name])
                         elif par.expr is None:
-                            par.set(value=self._best_values[i][n])
+                            par.set(value=self._best_values[i,n])
             self._reset_par_at_boundary()
             result = self._fit_nonlinear_model(
                 self._x, self._y_norm[n], **kwargs)
@@ -2150,7 +2137,7 @@ class Fit:
         # Create current parameters
         parameters = deepcopy(self._parameters)
         for i, name in enumerate(self._best_parameters):
-            parameters[name].set(value=self._best_values_flat[i][n])
+            parameters[name].set(value=self._best_values_flat[i,n])
         for component in result.components:
             if 'tmp_normalization_offset_c' in component.param_names:
                 continue
@@ -2195,13 +2182,13 @@ class Fit:
                                     and abs(par.max) != FLOAT_MIN):
                                 par.max *= self._norm[1]
         for i, name in enumerate(self._best_parameters):
-            self._best_errors_flat[i][n] = np.float64(
+            self._best_errors_flat[i,n] = np.float64(
                 result.params[name].stderr)
-            self._best_values_flat[i][n] = np.float64(
+            self._best_values_flat[i,n] = np.float64(
                 result.params[name].value)
-            self._best_vary_flat[i][n] = (
+            self._best_vary_flat[i,n] = (
                 result.params[name].stderr and result.success)
-            self._init_values_flat[i][n] = np.float64(
+            self._init_values_flat[i,n] = np.float64(
                 result.params[name].init_value)
         if result.success:
             if self._norm[1]:
@@ -2324,17 +2311,18 @@ class Fit:
                 parameters += model.parameters
 
             # Adjust parameters for refit as needed
-            scale_factor_index = \
-                self._best_parameters.index('scale_factor')
-            self._best_errors = np.delete(
-                self._best_errors, scale_factor_index, 0)
-            self._best_parameters.pop(scale_factor_index)
-            self._best_values = np.delete(
-                self._best_values, scale_factor_index, 0)
-            self._best_vary = np.delete(
-                self._best_vary, scale_factor_index, 0)
-            self._init_values = np.delete(
-                self._init_values, scale_factor_index, 0)
+            if scale_factor is not None:
+                scale_factor_index = \
+                    self._best_parameters.index('scale_factor')
+                self._best_errors = np.delete(
+                    self._best_errors, scale_factor_index, 0)
+                self._best_parameters.pop(scale_factor_index)
+                self._best_values = np.delete(
+                    self._best_values, scale_factor_index, 0)
+                self._best_vary = np.delete(
+                    self._best_vary, scale_factor_index, 0)
+                self._init_values = np.delete(
+                    self._init_values, scale_factor_index, 0)
             for par in parameters:
                 name = par.name
                 if name not in self._parameters:
