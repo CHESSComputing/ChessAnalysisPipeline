@@ -2,6 +2,17 @@
 #-*- coding: utf-8 -*-
 """Generic curve fitting module."""
 
+# Memory profiling
+# Run with:
+#   ln -s $(which CHAP) run_chap.py
+#   mprof run --python --include-children run_chap.py <pipeline.yaml>
+# System modules
+import builtins
+# Allow code to run without mprof
+if not hasattr(builtins, "profile"):
+    def profile(func):
+        return func
+
 # System modules
 from collections import Counter
 from copy import deepcopy
@@ -149,6 +160,10 @@ class FitProcessor(Processor):
         return x, y, mask
 
     def process(self, data):
+        return self._process(data)
+
+    @profile
+    def _process(self, data):
         """Fit the data and return a :class:`~CHAP.utils.fit.Fitmap`
         The input data should be a list of PipelineData items
         containing either one with a `data` field of type
@@ -185,7 +200,7 @@ class FitProcessor(Processor):
         for i, model in enumerate(multipeak_models):
             if num_mpm > 1 and not model.prefix:
                 model.prefix = f'mpm{i+1}_'
-            parameters, models = self.create_multipeak_model(model)
+            parameters, models = FitProcessor.create_multipeak_model(model)
             if parameters:
                 self.config.parameters += parameters
             self.config.models += models
@@ -1373,6 +1388,7 @@ class Fit:
             self._parameters.add(**parameter)
         self._free_parameters.append(name)
 
+    @profile
     def fit(self, config=None, **kwargs):
         """Fit the model to the input data.
 
@@ -1721,6 +1737,7 @@ class Fit:
             # Free the shared memory
             self.freemem()
 
+    @profile
     def freemem(self):
         """Free memory allocated for parallel processing."""
         if self._memfolder is None:

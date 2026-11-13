@@ -1413,7 +1413,6 @@ class MapProcessor(Processor):
             {str(det_id):data[i] for i, det_id in enumerate(detector_ids)},
             independent_dimensions, all_scalar_data)
 
-#    @profile
     def _read_raw_data(self):
         """Read the raw data for a given map configuration.
 

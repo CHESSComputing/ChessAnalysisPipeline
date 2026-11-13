@@ -5,6 +5,17 @@
 Add discription of EDD
 """
 
+# Memory profiling
+# Run with:
+#   ln -s $(which CHAP) run_chap.py
+#   mprof run --python --include-children run_chap.py <pipeline.yaml>
+# System modules
+import builtins
+# Allow code to run without mprof
+if not hasattr(builtins, "profile"):
+    def profile(func):
+        return func
+
 # System modules
 from copy import deepcopy
 import os
@@ -2657,6 +2668,7 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         return data
 
     @staticmethod
+    @profile
     def add_points(nxprocess, points, logger=None):
         """Add or update the strain analysis for a set of map points 
         in a NeXus `NXprocess` object.
@@ -2722,6 +2734,10 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
             nxdata.summed_intensity = nxdata.intensity.sum(axis=0)
 
     def process(self, data):
+        return self._process(data)
+
+    @profile
+    def _process(self, data):
         """Setup the strain analysis and/or return the strain analysis
         results as a list of updated points or a NeXus style
         `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
@@ -3447,6 +3463,7 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
         if unstructured_axes:
             nxgroup.attrs['unstructured_axes'] = unstructured_axes
 
+    @profile
     def _strain_analysis(self):
         """Perform the strain analysis on the full or partial map.
 

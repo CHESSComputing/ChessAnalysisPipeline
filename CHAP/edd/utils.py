@@ -2,6 +2,17 @@
 #-*- coding: utf-8 -*-
 """Generic utility functions for EDD workflows."""
 
+# Memory profiling
+# Run with:
+#   ln -s $(which CHAP) run_chap.py
+#   mprof run --python --include-children run_chap.py <pipeline.yaml>
+# System modules
+import builtins
+# Allow code to run without mprof
+if not hasattr(builtins, "profile"):
+    def profile(func):
+        return func
+
 # System modules
 from copy import deepcopy
 
@@ -1277,6 +1288,7 @@ def get_rolling_sum_spectra(
     return ry
 
 
+@profile
 def get_spectra_fits(
         spectra, energies, peak_locations, detector, mask=None,
         fit_type='unconstrained', component_hkl_indices=None, **kwargs):
