@@ -8,6 +8,7 @@ import re
 from typing import Literal, Optional, Union
 
 # Third party modules
+import numpy as np
 from pydantic import (
     confloat,
     conlist,
@@ -107,6 +108,7 @@ class Background(SpecScans):
                 },
                 'dtype': 'float64',
                 'shape': integration_shape,
+                'fill_value': np.nan,
             }
         }
 
@@ -229,6 +231,7 @@ class CorrectionConfig(CHAPBaseModel):
                     },
                     'dtype': 'float64',
                     'shape': (*dataset_shape, *input_shape[src]),
+                    'fill_value': np.nan,
                 }
                 for src in self.input_data_name
             }
@@ -241,6 +244,7 @@ class CorrectionConfig(CHAPBaseModel):
                     },
                     'dtype': 'float64',
                     'shape': (*dataset_shape, *input_shape),
+                    'fill_value': np.nan,
                 }
             }
         return {

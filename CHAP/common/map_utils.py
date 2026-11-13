@@ -460,6 +460,7 @@ class SpecScanToMapConfigProcessor(Processor):
                 [{'label': mne,
                   'units': 'unknown units',
                   'data_type': 'scan_column',
+                  'ndigits': 4,
                   'name': list(_scanparser.spec_scan_data.keys())[i]}
                  for i, mne in enumerate(
                          _scanparser.spec_scan_motor_mnes)],

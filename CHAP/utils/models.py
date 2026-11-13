@@ -535,6 +535,7 @@ class FitParameter(CHAPBaseModel):
                     'dtype': 'float64',
                     'shape': dataset_shape,
                     'chunks': dataset_chunks,
+                    'fill_value': np.nan,
                 },
                 'errors': {
                     'attributes': {
@@ -544,6 +545,7 @@ class FitParameter(CHAPBaseModel):
                     'dtype': 'float64',
                     'shape': dataset_shape,
                     'chunks': dataset_chunks,
+                    'fill_value': np.nan,
                 },
                 'initial': {
                     'attributes': {
@@ -553,6 +555,7 @@ class FitParameter(CHAPBaseModel):
                     'dtype': 'float64',
                     'shape': dataset_shape,
                     'chunks': dataset_chunks,
+                    'fill_value': np.nan,
                 },
                 'min': {
                     'attributes': {
@@ -562,6 +565,7 @@ class FitParameter(CHAPBaseModel):
                     'dtype': 'float64',
                     'shape': dataset_shape,
                     'chunks': dataset_chunks,
+                    'fill_value': np.nan,
                 },
                 'max': {
                     'attributes': {
@@ -571,6 +575,7 @@ class FitParameter(CHAPBaseModel):
                     'dtype': 'float64',
                     'shape': dataset_shape,
                     'chunks': dataset_chunks,
+                    'fill_value': np.nan,
                 },
                 'vary': {
                     'attributes': {
@@ -781,6 +786,7 @@ class FitModel(CHAPBaseModel):
                         'best_fit': {
                             'shape': (*dataset_shape, *signal_shape),
                             'dtype': 'float64',
+                            'fill_value': np.nan,
                         }
                     }
                 }
@@ -1229,6 +1235,7 @@ class FitConfig(CHAPBaseModel):
                         'best_fit': {
                             'shape': (*dataset_shape, *signal_shape),
                             'dtype': 'float64',
+                            'fill_value': np.nan,
                         },
                         'num_func_eval': {
                             'shape': dataset_shape,
@@ -1237,10 +1244,12 @@ class FitConfig(CHAPBaseModel):
                         'redchi': {
                             'shape': dataset_shape,
                             'dtype': 'float64',
+                            'fill_value': np.nan,
                         },
                         'residual': {
                             'shape': (*dataset_shape, *signal_shape),
                             'dtype': 'float64',
+                            'fill_value': np.nan,
                         },
                         'success': {
                             'shape': dataset_shape,

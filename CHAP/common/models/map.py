@@ -601,9 +601,9 @@ class PointByPointScanData(CHAPBaseModel):
             the scan step requested.
         :rtype: float
         """
+        if ndigits is None:
+            ndigits = self.ndigits
         if 'spec_motor' in self.data_type:
-            if ndigits is None:
-                ndigits = self.ndigits
             if self.data_type.endswith('absolute'):
                 relative = False
             if self.data_type.endswith('static'):
@@ -614,7 +614,8 @@ class PointByPointScanData(CHAPBaseModel):
                 relative, static, ndigits)
         if self.data_type == 'scan_column':
             return get_spec_counter_value(
-                spec_scans.spec_file, scan_number, scan_step_index, self.name)
+                spec_scans.spec_file, scan_number, scan_step_index, self.name,
+                ndigits)
         if self.data_type == 'scan_start_time':
             start_time = get_scan_start_time(spec_scans.spec_file, scan_number)
             if scan_step_index < 0:
@@ -725,7 +726,8 @@ def get_spec_motor_value(
 
 @cache
 def get_spec_counter_value(
-        spec_file, scan_number, scan_step_index, spec_column_label):
+        spec_file, scan_number, scan_step_index, spec_column_label,
+        ndigits=None):
     """Return the value recorded for a SPEC counter at a specific scan
     step.
 
@@ -739,13 +741,20 @@ def get_spec_counter_value(
     :type scan_step_index: int
     :param spec_column_label: SPEC data column label.
     :type spec_column_label: str
+    :params ndigits: Round SPEC counter values to the specified
+        number of decimals if set.
+    :type ndigits: int, optional
     :return: Value of the counter at the scan step requested.
     :rtype: float
     """
     scanparser = get_scanparser(spec_file, scan_number)
     if scan_step_index >= 0:
-        return scanparser.spec_scan_data[spec_column_label][scan_step_index]
-    return scanparser.spec_scan_data[spec_column_label]
+        counter_value = scanparser.spec_scan_data[spec_column_label][scan_step_index]
+    else:
+        counter_value = scanparser.spec_scan_data[spec_column_label]
+    if ndigits is not None:
+        counter_value = np.round(counter_value, ndigits)
+    return counter_value
 
 @cache
 def get_smb_par_value(spec_file, scan_number, par_name):

@@ -2994,10 +2994,11 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     skip_field_dims=['energy'])
                 nxparameter.amplitudes.values = NXfield(
                     shape=[shape[0]], dtype=np.float64,
-                    attrs={'units': 'counts'}, maxshape=(None,), chunks=(1,))
+                    attrs={'units': 'counts'}, maxshape=(None,), chunks=(1,),
+                    fillvalue=np.nan)
                 nxparameter.amplitudes.errors = NXfield(
                     shape=[shape[0]], dtype=np.float64, maxshape=(None,),
-                    chunks=(1,))
+                    chunks=(1,), fillvalue=np.nan)
                 nxparameter.amplitudes.attrs['signal'] = 'values'
                 # Report HKL peak centers
                 nxparameter.centers = NXdata()
@@ -3006,10 +3007,10 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     skip_field_dims=['energy'])
                 nxparameter.centers.values = NXfield(
                     shape=[shape[0]], dtype=np.float64, attrs={'units': 'keV'},
-                    maxshape=(None,), chunks=(1,))
+                    maxshape=(None,), chunks=(1,), fillvalue=np.nan)
                 nxparameter.centers.errors = NXfield(
                     shape=[shape[0]], dtype=np.float64, maxshape=(None,),
-                    chunks=(1,))
+                    chunks=(1,), fillvalue=np.nan)
                 nxparameter.centers.attrs['signal'] = 'values'
                 # Report HKL peak FWHMs
                 nxparameter.sigmas = NXdata()
@@ -3017,10 +3018,10 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     nxparameter.sigmas, det_nxdata, skip_field_dims=['energy'])
                 nxparameter.sigmas.values = NXfield(
                     shape=[shape[0]], dtype=np.float64, attrs={'units': 'keV'},
-                    maxshape=(None,), chunks=(1,))
+                    maxshape=(None,), chunks=(1,), fillvalue=np.nan)
                 nxparameter.sigmas.errors = NXfield(
                     shape=[shape[0]], dtype=np.float64, maxshape=(None,),
-                    chunks=(1,))
+                    chunks=(1,), fillvalue=np.nan)
                 nxparameter.sigmas.attrs['signal'] = 'values'
                 if peak_fit_info.get('peak_models') == 'pvoigt':
                     # Report HKL peak fractions
@@ -3030,10 +3031,10 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                         skip_field_dims=['energy'])
                     nxparameter.fractions.values = NXfield(
                         shape=[shape[0]], dtype=np.float64, maxshape=(None,),
-                        chunks=(1,))
+                        chunks=(1,), fillvalue=np.nan)
                     nxparameter.fractions.errors = NXfield(
                         shape=[shape[0]], dtype=np.float64, maxshape=(None,),
-                        chunks=(1,))
+                        chunks=(1,), fillvalue=np.nan)
                     nxparameter.fractions.attrs['signal'] = 'values'
                 # Report HKL peak strains
                 if fit_type == 'unconstrained':
@@ -3044,13 +3045,13 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     values = np.full(shape=[shape[0]], fill_value=np.nan)
                     nxparameter.strains.values = NXfield(
                         value=values, shape=[shape[0]], dtype=np.float64,
-                        maxshape=(None,), chunks=(1,))
+                        maxshape=(None,), chunks=(1,), fillvalue=np.nan)
                     nxparameter.strains.errors = NXfield(
                         value=values, shape=[shape[0]], dtype=np.float64,
-                        maxshape=(None,), chunks=(1,))
+                        maxshape=(None,), chunks=(1,), fillvalue=np.nan)
                     nxparameter.strains.residuals = NXfield(
                         value=values, shape=[shape[0]], dtype=np.float64,
-                        maxshape=(None,), chunks=(1,))
+                        maxshape=(None,), chunks=(1,), fillvalue=np.nan)
                     nxparameter.strains.attrs['signal'] = 'values'
 
     def _populate_peak_fit_info(self):
@@ -3284,12 +3285,12 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
             det_nxdata.norm = NXfield(
                 dtype=np.float64,
                 shape=(num_points,),
-                maxshape=(None,), chunks=(1,))
+                maxshape=(None,), chunks=(1,), fillvalue=np.nan)
             det_nxdata.tth = NXfield(
                 dtype=np.float64,
                 shape=(num_points,),
                 attrs={'units':'degrees', 'long_name': '2\u03B8 (degrees)'},
-                maxshape=(None,), chunks=(1,))
+                maxshape=(None,), chunks=(1,), fillvalue=np.nan)
             num_energy_bins = mask.sum()
             intensity = np.empty(
                 (num_points, num_energy_bins), dtype=np.float64)
@@ -3323,7 +3324,8 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 ddet_nxdata = nxdetector[f'data_{fit_type}']
                 ddet_nxdata.best_fit = NXfield(
                     shape=shape, dtype=np.float64,
-                    maxshape=(None, *shape[1:]), chunks=(1, *shape[1:]))
+                    maxshape=(None, *shape[1:]), chunks=(1, *shape[1:]),
+                    fillvalue=np.nan)
                 ddet_nxdata.included_peaks = NXfield(
                     shape=[shape[0], len(hkls_fit)], dtype=bool,
                     maxshape=(None, *shape[1:]), chunks=(1, *shape[1:]))
@@ -3333,10 +3335,11 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                     peak_fit_info.get('use_peaks')
                 ddet_nxdata.residual = NXfield(
                     shape=shape, dtype=np.float64,
-                    maxshape=(None, *shape[1:]), chunks=(1, *shape[1:]))
+                    maxshape=(None, *shape[1:]), chunks=(1, *shape[1:]),
+                    fillvalue=np.nan)
                 ddet_nxdata.redchi = NXfield(
                     shape=[shape[0]], dtype=np.float64,
-                    maxshape=(None,), chunks=(1,))
+                    maxshape=(None,), chunks=(1,), fillvalue=np.nan)
                 ddet_nxdata.success = NXfield(
                     shape=[shape[0]], dtype='bool',
                     maxshape=(None,), chunks=(1,))
@@ -3355,7 +3358,7 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                         shape=(num_points,),
                         attrs={'long_name':
                                    'Strain values from peak fit (\u03B5)'},
-                        maxshape=(None,), chunks=(1,)),
+                        maxshape=(None,), chunks=(1,), fillvalue=np.nan),
                     NXfield(
                         dtype=np.float64,
                         name='errors',
@@ -3363,7 +3366,7 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                         attrs={'long_name':
                                    'Errors in strain values from peak fit '
                                    '(\u03B5)'},
-                        maxshape=(None,), chunks=(1,)))
+                        maxshape=(None,), chunks=(1,), fillvalue=np.nan))
                 self._linkdims(
                     nxcollection['uniform'].strains, det_nxdata,
                     skip_field_dims=['energy'])
@@ -3375,7 +3378,7 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                         shape=(num_points,),
                         attrs={'long_name':
                                    'Mean strains from peak fit (\u03B5)'},
-                        maxshape=(None,), chunks=(1,)),
+                        maxshape=(None,), chunks=(1,), fillvalue=np.nan),
                     NXfield(
                         dtype=np.float64,
                         name='stdevs',
@@ -3383,7 +3386,7 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                         attrs={'long_name':
                                    'Standard deviations in strain from peak '
                                    'fit (\u03B5)'},
-                        maxshape=(None,), chunks=(1,)))
+                        maxshape=(None,), chunks=(1,), fillvalue=np.nan))
                 self._linkdims(
                     nxcollection['unconstrained'].strains, det_nxdata,
                     skip_field_dims=['energy'])
