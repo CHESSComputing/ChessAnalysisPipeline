@@ -600,7 +600,6 @@ class PointByPointScanData(CHAPBaseModel):
             :class:`~CHAP.common.models.map.PointByPointScanData`.
         :rtype: numpy.ndarray
         """
-        val = None
         if ndigits is None:
             ndigits = self.ndigits
         if 'spec_motor' in self.data_type:
@@ -643,6 +642,8 @@ class PointByPointScanData(CHAPBaseModel):
             return [scan_step_index]
         elif self.data_type == 'scan_number':
             val = np.asarray(scan_number)
+        else:
+            return None
         if val.shape == ():
             val = np.asarray([val])
         if scan_step_index < 0 and val.size == 1:
