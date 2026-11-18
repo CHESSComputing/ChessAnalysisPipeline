@@ -133,6 +133,10 @@ def dict_or_listlike_match(
                 return
         if type(a) is not type(b):
             raise ValueError(f'Type mismatch{key}: {type(a)} vs {type(b)}')
+        elif isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+            for i, (va, vb) in enumerate(zip(a, b)):
+                next_key = f'{key}[{i}]' if key else f'[{i}]'
+                _match(va, vb, key=next_key)
         elif isinstance(a, dict) and isinstance(b, dict):
             if a.keys() != b.keys():
                 raise ValueError(

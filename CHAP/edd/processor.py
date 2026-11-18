@@ -654,9 +654,11 @@ class DiffractionVolumeLengthProcessor(_BaseEddProcessor):
             **self.config.model_dump(),
             'detectors': [d.model_dump(exclude_defaults=True)
                           for d in self.detector_config.detectors]}
-        return configs, PipelineData(
-            name=self.__name__, data=self._figures,
-            schema='common.write.ImageWriter')
+        if self._figures:
+            return configs, PipelineData(
+                name=self.__name__, data=self._figures,
+                schema='common.write.ImageWriter')
+        return configs
 
     def _get_mask(self):
         """Get the mask used in the DVL measurement."""
@@ -830,9 +832,11 @@ class DiffractionVolumeLengthProcessor(_BaseEddProcessor):
                     plt.show()
                 plt.close()
 
-        return self.config.model_dump(), PipelineData(
-            name=self.__name__, data=self._figures,
-            schema='common.write.ImageWriter')
+        if self._figures:
+            return self.config.model_dump(), PipelineData(
+                name=self.__name__, data=self._figures,
+                schema='common.write.ImageWriter')
+        return self.config.model_dump()
 
 
 class HKLProcessor(_BaseStrainProcessor):
@@ -914,9 +918,11 @@ class HKLProcessor(_BaseStrainProcessor):
                 self._figures.append((
                     buf, f'{detector_id}_material_hkls'))
 
-        return (PipelineData(
-            name=self.__name__, data=self._figures,
-            schema='common.write.ImageWriter'),)
+        if self._figures:
+            return PipelineData(
+                name=self.__name__, data=self._figures,
+                schema='common.write.ImageWriter')
+        return None
 
 
 
@@ -1079,11 +1085,9 @@ class LatticeParameterRefinementProcessor(_BaseStrainProcessor):
 
         # Return the lattice parameter refinement from visual inspection
         if self._figures:
-            return (
-                self.config.model_dump(),
-                PipelineData(
-                    name=self.__name__, data=self._figures,
-                    schema='common.write.ImageWriter'))
+            return self.config.model_dump(), PipelineData(
+                name=self.__name__, data=self._figures,
+                schema='common.write.ImageWriter')
         return self.config.model_dump()
 
     def _refine_lattice_parameters(self):
@@ -1350,9 +1354,11 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
         for i, d in enumerate(self.detector_config.detectors):
             configs['detectors'][i].update(
                 {'peak_fit_results': self._peak_fit_results[d.get_id()]})
-        return configs, PipelineData(
-            name=self.__name__, data=self._figures,
-            schema='common.write.ImageWriter')
+        if self._figures:
+            return configs, PipelineData(
+                name=self.__name__, data=self._figures,
+                schema='common.write.ImageWriter')
+        return configs
 
     def _get_mask(self):
         """Get the mask used in the energy calibration."""
@@ -1936,9 +1942,11 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
         for i, d in enumerate(self.detector_config.detectors):
             configs['detectors'][i].update(
                 {'peak_fit_results': self._peak_fit_results[d.get_id()]})
-        return configs, PipelineData(
-            name=self.__name__, data=self._figures,
-            schema='common.write.ImageWriter')
+        if self._figures:
+            return configs, PipelineData(
+                name=self.__name__, data=self._figures,
+                schema='common.write.ImageWriter')
+        return configs
 
     def _calibrate(self):
         """Calibrate 2&theta to fine tune the energy calibration
@@ -2909,6 +2917,8 @@ class StrainAnalysisProcessor(_BaseStrainProcessor):
                 # writer
                 values = self._get_values(results)
                 ret = [nxprocess, values]
+            elif self.standalone:
+                return nxprocess
             else:
                 if not (self._figures or self._animation):
                     return nxroot
