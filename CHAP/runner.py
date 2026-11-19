@@ -398,10 +398,7 @@ def run(
     # Execute the pipeline
     if logger is not None:
         logger.info(f'Calling "execute" on {pipeline}')
-    result = pipeline.execute(pipeline_config)
-    if len(result) == 1:
-        return result[0]['data']
-    return result
+    return pipeline.execute(pipeline_config)
 
 
 def batch_runner(run_config, pipeline_config, log_file):

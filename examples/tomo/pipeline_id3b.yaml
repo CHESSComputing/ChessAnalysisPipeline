@@ -8,16 +8,18 @@ config:
 
 map:
 
-  # Convert the CHESS style map
+  - common.YAMLReader:
+      filename: detector_brick.yaml
+      schema: common.models.map.DetectorConfig
   - common.YAMLReader:
       filename: map_id3b.yaml
       schema: common.models.map.MapConfig
   - common.MapProcessor:
       num_proc: 1
-      detector_config:
-        detectors:
-          - id: sim
       schema: tomofields
+  - common.NexusWriter:
+      filename: map.nxs
+      force_overwrite: true
   - common.SpecReader:
       config:
         station: id3b
@@ -41,19 +43,15 @@ map:
         detectors:
           - id: sim
       schema: brightfield
-  - common.YAMLReader:
-      filename: detector.yaml
-      schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
   - common.NexusWriter:
-      filename: chess_map_hollow_cube.nxs
+      filename: chess_map.nxs
       force_overwrite: true
  
 full_recon:
 
-  # Full tomography reconstruction
   - common.NexusReader:
-      filename: chess_map_hollow_cube.nxs
+      filename: chess_map.nxs
   - common.YAMLReader:
       filename: reduce_data_id3b.yaml
       schema: tomo.models.TomoReduceConfig
@@ -61,6 +59,9 @@ full_recon:
       save_figures: true
   - common.ImageWriter:
       outputdir: saved_figures
+      force_overwrite: true
+  - tomo.TomoWriter:
+      filename: reduced.nxs
       force_overwrite: true
 
   - common.YAMLReader:
@@ -71,12 +72,18 @@ full_recon:
   - common.ImageWriter:
       outputdir: saved_figures
       force_overwrite: true
+  - common.YAMLWriter:
+      filename: center.yaml
+      force_overwrite: true
 
   - common.YAMLReader:
       filename: reconstruct_data.yaml
       schema: tomo.models.TomoReconstructConfig
   - tomo.TomoReconstructProcessor:
       save_figures: true
-  - common.NexusWriter:
-      filename: reconstructed_data.nxs
+  - tomo.TomoWriter:
+      filename: reconstructed.nxs
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
       force_overwrite: true

@@ -2,21 +2,29 @@
 #-*- coding: utf-8 -*-
 """Common map data model functions and classes."""
 
+# System modules
+import os
+from typing import (
+    Optional,
+    Union,
+)
+
 # Third party modules
 from pydantic import (
-    conint,
-    conlist,
-    model_validator,
     Field,
     FilePath,
+    conint,
+    conlist,
+    constr,
+    field_validator,
+    model_validator,
 )
-from typing import Optional
+from pyspec.file.spec import FileSpec
 
 # Local modules
 from CHAP.common.models.common import IndexSliceConfig
 from CHAP.common.models.map import (
     DetectorConfig,
-    Detector,
     MapConfig,
 )
 from CHAP.processor import Processor
@@ -59,16 +67,17 @@ class MapSliceProcessor(Processor):
     :ivar map_config: Map configuration.
     :vartype map_config: MapConfig
     :ivar detector_config: Detector configurations.
-    :vartype detector_config: :class:`~CHAP.common.models.map.DetectorConfig`
+    :vartype detector_config: CHAP.common.models.map.DetectorConfig
     :ivar spec_file: SPEC file containing scan from which to read a
         slice of raw data.
-    :vartype spec_file: pydantic.FilePath
-    :ivar scan_numbers: Numbers of scans from which to read slices of
-        raw data.
-    :vartype scan_numbers: list[int]
+    :vartype spec_file: str
+    :ivar scan_numbers: Scan numbers from which to read slices of raw
+        data.
+    :vartype scan_numbers: int or list[int] or str
     :ivar idx_slice: Parameters for the slice of each scan to process
         Defaults to `IndexSliceConfig()`.
-    :vartype idx_slice: CHAP.common.models.common.IndexSliceConfig, optional
+    :vartype idx_slice: CHAP.common.models.common.IndexSliceConfig,
+        optional
     """
 
     pipeline_fields: dict = Field(
@@ -79,11 +88,81 @@ class MapSliceProcessor(Processor):
         init_var=True)
     map_config: MapConfig
     detector_config: DetectorConfig
-    detectors: Optional[conlist(item_type=Detector)] = None
     spec_file: FilePath
-    scan_number: Optional[conint(gt=0)] = None
-    scan_numbers: Optional[conlist(item_type=conint(gt=0))] = None
+    scan_numbers: Union[
+        constr(min_length=1), conlist(item_type=conint(gt=0))]
     idx_slice: Optional[IndexSliceConfig] = IndexSliceConfig()
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_mapsliceprocessor_before(cls, data):
+        """Allow using `scan_number` instead of `scan_numbers` to be
+        backward compatible.
+
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
+        :rtype: dict
+        """
+        if 'scan_number' in data:
+            if 'scan_numbers' in data:
+                raise ValueError(
+                    'Specifying both scan_number and scan_numbers not allowed')
+            data['scan_numbers'] = data['scan_number']
+        return data
+
+    @field_validator('spec_file')
+    @classmethod
+    def validate_spec_file(cls, spec_file):
+        """Validate the specified SPEC file.
+
+        :param spec_file: Path to the SPEC file.
+        :type spec_file: str
+        :raises ValueError: If the SPEC file is invalid.
+        :return: Validated absolute path to the SPEC file.
+        :rtype: str
+        """
+        spec_file = os.path.abspath(spec_file)
+        try:
+            spec_file = os.path.abspath(spec_file)
+            FileSpec(spec_file)
+        except Exception as exc:
+            raise ValueError(f'Invalid SPEC file {spec_file}') from exc
+        return spec_file
+
+    @field_validator('scan_numbers', mode='before')
+    @classmethod
+    def validate_scan_numbers(cls, scan_numbers, info):
+        """Validate the specified list of scan numbers.
+
+        :param scan_numbers: Scan numbers.
+        :type scan_numbers: int or list[int] or str
+        :param info: Model parameter validation information.
+        :type info: pydantic.ValidationInfo
+        :raises ValueError: If a specified scan number is not found in
+            the SPEC file.
+        :return: Validated scan numbers.
+        :rtype: list[int]
+        """
+        if isinstance(scan_numbers, int):
+            scan_numbers = [scan_numbers]
+        elif isinstance(scan_numbers, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            scan_numbers = string_to_list(scan_numbers)
+
+        spec_file = info.data.get('spec_file')
+        if spec_file is not None:
+            spec_scans = FileSpec(spec_file)
+            for scan_number in scan_numbers:
+                scan = spec_scans.get_scan_by_number(scan_number)
+                if scan is None:
+                    raise ValueError(
+                        f'No scan number {scan_number} in {spec_file}')
+        return scan_numbers
 
     def process(self, data):
 
@@ -289,46 +368,6 @@ class MapSliceProcessor(Processor):
                     'idx': ps['map_indices'],
                 } for det in self.detector_config.detectors])
         return data_points
-
-    @model_validator(mode='before')
-    @classmethod
-    def fill_scan_numbers(cls, data):
-        if not isinstance(data, dict):
-            return data
-        if 'scan_numbers' not in data or data['scan_numbers'] is None:
-            if data.get('scan_number') is not None:
-                data['scan_numbers'] = [data['scan_number']]
-        elif isinstance(data['scan_numbers'], int):
-            data['scan_numbers'] = [data['scan_numbers']]
-        elif isinstance(data['scan_numbers'], str):
-            from CHAP.utils.general import string_to_list
-            data['scan_numbers'] = string_to_list(data['scan_numbers'])
-        return data
-
-    @model_validator(mode='after')
-    def validate_scan_numbers(self):
-        if self.scan_numbers is None:
-            raise ValueError(
-                'scan_numbers is required; alternatively, provide scan_number')
-        if self.scan_number is not None \
-           and self.scan_number not in self.scan_numbers:
-            self.scan_numbers.append(self.scan_number)
-        return self
-
-    @model_validator(mode='before')
-    def fill_detector_config(cls, data):
-        if not isinstance(data, dict):
-            return data
-        if 'detector_config' not in data or data['detector_config'] is None:
-            if data.get('detectors') is not None:
-                data['detector_config'] = DetectorConfig(
-                    detectors=data['detectors']
-                )
-            else:
-                raise ValueError(
-                    'detector_config is required; alternatively, provide detectors'
-                )
-        return data
 
 
 class SpecScanToMapConfigProcessor(Processor):
