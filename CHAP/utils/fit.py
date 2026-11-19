@@ -774,6 +774,9 @@ class UpdateValuesProcessor(Processor):
             :class:`~CHAP.common.processor.NexusValuesWriter`.
         :rtype: list[dict]
         """
+        # Local modules
+        from CHAP.utils.models import PEAK_LIKE_MODELS
+
         fit = self.get_data(data, name='FitProcessor')
         values = [
             {'path': 'data/best_fit', 'data': fit.best_fit},
@@ -790,6 +793,9 @@ class UpdateValuesProcessor(Processor):
                 'data': comp_evals,
             })
             for name in comp_info['parameters']:
+                if (comp_name in PEAK_LIKE_MODELS
+                        and name not in ('amplitude', 'center', 'sigma')):
+                    continue
                 param_path = f'{comp_path}/parameters/{name}'
                 # FIXME param_value for any parameters that are part
                 # of a component that was excluded from the fit?
@@ -801,20 +807,20 @@ class UpdateValuesProcessor(Processor):
                     param_values = init_params['values']
                     param_errors = None
                 values.extend([
-                    {'path': f'{param_path}/values',
-                     'data': param_values},
                     {'path': f'{param_path}/errors',
                      'data': param_errors},
-                    {'path': f'{param_path}/initial',
-                     'data': init_params['values']},
-                    {'path': f'{param_path}/min',
-                     'data': init_params['min'] * np.ones(param_values.shape)},
-                    {'path': f'{param_path}/max',
-                     'data': init_params['max'] * np.ones(param_values.shape)},
-                    {'path': f'{param_path}/vary',
-                     'data': init_params['vary']},
                     {'path': f'{param_path}/expression',
                      'data': init_params['expr']},
+                    {'path': f'{param_path}/initial',
+                     'data': init_params['values']},
+                    {'path': f'{param_path}/max',
+                     'data': init_params['max'] * np.ones(param_values.shape)},
+                    {'path': f'{param_path}/min',
+                     'data': init_params['min'] * np.ones(param_values.shape)},
+                    {'path': f'{param_path}/values',
+                     'data': param_values},
+                    {'path': f'{param_path}/vary',
+                     'data': init_params['vary']},
                 ])
         return values
 

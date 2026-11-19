@@ -527,15 +527,6 @@ class FitParameter(CHAPBaseModel):
         return {
             'attributes': data_attrs,
             'children': {
-                'values': {
-                    'attributes': {
-                        'NX_class': 'NXfield',
-                        'units': self.units,
-                    },
-                    'dtype': 'float64',
-                    'shape': dataset_shape,
-                    'chunks': dataset_chunks,
-                },
                 'errors': {
                     'attributes': {
                         'NX_class': 'NXfield',
@@ -545,16 +536,15 @@ class FitParameter(CHAPBaseModel):
                     'shape': dataset_shape,
                     'chunks': dataset_chunks,
                 },
-                'initial': {
+                'expression': {
                     'attributes': {
                         'NX_class': 'NXfield',
-                        'units': self.units,
                     },
-                    'dtype': 'float64',
+                    'dtype': 'str',
                     'shape': dataset_shape,
                     'chunks': dataset_chunks,
                 },
-                'min': {
+                'initial': {
                     'attributes': {
                         'NX_class': 'NXfield',
                         'units': self.units,
@@ -572,19 +562,29 @@ class FitParameter(CHAPBaseModel):
                     'shape': dataset_shape,
                     'chunks': dataset_chunks,
                 },
+                'min': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
+                'values': {
+                    'attributes': {
+                        'NX_class': 'NXfield',
+                        'units': self.units,
+                    },
+                    'dtype': 'float64',
+                    'shape': dataset_shape,
+                    'chunks': dataset_chunks,
+                },
                 'vary': {
                     'attributes': {
                         'NX_class': 'NXfield',
                     },
                     'dtype': 'bool',
-                    'shape': dataset_shape,
-                    'chunks': dataset_chunks,
-                },
-                'expression': {
-                    'attributes': {
-                        'NX_class': 'NXfield',
-                    },
-                    'dtype': 'str',
                     'shape': dataset_shape,
                     'chunks': dataset_chunks,
                 },
