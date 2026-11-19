@@ -107,7 +107,7 @@ class MapSliceProcessor(Processor):
         :rtype: dict
         """
         if 'scan_number' in data:
-            if 'scan_numbers'in data:
+            if 'scan_numbers' in data:
                 raise ValueError(
                     'Specifying both scan_number and scan_numbers not allowed')
             data['scan_numbers'] = data['scan_number']
