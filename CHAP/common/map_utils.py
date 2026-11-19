@@ -17,6 +17,7 @@ from pydantic import (
     conlist,
     constr,
     field_validator,
+    model_validator,
 )
 from pyspec.file.spec import FileSpec
 
@@ -91,6 +92,26 @@ class MapSliceProcessor(Processor):
     scan_numbers: Union[
         constr(min_length=1), conlist(item_type=conint(gt=0))]
     idx_slice: Optional[IndexSliceConfig] = IndexSliceConfig()
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_mapsliceprocessor_before(cls, data):
+        """Allow using `scan_number` instead of `scan_numbers` to be
+        backward compatible.
+
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
+        :rtype: dict
+        """
+        if 'scan_number' in data:
+            if 'scan_numbers'in data:
+                raise ValueError(
+                    'Specifying both scan_number and scan_numbers not allowed')
+            data['scan_numbers'] = data['scan_number']
+        return data
 
     @field_validator('spec_file')
     @classmethod
