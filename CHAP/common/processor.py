@@ -1239,7 +1239,8 @@ class MapProcessor(Processor):
                                    'local_name': dim.name},
                             maxshape=(None,
                                       *independent_dimensions[i].shape[1:]),
-                            chunks=(1, *independent_dimensions[i].shape[1:])
+                            chunks=(1, *independent_dimensions[i].shape[1:]),
+                            fillvalue=np.nan,
                         )
         else:
             for i, dim in enumerate(self.config.independent_dimensions):
@@ -1251,7 +1252,8 @@ class MapProcessor(Processor):
                            'local_name': dim.name},
                     maxshape=(None,
                               *independent_dimensions[i].shape[1:]),
-                    chunks=(1, *independent_dimensions[i].shape[1:])
+                    chunks=(1, *independent_dimensions[i].shape[1:]),
+                    fillvalue=np.nan,
                 )
         if (self.config.independent_dimensions
                 and self.config.experiment_type in ('GIWAXS', 'SAXSWAXS')
@@ -1259,7 +1261,8 @@ class MapProcessor(Processor):
             nxentry.independent_dimensions.index = NXfield(
                 np.arange(independent_dimensions[0].size), 'index',
                 maxshape=(None,),
-                chunks=(1,)
+                chunks=(1,),
+                fillvalue=np.nan,
             )
 
         # Set up scalar data NXdata group
@@ -1278,7 +1281,8 @@ class MapProcessor(Processor):
                        'data_type': dim.data_type,
                        'local_name': dim.name},
                 maxshape=(None, *all_scalar_data[i].shape[1:]),
-                chunks=(1, *all_scalar_data[i].shape[1:])
+                chunks=(1, *all_scalar_data[i].shape[1:]),
+                fillvalue=np.nan,
             ))
 
         if (self.config.experiment_type == 'EDD'
@@ -1290,7 +1294,8 @@ class MapProcessor(Processor):
                     'Indicates whether placeholder data may be present for'
                     'the corresponding frames of detector data.'},
                 maxshape=(None, *all_scalar_data[-1].shape[1:]),
-                chunks=(1, *all_scalar_data[-1].shape[1:])
+                chunks=(1, *all_scalar_data[-1].shape[1:]),
+                fillvalue=np.nan,
             ))
         if self.remove_constant_dims:
             for i, dim in enumerate(
@@ -1304,7 +1309,8 @@ class MapProcessor(Processor):
                                'data_type': dim.data_type,
                                'local_name': dim.name},
                         maxshape=(None, *independent_dimensions[i].shape[1:]),
-                        chunks=(1, *independent_dimensions[i].shape[1:])
+                        chunks=(1, *independent_dimensions[i].shape[1:]),
+                        fillvalue=np.nan,
                     ))
                     self.config.all_scalar_data.append(
                         PointByPointScanData(**dim.model_dump()))
@@ -1336,7 +1342,8 @@ class MapProcessor(Processor):
                        'min': ddata.min() if ddata.size else np.nan,
                        'max': ddata.max() if ddata.size else np.nan},
                 maxshape=(None, *data[detector_id].shape[1:]),
-                chunks=(1, *data[detector_id].shape[1:])
+                chunks=(1, *data[detector_id].shape[1:]),
+                fillvalue=np.nan,
             )
             detector_ids.append(detector_id)
         linkdims(nxdata, nxentry.independent_dimensions)
@@ -1357,61 +1364,53 @@ class MapProcessor(Processor):
             data.
         :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
         """
-        # Local modules
-        from CHAP.utils.general import list_to_string
-
-        # Create the shared data buffers
+        # Read the raw data
         # FIX: just one spec scan at this point
-        scan = self.config.spec_scans[0]
-        scan_numbers = scan.scan_numbers
-        scanparser = scan.get_scanparser(scan_numbers[0])
         detector_ids = [
                 int(d.get_id()) for d in self.detector_config.detectors]
-        ddata, placeholder_used = scanparser.get_detector_data(
-            detector_ids, placeholder_data=placeholder_data)
-        spec_scan_shape = scanparser.spec_scan_shape
-        num_scan = len(scan_numbers)
-        num_dim = np.prod(spec_scan_shape)
         num_id = len(self.config.independent_dimensions)
         num_sd = len(self.config.all_scalar_data)
-        if placeholder_data is not False:
-            num_sd += 1
-        data = np.empty((num_scan, *ddata.shape), dtype=ddata.dtype)
-        independent_dimensions = np.empty(
-            (num_id, num_scan*num_dim), dtype=np.float64)
-        all_scalar_data = np.empty(
-            (num_sd, num_scan*num_dim), dtype=np.float64)
-
-        # Read the raw data
-        init = True
+        data = []
+        independent_dimensions = []
+        all_scalar_data = []
         for scan in self.config.spec_scans:
-            for n, scan_number in enumerate(scan.scan_numbers):
-                if n:
-                    scanparser = scan.get_scanparser(scan_number)
-                    assert spec_scan_shape == scanparser.spec_scan_shape
-                    ddata, placeholder_used = scanparser.get_detector_data(
-                        detector_ids, placeholder_data=placeholder_data)
-                data[n] = ddata
-                start_dim = n * num_dim
-                end_dim = start_dim + num_dim
-                for i, dim in enumerate(self.config.independent_dimensions):
-                    independent_dimensions[i][start_dim:end_dim] = \
+            for scan_number in scan.scan_numbers:
+                scanparser = scan.get_scanparser(scan_number)
+                ddata, placeholder_used = scanparser.get_detector_data(
+                    detector_ids, placeholder_data=placeholder_data)
+                data.append(
+                    ddata.reshape(-1, *ddata.shape[-2:]))
+                if num_sd:
+                    aall_scalar_data = [
                         dim.get_value(
                             scan, scan_number, scan_step_index=-1,
-                            relative=False)
-                for i, dim in enumerate(self.config.all_scalar_data):
-                    all_scalar_data[i][start_dim:end_dim] = dim.get_value(
-                        scan, scan_number, scan_step_index=-1,
-                        relative=False)
+                            relative=False,
+                            scalar_data=self.config.all_scalar_data)
+                        for dim in self.config.all_scalar_data]
                     if placeholder_data is not False:
-                        all_scalar_data[-1][start_dim:end_dim] = \
-                            placeholder_used
-
-        data = np.swapaxes(
-            data.reshape((np.prod(data.shape[:2]), *data.shape[2:])), 0, 1)
+                        aall_scalar_data.append(
+                            np.zeros(scanparser.spec_scan_shape).fill(
+                                placeholder_used))
+                    all_scalar_data.append(np.asarray(aall_scalar_data))
+                if num_id:
+                    independent_dimensions.append(np.asarray([
+                        dim.get_value(
+                            scan, scan_number, scan_step_index=-1,
+                            relative=False,
+                            scalar_data=self.config.all_scalar_data)
+                        for dim in self.config.independent_dimensions]))
+        data = np.swapaxes(np.concatenate(data, axis=0), 0, 1)
+        if num_id:
+            independent_dimensions = np.concatenate(
+                [a.reshape(a.shape[0], -1) for a in independent_dimensions],
+                axis=1)
+        if num_sd:
+            all_scalar_data= np.concatenate(
+                [a.reshape(a.shape[0], -1) for a in all_scalar_data],
+                axis=1)
         return (
             {str(det_id):data[i] for i, det_id in enumerate(detector_ids)},
-            independent_dimensions, all_scalar_data)
+            np.asarray(independent_dimensions), np.asarray(all_scalar_data))
 
 #    @profile
     def _read_raw_data(self):
@@ -2009,6 +2008,7 @@ class NexusToZarrProcessor(Processor):
                                 attributes={k: v.nxvalue
                                             for k, v in item.attrs.items()},
                                 chunks=_chunks,
+                                fill_value=item.fillvalue,
                             )
                             self.logger.info(f'Copying {item.nxpath}')
                             zarr_dset[:] = nxdata
@@ -2593,7 +2593,12 @@ class SetupNXdataProcessor(Processor):
             attrs=c.get('attrs'),
             dtype=c.get('dtype', 'float64')) for c in self.coords)
         entries = {s['name']: NXfield(
-            value=np.full((*self.shape, *s['shape']), 0),
+            value=np.full(
+                (*self.shape, *s['shape']),
+                np.nan if np.issubdtype(
+                    np.dtype(s.get('dtype', 'float64')), np.floating)
+                else 0,
+            ),
             name=s['name'],
             attrs=s.get('attrs'),
             dtype=s.get('dtype', 'float64')) for s in self.signals}
@@ -3428,6 +3433,7 @@ class ZarrToNexusProcessor(Processor):
                                 compression='gzip',
                                 compression_opts=4,  # GZIP compression level
                                 maxshape=(None, *item.shape[1:]),
+                                fillvalue=item.fill_value,
                             )
                         # Copy dataset attributes
                         for attr_key, attr_value in item.attrs.items():

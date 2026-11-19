@@ -474,23 +474,16 @@ class SpecScanToMapConfigProcessor(Processor):
                       'data_type': 'scan_column',
                       'name': 'Time'}],
                     [])
-            if _scanparser.is_snake():
-                return (
-                    [{'label': mne,
-                      'units': 'unknown units',
-                      'data_type': 'scan_column',
-                      'name': list(_scanparser.spec_scan_data.keys())[i]}
-                     for i, mne in enumerate(
-                             _scanparser.spec_scan_motor_mnes)],
-                    []
-                )
             return (
                 [{'label': mne,
                   'units': 'unknown units',
-                  'data_type': 'spec_motor',
-                  'name': mne}
-                 for mne in _scanparser.spec_scan_motor_mnes],
-                [])
+                  'data_type': 'scan_column',
+                  'ndigits': 4,
+                  'name': list(_scanparser.spec_scan_data.keys())[i]}
+                 for i, mne in enumerate(
+                         _scanparser.spec_scan_motor_mnes)],
+                []
+            )
 
         normalized_spec_file = os.path.realpath(self.spec_file).replace(
             '/daq/', '/raw/')

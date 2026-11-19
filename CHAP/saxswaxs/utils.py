@@ -64,6 +64,8 @@ def dict_to_nexus(tree, logger=None):
                 child.pop('chunks', None) # FIX
                 #if 'chunks' in child:
                 #    child['chunks'] = tuple(child['chunks'])
+                if 'fill_value' in child:
+                    child['fillvalue'] = child.pop('fill_value')
                 parent[name] = NXfield(name=name, attrs=attrs, **child)
             else:
                 # It's a group

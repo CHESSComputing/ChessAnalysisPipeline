@@ -342,9 +342,7 @@ class SpecScans(CHAPBaseModel):
         """
         return get_detector_data(
             tuple([detector.prefix for detector in detectors]),
-            self.spec_file,
-            scan_number,
-            scan_step_index)
+            self.spec_file, scan_number, scan_step_index)
 
 
 @cache
@@ -567,7 +565,8 @@ class PointByPointScanData(CHAPBaseModel):
             scalar_data=None, relative=True, static=False, ndigits=None):
         """Return the value recorded for this instance of
         :class:`~CHAP.common.models.map.PointByPointScanData` at a
-        specific scan step.
+        specific scan step (or for all scan steps for
+        `scan_step_index` < 0).
 
         :param spec_scans: An instance of
             :class:`~CHAP.common.models.map.SpecScans` in which the
@@ -577,92 +576,86 @@ class PointByPointScanData(CHAPBaseModel):
             requested scan step occurs.
         :type scan_number: int
         :param scan_step_index: Index of the requested scan step,
-            defaults to `0`.
+            defaults to `0`. Set to `-1` to return the values for all
+            scan steps.
         :type scan_step_index: int, optional
         :param scalar_data: Scalar data configurations used to get
             values for
             :class:`~CHAP.common.models.map.PointByPointScanData`
             objects with `data_type == 'expression'`.
         :type scalar_data: list[PointByPointScanData], optional
-        :param relative: Whether to return a relative value or not,
+        :param relative: Whether to return relative values or not,
             defaults to `True` (only applies to SPEC motor values).
         :type relative: bool, optional
         :params ndigits: Round SPEC motor values to the specified
             number of decimals if set.
         :type ndigits: int, optional
-        :param static: Wether to return just a static motor postion
+        :param static: Whether to return just static motor postions
             even if the motor is scanned (in which case: return the
             first position of the motor in the scan),
             defaults to `False`.
         :type static: bool, optional
-        :return: Value recorded of the data represented by this
+        :return: Values recorded of the data represented by this
             instance of
-            :class:`~CHAP.common.models.map.PointByPointScanData` at
-            the scan step requested.
-        :rtype: float
+            :class:`~CHAP.common.models.map.PointByPointScanData`.
+        :rtype: numpy.ndarray
         """
+        if ndigits is None:
+            ndigits = self.ndigits
         if 'spec_motor' in self.data_type:
-            if ndigits is None:
-                ndigits = self.ndigits
             if self.data_type.endswith('absolute'):
                 relative = False
             if self.data_type.endswith('static'):
                 static = True
                 relative = False
-            return get_spec_motor_value(
+            val = get_spec_motor_value(
                 spec_scans.spec_file, scan_number, scan_step_index, self.name,
                 relative, static, ndigits)
-        if self.data_type == 'scan_column':
-            return get_spec_counter_value(
-                spec_scans.spec_file, scan_number, scan_step_index, self.name)
-        if self.data_type == 'scan_start_time':
-            start_time = get_scan_start_time(spec_scans.spec_file, scan_number)
-            if scan_step_index < 0:
-                scanparser = get_scanparser(spec_scans.spec_file, scan_number)
-                return np.array([start_time] * scanparser.spec_scan_npts)
-            return start_time
-        if self.data_type == 'spec_epoch':
-            spec_epoch = get_spec_epoch(spec_scans.spec_file, scan_number)
-            if scan_step_index < 0:
-                scanparser = get_scanparser(spec_scans.spec_file, scan_number)
-                return np.array([spec_epoch] * scanparser.spec_scan_npts)
-            return spec_epoch
-        if self.data_type == 'smb_par':
+        elif self.data_type == 'scan_column':
+            val = get_spec_counter_value(
+                spec_scans.spec_file, scan_number, scan_step_index, self.name,
+                ndigits)
+        elif self.data_type == 'scan_start_time':
+            val = np.asarray(
+                get_scan_start_time(spec_scans.spec_file, scan_number))
+        elif self.data_type == 'spec_epoch':
+            val = get_spec_epoch(spec_scans.spec_file, scan_number)
+        elif self.data_type == 'smb_par':
             val = get_smb_par_value(
                 spec_scans.spec_file, scan_number, self.name)
-            if scan_step_index < 0:
-                scanparser = get_scanparser(spec_scans.spec_file, scan_number)
-                return np.array([val] * scanparser.spec_scan_npts)
-            return val
-        if self.data_type == 'expression':
+        elif self.data_type == 'expression':
             if scalar_data is None:
                 scalar_data = []
-            return get_expression_value(
+            val = get_expression_value(
                 spec_scans, scan_number, scan_step_index, self.name,
                 scalar_data)
-        if self.data_type == 'detector_log_timestamps':
+        elif self.data_type == 'detector_log_timestamps':
             timestamps = get_detector_log_timestamps(
                 spec_scans.spec_file, scan_number, self.name)
-            if scan_step_index >= 0:
-                return timestamps[scan_step_index]
-            return timestamps
-        if self.data_type == 'scan_step_index':
-            if scan_step_index >= 0:
-                return scan_step_index
-            scanparser = get_scanparser(spec_scans.spec_file, scan_number)
-            return [i for i in range(scanparser.spec_scan_npts)]
-        if self.data_type == 'scan_number':
+            if scan_step_index < 0:
+                return timestamps
+            val = timestamps[scan_step_index]
+        elif self.data_type == 'scan_step_index':
             if scan_step_index < 0:
                 scanparser = get_scanparser(spec_scans.spec_file, scan_number)
-                return np.array([scan_number] * scanparser.spec_scan_npts)
-            return scan_number
-        return None
+                return [i for i in range(scanparser.spec_scan_npts)]
+            return [scan_step_index]
+        elif self.data_type == 'scan_number':
+            val = np.asarray(scan_number)
+        else:
+            return None
+        if val.shape == ():
+            val = np.asarray([val])
+        if scan_step_index < 0 and val.size == 1:
+            scanparser = get_scanparser(spec_scans.spec_file, scan_number)
+            return np.array(scanparser.spec_scan_npts * [val[0]])
+        return val
 
 @cache
 def get_spec_motor_value(
         spec_file, scan_number, scan_step_index, spec_mnemonic,
         relative=True, static=False, ndigits=None):
-    """Return the value recorded for a SPEC motor at a specific scan
+    """Return the values recorded for a SPEC motor at a specific scan
     step.
 
     :param spec_file: Location of a SPEC file in which the requested
@@ -675,32 +668,30 @@ def get_spec_motor_value(
     :type scan_step_index: int
     :param spec_mnemonic: SPEC motor mnemonic.
     :type spec_mnemonic: str
-    :param relative: Whether to return a relative value or not,
+    :param relative: Whether to return relative values or not,
         defaults to `True`.
     :type relative: bool, optional
-    :param static: Wether to return just a static motor postion even
+    :param static: Whether to return just static motor postions even
         if the motor is scanned (in which case: return the first
         position of the motor in the scan); defaults to `False`.
     :type static: bool, optional
     :params ndigits: Round SPEC motor values to the specified
         number of decimals if set.
     :type ndigits: int, optional
-    :return: Value of the motor at the scan step requested.
-    :rtype: float
+    :return: Motor values at the scan step requested.
+    :rtype: numpy.ndarray
     """
     scanparser = get_scanparser(spec_file, scan_number)
     if (hasattr(scanparser, 'spec_scan_motor_mnes')
             and spec_mnemonic in scanparser.spec_scan_motor_mnes):
         motor_i = scanparser.spec_scan_motor_mnes.index(spec_mnemonic)
         if scan_step_index >= 0:
-            scan_step = np.unravel_index(
-                scan_step_index,
-                scanparser.spec_scan_shape,
-                order='F')
             if static:
                 motor_value = scanparser.get_spec_scan_motor_vals(
                     relative)[motor_i][0]
             else:
+                scan_step = np.unravel_index(
+                    scan_step_index, scanparser.spec_scan_shape, order='F')
                 motor_value = \
                     scanparser.get_spec_scan_motor_vals(
                         relative)[motor_i][scan_step[motor_i]]
@@ -719,14 +710,16 @@ def get_spec_motor_value(
                             motor_value, scanparser.spec_scan_shape[0])
     else:
         motor_value = scanparser.get_spec_positioner_value(spec_mnemonic)
+    motor_value = np.asarray(motor_value)
     if ndigits is not None:
         motor_value = np.round(motor_value, ndigits)
     return motor_value
 
 @cache
 def get_spec_counter_value(
-        spec_file, scan_number, scan_step_index, spec_column_label):
-    """Return the value recorded for a SPEC counter at a specific scan
+        spec_file, scan_number, scan_step_index, spec_column_label,
+        ndigits=None):
+    """Return the values recorded for a SPEC counter at a specific scan
     step.
 
     :param spec_file: Location of a SPEC file in which the requested
@@ -739,13 +732,22 @@ def get_spec_counter_value(
     :type scan_step_index: int
     :param spec_column_label: SPEC data column label.
     :type spec_column_label: str
-    :return: Value of the counter at the scan step requested.
-    :rtype: float
+    :params ndigits: Round SPEC counter values to the specified
+        number of decimals if set.
+    :type ndigits: int, optional
+    :return: Counter values at the scan step requested.
+    :rtype: numpy.ndarray
     """
     scanparser = get_scanparser(spec_file, scan_number)
     if scan_step_index >= 0:
-        return scanparser.spec_scan_data[spec_column_label][scan_step_index]
-    return scanparser.spec_scan_data[spec_column_label]
+        counter_value = scanparser.spec_scan_data[
+            spec_column_label][scan_step_index]
+    else:
+        counter_value = scanparser.spec_scan_data[spec_column_label]
+    counter_value = np.asarray(counter_value)
+    if ndigits is not None:
+        counter_value = np.round(counter_value, ndigits)
+    return counter_value
 
 @cache
 def get_smb_par_value(spec_file, scan_number, par_name):
@@ -760,20 +762,23 @@ def get_smb_par_value(spec_file, scan_number, par_name):
     :type scan_number: int
     :param par_name: Name of the column in the par file.
     :type par_name: str
-    :return: Value of the par file value for the scan requested.
-    :rtype: float
+    :return: Par file value for the scan requested.
+    :rtype: numpy.ndarray
     """
     scanparser = get_scanparser(spec_file, scan_number)
-    return scanparser.pars[par_name]
+    return np.asarray(scanparser.pars[par_name])
 
 @cache
 def get_scan_start_time(spec_file, scan_number):
     """Return the start time of the indicated spec scan as the unix
     epoch (in seconds).
 
-    :param spec_file: SPEC file location.
-    :type spec_file: str
-    :param scan_number: Scan number.
+    :param spec_file: Location of a SPEC file in which the requested
+        scan step occurs.
+    :type spec_scans: str
+    :param scan_number: Number of the scan in which the requested
+        scan step occurs.
+    :type scan_number: int
     :returns: Epoch at which the scan began.
     :rtype: int
     """
@@ -792,7 +797,14 @@ def get_scan_start_time(spec_file, scan_number):
 @cache
 def get_spec_epoch(spec_file, scan_number):
     """Return the previous most recent epoch (``#E`` line) recorded in
-    the spec file."""
+    the spec file.
+
+    :param spec_file: SPEC file location.
+    :type spec_file: str
+    :param scan_number: Scan number.
+    :returns: Most recent epoch (``#E`` line).
+    :rtype: str
+    """
     _scanparser = get_scanparser(spec_file, scan_number)
     scan_firstline = _scanparser.spec_scan.firstline
     headers = _scanparser.spec_file._headers
@@ -814,7 +826,7 @@ def get_spec_epoch(spec_file, scan_number):
 def get_expression_value(
         spec_scans, scan_number, scan_step_index, expression,
         scalar_data):
-    """Return the value of an evaluated expression of other sources of
+    """Return the values of an evaluated expression of other sources of
     point-by-point scalar scan data for a single point.
 
     :param spec_scans: Instance of
@@ -832,8 +844,8 @@ def get_expression_value(
         :class:`~CHAP.common.models.map.MapConfig` object (used to
         provide values for variables used in `expression`).
     :type scalar_data: list[PointByPointScanData]
-    :return: Par file value for the requested scan.
-    :rtype: float
+    :return: Evaluated values for the expression.
+    :rtype: numpy.ndarray
     """
     # Third party modules
     from ast import parse
@@ -849,7 +861,7 @@ def get_expression_value(
                 symtable[l] = s_d.get_value(
                     spec_scans, scan_number, scan_step_index, scalar_data)
     aeval = Interpreter(symtable=symtable)
-    return aeval(expression)
+    return np.asarray(aeval(expression))
 
 @cache
 def get_detector_log_timestamps(spec_file, scan_number, detector_prefix):
@@ -865,10 +877,10 @@ def get_detector_log_timestamps(spec_file, scan_number, detector_prefix):
     :param detector_prefix: Prefix of the detector whose log file
         should be used.
     :return: All detector log timestamps for the given scan.
-    :rtype: list[float]
+    :rtype: numpy.ndarray
     """
-    sp = get_scanparser(spec_file, scan_number)
-    return sp.get_detector_log_timestamps(detector_prefix)
+    scanparser = get_scanparser(spec_file, scan_number)
+    return np.asarray(scanparser.get_detector_log_timestamps(detector_prefix))
 
 def validate_data_source_for_map_config(data_source, info):
     """Confirm that an instance of
@@ -1399,7 +1411,7 @@ class MapConfig(CHAPBaseModel):
         """Return a dictionary of the values of each independent
         dimension across the map.
 
-        :type: list
+        :type: dict[numpy.ndarray]
         """
         raise RuntimeError('property coords not implemented')
         if not hasattr(self, '_coords'):
@@ -1560,8 +1572,8 @@ class MapConfig(CHAPBaseModel):
         raise RuntimeError('get_value not implemented')
         scans, scan_number, scan_step_index = \
             self.get_scan_step_index(map_index)
-        return data.get_value(scans, scan_number, scan_step_index,
-                              self.scalar_data)
+        return data.get_value(
+            scans, scan_number, scan_step_index, self.scalar_data)
 
 
 def import_scanparser(station, experiment):
